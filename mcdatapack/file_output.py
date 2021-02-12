@@ -28,7 +28,8 @@ class cacheFile(OrderedDict):
         super().__init__()
     
     def __getitem__(self, key) -> io.TextIOWrapper:
-        self.move_to_end(key)
+        if key in self:
+            self.move_to_end(key)
         return super().__getitem__(key)
 
     def __setitem__(self, key: str, value: io.TextIOWrapper) -> None:
@@ -56,6 +57,15 @@ class cacheFile(OrderedDict):
             if hasattr(v, "close"):
                 v.close()
         super().clear()
+    
+    def popitem(self, last: bool = True) -> Tuple[str, io.TextIOWrapper]:
+        if last:
+            ite = self.items().__reversed__()
+        else:
+            ite = self.items()
+        for ans in ite:
+            del self[ans[0]]
+            return ans
 
 class FileFunc:
 
@@ -184,13 +194,11 @@ class FileOutput(metaclass=FileOutputMata):
         name = os.path.split(path)[-1]
         if hasattr(self, "correct"):
             if self.correct.name == name:
-                print(name)
                 return
         if name in self.fileCache:
             self.correct = self.fileCache[name]
         else:
             f = file_open(path, mode=mode)
-            print(name)
             self.fileCache[name] = f
             self.correct = f
 
