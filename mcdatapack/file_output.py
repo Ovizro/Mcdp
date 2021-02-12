@@ -15,7 +15,7 @@ except ImportError:
 def file_open(path: str, mode: str = 'w', **kw):
     if not os.path.isfile(path):
         p = os.path.split(path)
-        if not os.path.isdir(p[0]):
+        if not os.path.isdir(p[0]) and p[0]:
             os.makedirs(p[0])
     return open(path, mode, **kw)
 
@@ -93,7 +93,7 @@ class FileOutputMata(type):
                 NewAttrs[k] = v
 
         NewAttrs.update(
-            spaceCathe = cacheFile(3),
+            spaceCache = cacheFile(3),
             spacePath = defaultdict(lambda: '.')
         )
         return type.__new__(cls, name, bases, NewAttrs)
@@ -121,32 +121,35 @@ class FileOutputMata(type):
             self.base = os.path.abspath(base)
         else:
             self.base = base
-
-        for k,v in filePath.items():
-            if k in self.ReserveFile:
-                self.ReserveFile[k] = v
+        if filePath:
+            for k,v in filePath.items():
+                if k in self.ReserveFile:
+                    self.ReserveFile[k] = v
+        spacePath = {k: os.path.abspath(v) for k, v in spacePath.items()}
         self.spacePath.update(spacePath)
 
     def switch(self, spaceName: str, path: Optional[str] = None) -> None:
         if hasattr(self, "context"):
             if self.context.name == spaceName:
                 return
-        if spaceName in self.spaceCathe:
-            self.context = self.spaceCathe[spaceName]
+        if spaceName in self.spaceCache:
+            self.context = self.spaceCache[spaceName]
         else:
             NewSpace = self(spaceName, path)
-            self.spaceCathe[spaceName] = NewSpace
+            self.spaceCache[spaceName] = NewSpace
             self.context = NewSpace
 
         self.context.activate()
     
     def clear(self, spaceName: Optional[str] = None) -> NoReturn:
         if spaceName:
-            self.spaceCathe.get(spaceName).fileCathe.clear()
+            self.spaceCache.get(spaceName).fileCache.clear()
         else:
-            self.__getattr__("clear")()
+            self.__class__.__getattr__(self, "clear")()
 
-class MCFile(metaclass=FileOutputMata):
+class FileOutput(metaclass=FileOutputMata):
+
+    __slots__ = ["name", "path", "fileCache", "correct"]
     
     ReserveFile = {}
 
@@ -163,13 +166,13 @@ class MCFile(metaclass=FileOutputMata):
         if not os.path.isdir(path):
             os.makedirs(path)
         self.path = path
-        self.fileCathe = cacheFile()
+        self.fileCache = cacheFile()
     
     def __getattr__(self, key: str) -> Callable:
         if key in self.__class__.FileMethodList:
-            return self.context.__getattribute__("f_" + key)
+            return self.__class__.context.__getattribute__("f_" + key)
         else:
-            raise AttributeError(f"'{self.__name__}' object has no attribute '{key}'")
+            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{key}'")
 
     @FileFunc
     def activate(self) -> NoReturn:
@@ -177,16 +180,18 @@ class MCFile(metaclass=FileOutputMata):
         os.chdir(self.path)
 
     @FileFunc
-    def open(self, path: str,  *, mode: str = "w") -> None:
+    def open(self, path: str,  *, mode: str = "a") -> None:
         name = os.path.split(path)[-1]
         if hasattr(self, "correct"):
-            if self.correct.__name__ == name:
+            if self.correct.name == name:
+                print(name)
                 return
-        elif name in self.fileCache:
+        if name in self.fileCache:
             self.correct = self.fileCache[name]
         else:
-            f = file_open(path)
-            self.fileCathe[name] = f
+            f = file_open(path, mode=mode)
+            print(name)
+            self.fileCache[name] = f
             self.correct = f
 
     @FileFunc
@@ -204,25 +209,26 @@ class MCFile(metaclass=FileOutputMata):
     @FileFunc
     def close(self) -> NoReturn:
         self.correct.close()
-        self.fileCathe.popitem(last=True)
+        print(self.correct.name, self.fileCache)
+        del self.fileCache[self.correct.name]
     
     @FileFunc
     def clear(self) -> NoReturn:
-        self.fileCathe.clear()
+        self.fileCache.clear()
 
-class MCFunc(MCFile):
+class MCFunc(FileOutput):
     ReserveFile = {
         "load"      : "load.mcfunction",
         "preapare"  : "prepare.mcfunction",
         "main"      : "main.mcfunction",
     }
 
-class MCJson(MCFile):
+class MCJson(FileOutput):
 
     @FileFunc
     def write(self, contain: dict) -> int:
         contain = json.dumps(contain, indent=4)
-        return super(self, MCFile).write(contain)
+        return super(self, FileOutput).write(contain)
 
 class DatapackType:
     pass
@@ -286,6 +292,15 @@ class PackageDirs:
             return 7
 
 if __name__ == "__main__":
-    MCFile["here"].open("test.txt")
-    MCFile.write("Hello World!")
-    MCFile.close()
+    FileOutput.file_struct(
+        ".",
+        spacePath={"here":"testdatapack/test", "test": "testdatapack/test1"}
+    )
+    FileOutput["here"].open("test.txt")
+    FileOutput.write("Hello World!")
+    FileOutput["test"].open("Hello_world.txt")
+    FileOutput.write("Hey! Look, I do work!")
+    FileOutput.open("hhhh.txt")
+    FileOutput.write("hhh\n"*10)
+    FileOutput["here"].open("test.txt")
+    FileOutput.write("\nhhh")
