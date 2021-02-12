@@ -120,7 +120,7 @@ class FileOutputMata(type):
 
     def file_struct(
         self, 
-        base: str,
+        base: str = os.getcwd(),
         *,
         spacePath: Optional[Dict[str,str]] = None,
         filePath: Optional[Dict[str,str]] = None
@@ -156,6 +156,10 @@ class FileOutputMata(type):
             self.spaceCache.get(spaceName).fileCache.clear()
         else:
             self.__class__.__getattr__(self, "clear")()
+    
+    def clearAll(self) -> NoReturn:
+        for s in self.spaceCache.values():
+            s.clear()
 
 class FileOutput(metaclass=FileOutputMata):
 
@@ -190,7 +194,7 @@ class FileOutput(metaclass=FileOutputMata):
         os.chdir(self.path)
 
     @FileFunc
-    def open(self, path: str,  *, mode: str = "a") -> None:
+    def open(self, path: str, *, mode: str = "w") -> None:
         name = os.path.split(path)[-1]
         if hasattr(self, "correct"):
             if self.correct.name == name:
@@ -217,7 +221,6 @@ class FileOutput(metaclass=FileOutputMata):
     @FileFunc
     def close(self) -> NoReturn:
         self.correct.close()
-        print(self.correct.name, self.fileCache)
         del self.fileCache[self.correct.name]
     
     @FileFunc
@@ -312,3 +315,8 @@ if __name__ == "__main__":
     FileOutput.write("hhh\n"*10)
     FileOutput["here"].open("test.txt")
     FileOutput.write("\nhhh")
+    FileOutput.clearAll()
+    try:
+        FileOutput.write("closed?")
+    except:
+        print("successful closed")
