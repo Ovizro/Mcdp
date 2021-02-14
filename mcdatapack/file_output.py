@@ -118,6 +118,13 @@ class FileOutputMata(type):
         self.switch(key)
         return self
 
+    def __setitem__(self, key: str, value: Any) -> NoReturn:
+        if not isinstance(value, self):
+            raise TypeError
+        self.spaceCache[key] = value
+        if not key in self.spacePath:
+            self.spacePath[key] = value.path
+
     def file_struct(
         self, 
         base: str = os.getcwd(),
@@ -181,6 +188,9 @@ class FileOutput(metaclass=FileOutputMata):
             os.makedirs(path)
         self.path = path
         self.fileCache = cacheFile()
+
+        if not hasattr(self.__class__, "context"):
+            self.__class__.context = self
     
     def __getattr__(self, key: str) -> Callable:
         if key in self.__class__.FileMethodList:
@@ -214,6 +224,15 @@ class FileOutput(metaclass=FileOutputMata):
     def write(self, contains: str) -> int:
         return self.correct.write(contains)
 
+    @FileFunc
+    def writeable(self) -> bool:
+        if not hasattr(self, "correct"):
+            return False
+        elif self.correct.closed:
+            return False
+        else:
+            return self.correct.writable()
+    
     @FileFunc
     def seek(self, cookie: int, whence: int = 0) -> None:
         self.correct.seek(cookie, whence)
@@ -316,7 +335,8 @@ if __name__ == "__main__":
     FileOutput["here"].open("test.txt")
     FileOutput.write("\nhhh")
     FileOutput.clearAll()
-    try:
+    print(FileOutput.writeable())
+    try:      
         FileOutput.write("closed?")
     except:
         print("successful closed")
