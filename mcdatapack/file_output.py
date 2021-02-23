@@ -347,13 +347,13 @@ if __name__ == "__main__":
         spacePath={"here":"testdatapack", "test1s": "testdatapack/test1"}
     )
     with MCFunc("here"):
-        MCFunc.open("hhh.txt")
-        MCFunc.write("also ok\n")
-        MCFunc.open("Hello.txt")
-        MCFunc.write("Hello!\n")
+        MCFunc.open("hhh")
+        MCFunc.write("kill @s\n")
+        MCFunc.open("Hello")
+        MCFunc.write("say Hello!\n")
         with MCFunc("test"):
-            MCFunc.open("h.txt")
-            MCFunc.write("Nothing\n")
+            MCFunc.open("h")
+            MCFunc.write("say Nothing\n")
             try:
                 with MCFunc("here"):
                     pass
