@@ -3,12 +3,12 @@ import ujson
 import os
 from functools import partial
 from collections import OrderedDict
-from typing import (Any, Callable, Dict, NoReturn, Optional, Tuple,
+from typing import (Any, Type, Callable, Dict, Optional, Tuple,
                     Union)
 
 ALLOW_NOT_SETTING_SPACE_PATH: bool = True
 
-def file_open(path: str, mode: str = 'w', **kw):
+def file_open(path: str, mode: str = 'w', **kw) -> io.TextIOWrapper:
     if not os.path.isfile(path):
         p = os.path.split(path)
         if not os.path.isdir(p[0]) and p[0]:
@@ -23,12 +23,12 @@ class cacheFile(OrderedDict):
         self._capacity = capacity
         super().__init__()
     
-    def __getitem__(self, key) -> io.TextIOWrapper:
+    def __getitem__(self, key: str) -> Any:
         if key in self:
             self.move_to_end(key)
         return super().__getitem__(key)
 
-    def __setitem__(self, key: str, value: io.TextIOWrapper) -> None:
+    def __setitem__(self, key: str, value: Any) -> None:
         super().__setitem__(key, value)
         self.check()
     
@@ -43,13 +43,14 @@ class cacheFile(OrderedDict):
         for i in range(overflow):
             k,f = self.popitem(last=False)
             if hasattr(f, "close"):
-                if callable(f.close):
-                    f.close()
+                f.close()
         return overflow
     
     def clear(self) -> None:
         while len(self) > 0:
             k,v = self.popitem()
+            if hasattr(v, "clear"):
+                v.clear()
             if hasattr(v, "close"):
                 v.close()
         super().clear()
@@ -71,7 +72,7 @@ class FileFunc:
         self.__func__ = func
         self.__name__ = func.__name__
 
-    def __get__(self, instance: Any, owner: type) -> Callable:
+    def __get__(self, instance: Any, owner: Type) -> Callable:
         if instance == None:
             return self.__func__
         else:
@@ -97,6 +98,8 @@ class FileOutputMata(type):
                 NewAttrs["FileMethodList"].add(k)
             else:
                 NewAttrs[k] = v
+        for t in bases:
+            NewAttrs["FileMethodList"].update(t.FileMethodList)
 
         NewAttrs.update(
             spacePath = {},
@@ -107,61 +110,81 @@ class FileOutputMata(type):
     
     def __getattr__(self, key: str) -> Callable:
         if key in self.FileMethodList:
-            return self.context.__getattribute__("f_" + key)
+            return self.context._get_method(key)
         else:
-            raise AttributeError(f"'{self.__name__}' object has no attribute '{key}'")
+            raise AttributeError(f"'{self.__name__}' object has no attribute '{key}'.")
 
-    def __getitem__(self, key: str) -> Any:
-        self.switch(key)
+    def __getitem__(self, key: Optional[str]) -> Any:
+        if key:
+            self.switch(key)
         return self
 
-    def __setitem__(self, key: str, value: Any) -> NoReturn:
+    def __setitem__(self, key: str, value: Any) -> None:
         if not isinstance(value, self):
             raise TypeError
+        if key in self.spaceCache:
+            self.spaceCache.pop(key).clear()
         self.spaceCache[key] = value
+
         if not key in self.spacePath:
             self.spacePath[key] = value.path
+        self.context: self = value
+        value.activate()
     
     def file_struct(
         self, 
         base: str = os.getcwd(),
         *,
         spacePath: Optional[Dict[str,str]] = None,
-        filePath: Optional[Dict[str,str]] = None
     ) -> None:
-        if hasattr(self, "context"):
-            self.clearAll()
-
         if not os.path.isabs(base):
             if self.__class__.ACTIVATED:
-                raise OSError("set file structure after activate spaces")
+                raise ValueError("set file structure after activate spaces.")
             self.base = os.path.abspath(base)
         else:
             self.base = base
 
-        if filePath:
-            for k,v in filePath.items():
-                if k in self.ReserveFile:
-                    self.ReserveFile[k] = v
         if spacePath:
             self.spacePath = {k: os.path.abspath(v) for k, v in spacePath.items()}
 
-        self.file = {}
-        for k, v in self.ReserveFile.items():
-            self.file[k] = file_open(v)
-
         self.spaceStack.clear()
-        self.spaceStack.append("__base__")
+        self.enter("__home__", path=base)
+
+    def reset(self) -> None:
+        if not hasattr(self, "correct"):
+            return
+        self.__class__.ACTIVATED = False
+        os.chdir(self.base)
+        self.clearAll()
 
     def abspath(self, path: str):
         if not hasattr(self, "base"):
-            raise OSError("use path.join without initing base dir")
+            raise OSError("use path.join without initing base dir.")
+        if os.path.isabs(path):
+            return path
         return os.path.join(self.base, path)
     
     join_path = staticmethod(os.path.join)
 
-    def enter(self, name: str, path: Optional[str] = None) -> NoReturn:...
+    def enter(self, spaceName: str, path: Optional[str] = None) -> None:
+        self.spaceStack.append(spaceName)
 
+        if not hasattr(self, "context"):
+            return self.switch(spaceName, path)
+
+        if self.context.name == spaceName:
+            return
+        elif spaceName in self.spaceStack:
+            raise ValueError("enter a space which has been opened in the stack.")
+
+        nsp: self = self(spaceName, path, stack=True)
+        self[spaceName] = nsp
+
+    def exit(self) -> None:
+        csp = self.spaceStack.pop()
+        self.clear(csp)
+
+        self.switch(self.spaceStack[-1])
 
     def switch(self, spaceName: str, path: Optional[str] = None) -> None:
         if hasattr(self, "context"):
@@ -173,38 +196,40 @@ class FileOutputMata(type):
             NewSpace = self(spaceName, path)
             self.spaceCache[spaceName] = NewSpace
             self.context = NewSpace
-
-        self.context.activate()
+        if spaceName != "__home__":
+            self.context.activate()
     
-    def clear(self, spaceName: Optional[str] = None) -> NoReturn:
-        if spaceName:
+    def clear(self, spaceName: Optional[str] = None) -> None:
+        if spaceName and spaceName in self.spaceCache:
             self.spaceCache.get(spaceName).fileCache.clear()
         else:
-            self.__class__.__getattr__(self, "clear")()
+            self.context._get_method("clear")
     
-    def clearAll(self) -> NoReturn:
+    def clearAll(self) -> None:
         del self.context
         for s in self.spaceCache.values():
-            s.get_method("clear")()
+            s._get_method("clear")()
 
 class FileOutput(metaclass=FileOutputMata):
 
     __slots__ = ["name", "path", "fileCache", "correct"]
-    
-    ReserveFile = {}
 
-    def __init__(self, spaceName: str, path: Optional[str] = None) -> NoReturn:
+    def __init__(self, spaceName: str, path: Optional[str] = None, *, stack: bool = False):
         self.name = spaceName
 
         if not path:
             if spaceName in self.__class__.spacePath:
                 path = self.__class__.spacePath[spaceName]
                 if not os.path.isabs(path):
-                    if self.__class__.__class__.ACTIVATED and (not ALLOW_NOT_SETTING_SPACE_PATH):
+                    if self.__class__.__class__.ACTIVATED:
                         raise OSError("param path should be an absolute path")
-                    path = os.path.abspath(path)
             else:
-                path = self.__class__.abspath(spaceName)
+                path = spaceName
+
+        if stack:
+            path = os.path.abspath(path)
+        else:
+            path = self.__class__.abspath(path)
 
         if not os.path.isdir(path):
             os.makedirs(path)
@@ -213,7 +238,7 @@ class FileOutput(metaclass=FileOutputMata):
 
     def __getattr__(self, key: str) -> Callable:
         if key in self.__class__.FileMethodList:
-            return self.__class__.context.__getattribute__("f_" + key)
+            return self.__class__.context._get_method(key)
         elif key == "correct":
             raise AttributeError("fetch correct file without opening")
         elif hasattr(self.correct, key):
@@ -221,11 +246,11 @@ class FileOutput(metaclass=FileOutputMata):
 
         raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{key}'")
     
-    def get_method(self, key: str) -> Callable:
+    def _get_method(self, key: str) -> Callable:
         return self.__class__.__getattribute__(self, "f_" + key)
 
     @FileFunc
-    def activate(self) -> NoReturn:
+    def activate(self) -> None:
         self.__class__.__class__.ACTIVATED = True
         os.chdir(self.path)
 
@@ -268,46 +293,73 @@ class FileOutput(metaclass=FileOutputMata):
         self.correct.flush()
 
     @FileFunc
-    def close(self) -> NoReturn:
+    def close(self) -> None:
         self.correct.close()
         del self.fileCache[self.correct.name]
     
     @FileFunc
-    def clear(self) -> NoReturn:
+    def clear(self) -> None:
         self.fileCache.clear()
 
 class MCFunc(FileOutput):
-    ReserveFile = {
-        "load"      : "load.mcfunction",
-        "preapare"  : "prepare.mcfunction",
-        "main"      : "main.mcfunction",
-    }
+
+    __slots__ = ["name", "path", "fileCache", "correct", "opened"]
+
+    def __init__(self, spaceName: str, path: Optional[str] = None, *, stack: bool = True):
+        self.opened = set()
+        super().__init__(spaceName, path=path, stack=stack)
+    
+    def __enter__(self):
+        if hasattr(self.__class__, "context"):
+            if self == self.__class__.context:
+                return self
+        if self.name in self.__class__.spaceStack:
+            raise ValueError("enter a space which has been opened in the stack.")
+
+        self.__class__.spaceStack.append(self.name)
+        self.__class__[self.name] = self
+
+    def __exit__(self, exc_type: Type, exc_val: BaseException, exc_tb: Any):
+        if self.__class__.context != self:
+            raise IOError(f"fail to exit from space '{self.name}'")
+        self.__class__.exit()
+
+    @FileFunc
+    def open(self, path: str, *, mode: str = "w") -> None:
+        if not path.endswith(".mcfunction"):
+            path += ".mcfunction"
+        
+        if path in self.opened:
+            mode = "a"
+        else:
+            self.opened.add(path)
+
+        super().f_open(path, mode=mode)
 
 class MCJson(FileOutput):
 
     @FileFunc
     def write(self, contain: dict) -> int:
         contain = ujson.dumps(contain, indent=4)
-        return super(self, FileOutput).write(contain)
+        return super().f_write(contain)
 
 if __name__ == "__main__":
-    FileOutput.file_struct(
+    MCFunc.file_struct(
         ".",
-        spacePath={"here":"testdatapack/test", "test": "testdatapack/test1"}
+        spacePath={"here":"testdatapack", "test1s": "testdatapack/test1"}
     )
-    FileOutput["here"].open("test.txt")
-    FileOutput.write("Hello World!")
-    FileOutput["test"].open("Hello_world.txt")
-    FileOutput.write("Hey! Look, I do work!")
-    FileOutput.open("hhhh.txt")
-    FileOutput.write("hhh\n"*10)
-    FileOutput["here"].open("test.txt")
-    FileOutput.write("\nhhh")
-    FileOutput.clearAll()
-    FileOutput["test1"].open("hhh.txt")
-    FileOutput.write("ok!\n")
-    FileOutput.context.flush()
-    try:      
-        FileOutput.write("closed?\n")
-    except:
-        print("successful closed")
+    with MCFunc("here"):
+        MCFunc.open("hhh.txt")
+        MCFunc.write("also ok\n")
+        MCFunc.open("Hello.txt")
+        MCFunc.write("Hello!\n")
+        with MCFunc("test"):
+            MCFunc.open("h.txt")
+            MCFunc.write("Nothing\n")
+            try:
+                with MCFunc("here"):
+                    pass
+            except ValueError:
+                print("__enter__ func works well.")
+            else:
+                raise Exception("uncatch error.")
