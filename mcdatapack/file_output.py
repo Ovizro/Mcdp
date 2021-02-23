@@ -6,8 +6,6 @@ from collections import OrderedDict
 from typing import (Any, Type, Callable, Dict, Optional, Tuple,
                     Union)
 
-ALLOW_NOT_SETTING_SPACE_PATH: bool = True
-
 def file_open(path: str, mode: str = 'w', **kw) -> io.TextIOWrapper:
     if not os.path.isfile(path):
         p = os.path.split(path)
