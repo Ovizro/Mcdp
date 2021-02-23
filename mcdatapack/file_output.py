@@ -1,16 +1,12 @@
 import io
-import json
+import ujson
 import os
-from shutil import copyfile
 from functools import partial
-from collections import OrderedDict, defaultdict
-from typing import (Any, Callable, Dict, Literal, NoReturn, Optional, Tuple,
+from collections import OrderedDict
+from typing import (Any, Callable, Dict, NoReturn, Optional, Tuple,
                     Union)
 
-try:
-    from .exception import VersionError
-except ImportError:
-    from exception import VersionError
+ALLOW_NOT_SETTING_SPACE_PATH: bool = True
 
 def file_open(path: str, mode: str = 'w', **kw):
     if not os.path.isfile(path):
@@ -89,7 +85,7 @@ class FileFunc:
 
 class FileOutputMata(type):
 
-    DIR_CHANGED = False
+    ACTIVATED = False
 
     def __new__(cls, name: str, bases: Tuple[type], attrs: dict) -> type:
         NewAttrs = {
@@ -103,8 +99,9 @@ class FileOutputMata(type):
                 NewAttrs[k] = v
 
         NewAttrs.update(
-            spaceCache = cacheFile(3),
-            spacePath = defaultdict(lambda: '.')
+            spacePath = {},
+            spaceStack = [],
+            spaceCache = cacheFile(3)
         )
         return type.__new__(cls, name, bases, NewAttrs)
     
@@ -124,7 +121,7 @@ class FileOutputMata(type):
         self.spaceCache[key] = value
         if not key in self.spacePath:
             self.spacePath[key] = value.path
-
+    
     def file_struct(
         self, 
         base: str = os.getcwd(),
@@ -132,18 +129,39 @@ class FileOutputMata(type):
         spacePath: Optional[Dict[str,str]] = None,
         filePath: Optional[Dict[str,str]] = None
     ) -> None:
+        if hasattr(self, "context"):
+            self.clearAll()
+
         if not os.path.isabs(base):
-            if self.__class__.DIR_CHANGED:
+            if self.__class__.ACTIVATED:
                 raise OSError("set file structure after activate spaces")
             self.base = os.path.abspath(base)
         else:
             self.base = base
+
         if filePath:
             for k,v in filePath.items():
                 if k in self.ReserveFile:
                     self.ReserveFile[k] = v
-        spacePath = {k: os.path.abspath(v) for k, v in spacePath.items()}
-        self.spacePath.update(spacePath)
+        if spacePath:
+            self.spacePath = {k: os.path.abspath(v) for k, v in spacePath.items()}
+
+        self.file = {}
+        for k, v in self.ReserveFile.items():
+            self.file[k] = file_open(v)
+
+        self.spaceStack.clear()
+        self.spaceStack.append("__base__")
+
+    def abspath(self, path: str):
+        if not hasattr(self, "base"):
+            raise OSError("use path.join without initing base dir")
+        return os.path.join(self.base, path)
+    
+    join_path = staticmethod(os.path.join)
+
+    def enter(self, name: str, path: Optional[str] = None) -> NoReturn:...
+
 
     def switch(self, spaceName: str, path: Optional[str] = None) -> None:
         if hasattr(self, "context"):
@@ -165,8 +183,9 @@ class FileOutputMata(type):
             self.__class__.__getattr__(self, "clear")()
     
     def clearAll(self) -> NoReturn:
+        del self.context
         for s in self.spaceCache.values():
-            s.clear()
+            s.get_method("clear")()
 
 class FileOutput(metaclass=FileOutputMata):
 
@@ -178,29 +197,36 @@ class FileOutput(metaclass=FileOutputMata):
         self.name = spaceName
 
         if not path:
-            path = self.__class__.spacePath[spaceName]
-        if not os.path.isabs(path):
-            if self.__class__.__class__.DIR_CHANGED == True:
-                raise OSError("param path should be an absolute path")
-            path = os.path.abspath(path)
+            if spaceName in self.__class__.spacePath:
+                path = self.__class__.spacePath[spaceName]
+                if not os.path.isabs(path):
+                    if self.__class__.__class__.ACTIVATED and (not ALLOW_NOT_SETTING_SPACE_PATH):
+                        raise OSError("param path should be an absolute path")
+                    path = os.path.abspath(path)
+            else:
+                path = self.__class__.abspath(spaceName)
 
         if not os.path.isdir(path):
             os.makedirs(path)
         self.path = path
         self.fileCache = cacheFile()
 
-        if not hasattr(self.__class__, "context"):
-            self.__class__.context = self
-    
     def __getattr__(self, key: str) -> Callable:
         if key in self.__class__.FileMethodList:
             return self.__class__.context.__getattribute__("f_" + key)
-        else:
-            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{key}'")
+        elif key == "correct":
+            raise AttributeError("fetch correct file without opening")
+        elif hasattr(self.correct, key):
+            return self.correct.__getattribute__(key)
+
+        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{key}'")
+    
+    def get_method(self, key: str) -> Callable:
+        return self.__class__.__getattribute__(self, "f_" + key)
 
     @FileFunc
     def activate(self) -> NoReturn:
-        self.__class__.__class__.DIR_CHANGED = True
+        self.__class__.__class__.ACTIVATED = True
         os.chdir(self.path)
 
     @FileFunc
@@ -238,6 +264,10 @@ class FileOutput(metaclass=FileOutputMata):
         self.correct.seek(cookie, whence)
 
     @FileFunc
+    def flush(self) -> None:
+        self.correct.flush()
+
+    @FileFunc
     def close(self) -> NoReturn:
         self.correct.close()
         del self.fileCache[self.correct.name]
@@ -257,69 +287,8 @@ class MCJson(FileOutput):
 
     @FileFunc
     def write(self, contain: dict) -> int:
-        contain = json.dumps(contain, indent=4)
+        contain = ujson.dumps(contain, indent=4)
         return super(self, FileOutput).write(contain)
-
-class DatapackType:
-    pass
-class DatapackFile(DatapackType):
-    pass
-class DatapackDir(DatapackType):
-    pass
-
-class PackageDirs:
-
-    def __init__(
-        self,
-        name: str,
-        version: Union[int, str] = 1,
-        description: Optional[str] = None,
-        iron_path: Optional[str] =None,
-        *,
-        namespace: Optional[str] = None
-    ) -> None:
-        iron_path = os.path.abspath(iron_path)
-        if not namespace:
-            namespace = name
-        os.makedirs(os.path.join(name, "data", namespace), exist_ok=True)
-        os.chdir(name)
-
-        with open("pack.mcmeta", "w") as f:
-            if isinstance(version, str):
-                version = self.get_version(version)
-            contain = {
-                "pack":{
-                    "pack_format": version,
-                    "description": description
-                }
-            }
-            json.dump(contain, f, indent=4)
-
-        if iron_path:
-            copyfile(iron_path, "pack.png")
-        
-        os.chdir("data")
-
-    @staticmethod
-    def get_version(version: str) -> int:
-        vlist = [int(v) for v in version.split(".")]
-
-        if vlist[0] != 1 or vlist[1] < 13:
-            raise VersionError(">= 1.13", version, "Minecraft")
-
-        if vlist[1] == 13 or vlist[1] == 14:
-            return 4
-        if vlist[1] == 15:
-            return 5
-        if vlist[1] == 16:
-            if len(vlist) <= 2:
-                return 5
-            if vlist[2] <= 1:
-                return 5
-            else:
-                return 6
-        if vlist[1] == 17:
-            return 7
 
 if __name__ == "__main__":
     FileOutput.file_struct(
@@ -335,8 +304,10 @@ if __name__ == "__main__":
     FileOutput["here"].open("test.txt")
     FileOutput.write("\nhhh")
     FileOutput.clearAll()
-    print(FileOutput.writeable())
+    FileOutput["test1"].open("hhh.txt")
+    FileOutput.write("ok!\n")
+    FileOutput.context.flush()
     try:      
-        FileOutput.write("closed?")
+        FileOutput.write("closed?\n")
     except:
         print("successful closed")
