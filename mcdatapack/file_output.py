@@ -2,9 +2,8 @@ import io
 import ujson
 import os
 from functools import partial
-from collections import OrderedDict
-from typing import (Any, Type, Callable, Dict, Optional, Tuple,
-                    Union)
+from collections import OrderedDict, defaultdict
+from typing import Any, Type, Callable, Dict, Optional, Tuple
 
 def file_open(path: os.PathLike, mode: str = 'w', **kw) -> io.TextIOWrapper:
     if not os.path.isfile(path):
@@ -337,27 +336,49 @@ class MCFunc(FileOutput):
 class MCJson(FileOutput):
 
     @FileFunc
+    def open(self, path: os.PathLike, *, mode: str = "w") -> None:
+        if not path.endswith(".json"):
+            path += ".json"
+        super().f_open(path, mode=mode)
+
+    @FileFunc
     def write(self, contain: dict) -> int:
         contain = ujson.dumps(contain, indent=4)
         return super().f_write(contain)
+
+class MCTag(MCJson):
+
+    def __init__(self, spaceName: str, path: Optional[os.PathLike]):
+        self.cache: Dict[str, list] = defaultdict(list)
+        super().__init__(spaceName, path)
+    
+    @classmethod
+    def init_minecraft_space(cls, path: os.PathLike) -> None:
+        """
+        Only be used to set tag 'minecraft:load' and 'minecraft:tick'
+        """
+        cls.minecraft = cls("minecraft", path)
+
+    @classmethod
+    def tick(cls, mcfunc: str, *, flush: bool = False) -> None:
+        cls.minecraft.cache["tick"].append(mcfunc)
+        if flush:
+            cls.minecraft.flush()
+
+    @FileFunc
+    def add_tag(self, tag: str, *mcfunc) -> None:
+        self.cache[tag].update(*mcfunc)
+
+    @FileFunc
+    def flush(self, *, replace: bool = False) -> None:
+        for k,v in self.cache.items():
+            contain = {"replace": replace, "value": v}
+            with file_open(k + ".json") as f:
+                ujson.dump(contain, f, indent=4)
 
 if __name__ == "__main__":
     MCFunc.file_struct(
         ".",
         spacePath={"here":"testdatapack", "test1s": "testdatapack/test1"}
     )
-    with MCFunc("here"):
-        MCFunc.open("hhh")
-        MCFunc.write("kill @s\n")
-        MCFunc.open("Hello")
-        MCFunc.write("say Hello!\n")
-        with MCFunc("test"):
-            MCFunc.open("h")
-            MCFunc.write("say Nothing\n")
-            try:
-                with MCFunc("here"):
-                    pass
-            except ValueError:
-                print("__enter__ func works well.")
-            else:
-                raise Exception("uncatch error.")
+    
