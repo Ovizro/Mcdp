@@ -3,7 +3,7 @@
 一个用来帮助制作数据包的Python库，
 简称"Mcdp"或"dp"。
 
-> 语言: [English](https://github.com/Ovizro/mcdatapack/blob/master/README.md) / 中文
+    语言: [English](https://github.com/Ovizro/mcdatapack/blob/master/README.md) / 中文
 
 ## 为什么使用它? ## 
 

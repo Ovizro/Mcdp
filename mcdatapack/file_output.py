@@ -6,7 +6,7 @@ from collections import OrderedDict
 from typing import (Any, Type, Callable, Dict, Optional, Tuple,
                     Union)
 
-def file_open(path: str, mode: str = 'w', **kw) -> io.TextIOWrapper:
+def file_open(path: os.PathLike, mode: str = 'w', **kw) -> io.TextIOWrapper:
     if not os.path.isfile(path):
         p = os.path.split(path)
         if not os.path.isdir(p[0]) and p[0]:
@@ -117,7 +117,7 @@ class FileOutputMata(type):
             self.switch(key)
         return self
 
-    def __setitem__(self, key: str, value: Any) -> None:
+    def __setitem__(self, key: str, value: "FileOutput") -> None:
         if not isinstance(value, self):
             raise TypeError
         if key in self.spaceCache:
@@ -133,7 +133,7 @@ class FileOutputMata(type):
         self, 
         base: str = os.getcwd(),
         *,
-        spacePath: Optional[Dict[str,str]] = None,
+        spacePath: Optional[Dict[str, os.PathLike]] = None,
     ) -> None:
         if not os.path.isabs(base):
             if self.__class__.ACTIVATED:
@@ -155,7 +155,7 @@ class FileOutputMata(type):
         os.chdir(self.base)
         self.clearAll()
 
-    def abspath(self, path: str):
+    def abspath(self, path: os.PathLike):
         if not hasattr(self, "base"):
             raise OSError("use path.join without initing base dir.")
         if os.path.isabs(path):
@@ -164,7 +164,7 @@ class FileOutputMata(type):
     
     join_path = staticmethod(os.path.join)
 
-    def enter(self, spaceName: str, path: Optional[str] = None) -> None:
+    def enter(self, spaceName: str, path: Optional[os.PathLike] = None) -> None:
         self.spaceStack.append(spaceName)
 
         if not hasattr(self, "context"):
@@ -184,7 +184,7 @@ class FileOutputMata(type):
 
         self.switch(self.spaceStack[-1])
 
-    def switch(self, spaceName: str, path: Optional[str] = None) -> None:
+    def switch(self, spaceName: str, path: Optional[os.PathLike] = None) -> None:
         if hasattr(self, "context"):
             if self.context.name == spaceName:
                 return
@@ -212,7 +212,7 @@ class FileOutput(metaclass=FileOutputMata):
 
     __slots__ = ["name", "path", "fileCache", "correct"]
 
-    def __init__(self, spaceName: str, path: Optional[str] = None, *, stack: bool = False):
+    def __init__(self, spaceName: str, path: Optional[os.PathLike] = None, *, stack: bool = False):
         self.name = spaceName
 
         if not path:
@@ -253,7 +253,7 @@ class FileOutput(metaclass=FileOutputMata):
         os.chdir(self.path)
 
     @FileFunc
-    def open(self, path: str, *, mode: str = "w") -> None:
+    def open(self, path: os.PathLike, *, mode: str = "w") -> None:
         name = os.path.split(path)[-1]
         if hasattr(self, "correct"):
             if self.correct.name == name:
@@ -303,7 +303,7 @@ class MCFunc(FileOutput):
 
     __slots__ = ["name", "path", "fileCache", "correct", "opened"]
 
-    def __init__(self, spaceName: str, path: Optional[str] = None, *, stack: bool = True):
+    def __init__(self, spaceName: str, path: Optional[os.PathLike] = None, *, stack: bool = True):
         self.opened = set()
         super().__init__(spaceName, path=path, stack=stack)
     
@@ -323,7 +323,7 @@ class MCFunc(FileOutput):
         self.__class__.exit()
 
     @FileFunc
-    def open(self, path: str, *, mode: str = "w") -> None:
+    def open(self, path: os.PathLike, *, mode: str = "w") -> None:
         if not path.endswith(".mcfunction"):
             path += ".mcfunction"
         
