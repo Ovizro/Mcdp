@@ -4,10 +4,10 @@ from shutil import copyfile
 from typing import Any, Callable, Dict, Optional, Set, Union
 
 try:
-    from .exception import McdpError, MinecraftVersionError
+    from .exception import MinecraftVersionError
     from .file_output import MCFunc, MCTag
 except ImportError:
-    from exception import McdpError, MinecraftVersionError
+    from exception import MinecraftVersionError
     from file_output import MCFunc, MCTag
 
 def get_version(version: str) -> int:
@@ -117,7 +117,7 @@ class BuildDirs:
 
     def init_tag_output(self) -> None:
         if self.progress != 1:
-            raise McdpError("cannot init MCTag class.")
+            raise OSError("cannot init MCTag class.")
         MCTag.init_minecraft_space("minecraft/tags/functions")
         MCTag.file_struct(
             os.path.join(self.namespace, "tags"),
