@@ -3,7 +3,7 @@ import ujson
 import os
 from functools import partial
 from collections import OrderedDict, defaultdict
-from typing import Any, Type, Callable, Dict, Optional, Tuple
+from typing import Any, List, Literal, Type, Callable, Dict, Optional, Tuple
 
 def file_open(path: os.PathLike, mode: str = 'w', **kw) -> io.TextIOWrapper:
     if not os.path.isfile(path):
@@ -130,7 +130,7 @@ class FileOutputMata(type):
     
     def file_struct(
         self, 
-        base: str = os.getcwd(),
+        base: os.PathLike = ".",
         *,
         spacePath: Optional[Dict[str, os.PathLike]] = None,
     ) -> None:
@@ -142,10 +142,11 @@ class FileOutputMata(type):
             self.base = base
 
         if spacePath:
-            self.spacePath = {k: os.path.abspath(v) for k, v in spacePath.items()}
+            self.spacePath = {k: self.abspath(v) for k, v in spacePath.items()}
 
         self.spaceStack.clear()
-        self.enter("__home__", path=base)
+        self.spaceStack.append("__home__")
+        self.context = self("__home__", base)
 
     def reset(self) -> None:
         if not hasattr(self, "correct"):
@@ -207,6 +208,13 @@ class FileOutputMata(type):
         for s in self.spaceCache.values():
             s._get_method("clear")()
 
+    def __str__(self) -> str:
+        if hasattr(self, "context"):
+            return f"<FileOutputClass {self.__name__} with space {self.context}>"
+        else:
+            return f"<FileOutputClass {self.__name__} without space opened>"
+            
+    __repr__ = __str__
 class FileOutput(metaclass=FileOutputMata):
 
     __slots__ = ["name", "path", "fileCache", "correct"]
@@ -235,7 +243,7 @@ class FileOutput(metaclass=FileOutputMata):
 
     def __getattr__(self, key: str) -> Callable:
         if key in self.__class__.FileMethodList:
-            return self.__class__.context._get_method(key)
+            return self._get_method(key)
         elif key == "correct":
             raise AttributeError("fetch correct file without opening")
         elif hasattr(self.correct, key):
@@ -298,6 +306,14 @@ class FileOutput(metaclass=FileOutputMata):
     def clear(self) -> None:
         self.fileCache.clear()
 
+    def __str__(self) -> str:
+        if hasattr(self, "correct"):
+            return f"<space {self.name} in {self.__class__.__name__} with file {self.correct.name}>"
+        else:
+            return f"<space {self.name} in {self.__class__.__name__} without file opened>"
+    
+    __repr__ = __str__
+
 class MCFunc(FileOutput):
 
     __slots__ = ["name", "path", "fileCache", "correct", "opened"]
@@ -343,12 +359,14 @@ class MCJson(FileOutput):
 
     @FileFunc
     def write(self, contain: dict) -> int:
-        contain = ujson.dumps(contain, indent=4)
-        return super().f_write(contain)
+        ujson.dump(contain, self.correct, indent=4)
 
 class MCTag(MCJson):
 
+    __slots__ = ["name", "path", "fileCache", "correct", "flushed", "cache"]
+
     def __init__(self, spaceName: str, path: Optional[os.PathLike]):
+        self.flushed: bool = False
         self.cache: Dict[str, list] = defaultdict(list)
         super().__init__(spaceName, path)
     
@@ -357,28 +375,34 @@ class MCTag(MCJson):
         """
         Only be used to set tag 'minecraft:load' and 'minecraft:tick'
         """
-        cls.minecraft = cls("minecraft", path)
+        cls.spacePath["mcft"] = os.path.abspath(os.path.join(path, "functions"))
 
     @classmethod
     def tick(cls, mcfunc: str, *, flush: bool = False) -> None:
-        cls.minecraft.cache["tick"].append(mcfunc)
+        cls["mcft"]
+        cls.add_tag("tick", mcfunc, type="mcft")
         if flush:
-            cls.minecraft.flush()
+            cls.flush()
 
     @FileFunc
-    def add_tag(self, tag: str, *mcfunc) -> None:
-        self.cache[tag].update(*mcfunc)
+    def write(self, value: List[str], replace: bool = False) -> None:
+        contain = {"replace": replace, "values": value}
+        super().f_write(contain)
+
+    @FileFunc
+    def add_tag(self, tag: str, obj: str, *, type: Literal["blocks", "entity_types", "fluids", "functions", "items", "mcft"] = "functions") -> None:
+        self.__class__[type].context.cache[tag].append(obj)
 
     @FileFunc
     def flush(self, *, replace: bool = False) -> None:
         for k,v in self.cache.items():
-            contain = {"replace": replace, "value": v}
-            with file_open(k + ".json") as f:
-                ujson.dump(contain, f, indent=4)
+            self.open(k)
+            self.write(v, replace)
 
-if __name__ == "__main__":
-    MCFunc.file_struct(
-        ".",
-        spacePath={"here":"testdatapack", "test1s": "testdatapack/test1"}
-    )
-    
+        self.flushed = True
+
+    @FileFunc
+    def clear(self) -> None:
+        if not self.flushed:
+            self.flush()
+        self.fileCache.clear()

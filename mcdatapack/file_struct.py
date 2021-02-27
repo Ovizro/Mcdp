@@ -5,10 +5,12 @@ from typing import Any, Callable, Dict, Optional, Set, Union
 
 try:
     from .exception import MinecraftVersionError
-    from .file_output import MCFunc, MCTag
+    from .file_output import FileOutput, MCJson, MCFunc, MCTag
 except ImportError:
     from exception import MinecraftVersionError
-    from file_output import MCFunc, MCTag
+    from file_output import FileOutput, MCJson, MCFunc, MCTag
+
+USE_AIO: bool = False
 
 def get_version(version: str) -> int:
     vlist = [int(v) for v in version.split(".")]
@@ -74,9 +76,31 @@ def init_name_space(name: str, *, used: Optional[Set[str]] = None) -> None:
         path = os.path.join(tag_path, d)
         os.makedirs(path, exist_ok=True)
 
+def analyse_file_struct(
+    struct: Union[dict, str], 
+    base: Optional[os.PathLike] = None
+) -> Dict[str, os.PathLike]:
+
+    if isinstance(struct, str):
+        struct = ujson.loads(struct)
+    ans = {}
+    for k,v in struct.items():
+        if not base:
+            path = k
+        else:
+            path = os.path.join(base, k)
+        
+        if isinstance(v, str):
+            ans[v] = path
+        else:
+            ans.update(analyse_file_struct(v, path))
+    
+    return ans
+
+
 class BuildDirs:
 
-    __slots__ = ["progress", "namespace"]
+    __slots__ = ["progress", "namespace", "space_list"]
 
     def __init__(
         self,
@@ -115,19 +139,44 @@ class BuildDirs:
 
         self.progress: int = 1
 
-    def init_tag_output(self) -> None:
+    def init_output(self, file_struct: Union[dict, str], *, analyse_struct: bool = True) -> None:
         if self.progress != 1:
-            raise OSError("cannot init MCTag class.")
-        MCTag.init_minecraft_space("minecraft/tags/functions")
-        MCTag.file_struct(
-            os.path.join(self.namespace, "tags"),
-            spacePath={
-                "func":"functions",
-                "block": "blocks",
-                "item":"items",
-                "entity": "entity_types"
-            }
+            raise OSError("cannot init FileOutput class.")
+
+        FileOutput.file_struct()
+        MCJson.file_struct()
+
+        MCTag.init_minecraft_space("minecraft/tags")
+
+        self.progress = 2
+        os.chdir(self.namespace)
+        MCTag.file_struct("tags")
+
+        if analyse_struct:
+            self.space_list = analyse_file_struct(file_struct)
+        else:
+            self.space_list = file_struct
+
+        MCFunc.file_struct(
+            "functions",
+            spacePath=self.space_list
         )
 
 if __name__ == "__main__":
-    BuildDirs("testdatapack","Hello world")
+    s = {
+        "here": {
+            "test": {
+                "test": "test",
+                "test2": "test3"
+            },
+            "there": "there"
+        },
+        "test": "test2"
+    }
+    BuildDirs("testdatapack", description="Hello world").init_output(s)
+    MCFunc["test2"].open("hello")
+    MCFunc.write("say Hello!")
+    MCTag.tick("testdatapack:test/hello", flush=True)
+    MCTag.add_tag("test", "testdatapack:test/hello")
+    MCTag.clearAll()
+    
