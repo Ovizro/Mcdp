@@ -81,11 +81,11 @@ class FileFunc:
     def __call__(self, *args, **kwds) -> Any:
         return self.__func__(*args, **kwds)
 
-class FileOutputMata(type):
+class FileOutputMeta(type):
 
     ACTIVATED = False
 
-    def __new__(cls, name: str, bases: Tuple[type], attrs: dict) -> type:
+    def __new__(cls, name: str, bases: Tuple["FileOutputMeta"], attrs: dict) -> "FileOutputMeta":
         NewAttrs = {
             "FileMethodList": set()
         }
@@ -111,9 +111,8 @@ class FileOutputMata(type):
         else:
             raise AttributeError(f"'{self.__name__}' object has no attribute '{key}'.")
 
-    def __getitem__(self, key: Optional[str]) -> Any:
-        if key:
-            self.switch(key)
+    def __getitem__(self, key: str) -> "FileOutput":
+        self.switch(key)
         return self
 
     def __setitem__(self, key: str, value: "FileOutput") -> None:
@@ -136,7 +135,7 @@ class FileOutputMata(type):
     ) -> None:
         if not os.path.isabs(base):
             if self.__class__.ACTIVATED:
-                raise ValueError("set file structure after activate spaces.")
+                raise OSError("set file structure after activate spaces.")
             self.base = os.path.abspath(base)
         else:
             self.base = base
@@ -194,8 +193,8 @@ class FileOutputMata(type):
             NewSpace = self(spaceName, path)
             self.spaceCache[spaceName] = NewSpace
             self.context = NewSpace
-        if spaceName != "__home__":
-            self.context.activate()
+        #if spaceName != "__home__":
+        self.context.activate()
     
     def clear(self, spaceName: Optional[str] = None) -> None:
         if spaceName and spaceName in self.spaceCache:
@@ -215,7 +214,7 @@ class FileOutputMata(type):
             return f"<FileOutputClass {self.__name__} without space opened>"
             
     __repr__ = __str__
-class FileOutput(metaclass=FileOutputMata):
+class FileOutput(metaclass=FileOutputMeta):
 
     __slots__ = ["name", "path", "fileCache", "correct"]
 
@@ -358,7 +357,7 @@ class MCJson(FileOutput):
         super().f_open(path, mode=mode)
 
     @FileFunc
-    def write(self, contain: dict) -> int:
+    def write(self, contain: dict) -> None:
         ujson.dump(contain, self.correct, indent=4)
 
 class MCTag(MCJson):
