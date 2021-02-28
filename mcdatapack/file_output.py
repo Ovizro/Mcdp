@@ -177,7 +177,10 @@ class FileOutputMeta(type):
         nsp: self = self(spaceName, path, stack=True)
         self[spaceName] = nsp
 
-    def exit(self) -> None:
+    def exit(self, spaceName: Optional[str]) -> None:
+        if spaceName:
+            if self.context.name != spaceName:
+                raise OSError(f"fail to exit from space '{spaceName}'")
         csp = self.spaceStack.pop()
         self.clear(csp)
 
@@ -332,9 +335,7 @@ class MCFunc(FileOutput):
         self.__class__[self.name] = self
 
     def __exit__(self, exc_type: Type, exc_val: BaseException, exc_tb: Any):
-        if self.__class__.context != self:
-            raise IOError(f"fail to exit from space '{self.name}'")
-        self.__class__.exit()
+        self.__class__.exit(self.name)
 
     @FileFunc
     def open(self, path: os.PathLike, *, mode: str = "w") -> None:

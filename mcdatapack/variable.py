@@ -1,5 +1,7 @@
 import ujson
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
+
+from .file_output import MCFunc
 
 class Counter:
 	
@@ -25,12 +27,29 @@ class Counter:
 
 class Variable:
 
-	__slots__ = ["counter",]
+	__slots__ = ["counter", "linked"]
 
 	def __init__(self) -> None:
 		self.counter = Counter()
+		self.linked = set()
+
+	def link(self, var: Union["Variable", Counter]) -> None:
+		if isinstance(var, self.__class__):
+			var: Counter = var.counter
+		if var.counter == self.counter:
+			raise RuntimeError("try to link a var to itself.")
+		self.linked.add(var)
+
+	def unlink(self, var: Union["Variable", Counter]) -> None:
+		if isinstance(var, self.__class__):
+			var: Counter = var.counter
+		if var.counter == self.counter:
+			raise RuntimeError("try to unlink a var from itself.")
+		self.linked.remove(var)
 
 class ScoreboardType(Variable):
+
+	__slots__ = ["name", "criteria", "displayName", "counter", "linked"]
 
 	def __init__(
 		self,
@@ -43,23 +62,36 @@ class ScoreboardType(Variable):
 		self.criteria = criteria
 		self.displayName = display
 
-		self.counter = Counter()
+		super().__init__()
 
 	def dumps(self) -> Optional[str]:
-		if not self.counter:
-			return
-		
 		if self.displayName:
-			return "scoreboard objectives add {0} {1} {2}".format(
+			return "scoreboard objectives add {0} {1} {2}\n".format(
 				self.name, self.criteria, ujson.dumps(self.displayName)
 			)
 		else:
-			return "scoreboard objectives add {0} {1}".format(
+			return "scoreboard objectives add {0} {1}\n".format(
 				self.name, self.criteria
 			)
+	
+	def dump(self) -> None:
+		MCFunc.write(self.dumps())
 
-	def remove(self) -> str:
-		return f"scoreboard objectives remove {self.name}"
+	def remove(self) -> None:
+		MCFunc.write(f"scoreboard objectives remove {self.name}\n")
 
-	def display(self, pos: str) -> str:
-		return 
+	def display(self, pos: str) -> None:
+		MCFunc.write(f"scoreboard objectives setdisplay {pos} {self.name}\n")
+
+class ScoreType(ScoreboardType):
+
+	__slots__ = ["name", "criteria", "displayName", "counter", "linked", "player"]
+
+	def __init__(self, name: str, player: str = "#mcdp_main", *, criteria: str = "dummy", display: Optional[dict] = None):
+		self.player = player
+		super().__init__(name, criteria=criteria, display=display)
+
+	def __add__(self, other: Union[int, "ScoreType"]) -> "ScoreType":
+		+self.counter
+		if isinstance(other, int):
+			MCFunc.write()
