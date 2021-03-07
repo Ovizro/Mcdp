@@ -1,7 +1,7 @@
 import sys
 from typing import Union
 
-#from . import __version_name__ as VERSION
+#from . import __version__ as VERSION
 VERSION = "Alpha 0.1.0"
 class McdpError(Exception):
     

@@ -1,11 +1,18 @@
+"""
+Basic file io support for stand Mcdp lancher.
+"""
+
 import io
 import ujson
 import os
 from functools import partial
 from collections import OrderedDict, defaultdict
-from typing import Any, List, Literal, Type, Callable, Dict, Optional, Tuple
+from typing import Any, IO, List, Literal, Type, Callable, Dict, Optional, Tuple, Union
 
-def file_open(path: os.PathLike, mode: str = 'w', **kw) -> io.TextIOWrapper:
+def file_open(path: os.PathLike, mode: str = 'w', **kw) -> IO[Any]:
+    """
+    Open a file whether or not the dir exists.
+    """
     if not os.path.isfile(path):
         p = os.path.split(path)
         if not os.path.isdir(p[0]) and p[0]:
@@ -13,6 +20,9 @@ def file_open(path: os.PathLike, mode: str = 'w', **kw) -> io.TextIOWrapper:
     return open(path, mode, **kw)
 
 class cacheFile(OrderedDict):
+    """
+    Cache space or file in file steams.
+    """
     
     __slots__ = ['_capacity',]
     
@@ -52,7 +62,7 @@ class cacheFile(OrderedDict):
                 v.close()
         super().clear()
     
-    def popitem(self, last: bool = True) -> Tuple[str, io.TextIOWrapper]:
+    def popitem(self, last: bool = True) -> Any:
         if last:
             ite = self.items().__reversed__()
         else:
@@ -62,6 +72,19 @@ class cacheFile(OrderedDict):
             return ans
 
 class FileFunc:
+    """
+    Mark on method in FileOutput class. Usually be used as a decorator.
+
+    The method will be rename in metaclass so that when you call the method
+    in FileOutput class, it will switch to the method of FileOutput.context.
+
+    Use it as:
+
+        class MyOutout(FileOutput):
+            @FileFunc
+            def hello(self):
+                self.write("Hello world!\\n")
+    """
 
     __slots__ = ['__func__', '__name__']
 
@@ -86,6 +109,9 @@ class FileOutputMeta(type):
     ACTIVATED = False
 
     def __new__(cls, name: str, bases: Tuple["FileOutputMeta"], attrs: dict) -> "FileOutputMeta":
+        """
+        Build FileOutput class.
+        """
         NewAttrs = {
             "FileMethodList": set()
         }
@@ -111,7 +137,7 @@ class FileOutputMeta(type):
         else:
             raise AttributeError(f"'{self.__name__}' object has no attribute '{key}'.")
 
-    def __getitem__(self, key: str) -> "FileOutput":
+    def __getitem__(self, key: str) -> "FileOutputMeta":
         self.switch(key)
         return self
 
@@ -148,7 +174,7 @@ class FileOutputMeta(type):
         self.context = self("__home__", base)
 
     def reset(self) -> None:
-        if not hasattr(self, "correct"):
+        if not hasattr(self, "context"):
             return
         self.__class__.ACTIVATED = False
         os.chdir(self.base)
@@ -164,6 +190,10 @@ class FileOutputMeta(type):
     join_path = staticmethod(os.path.join)
 
     def enter(self, spaceName: str, path: Optional[os.PathLike] = None) -> None:
+        """
+        Enter a new space in the stack.
+        If the space has been in the stack, OSError will be thrown.
+        """
         self.spaceStack.append(spaceName)
 
         if not hasattr(self, "context"):
@@ -172,12 +202,16 @@ class FileOutputMeta(type):
         if self.context.name == spaceName:
             return
         elif spaceName in self.spaceStack:
-            raise ValueError("enter a space which has been opened in the stack.")
+            raise OSError("enter a space which has been opened in the stack.")
 
         nsp: self = self(spaceName, path, stack=True)
         self[spaceName] = nsp
 
     def exit(self, spaceName: Optional[str]) -> None:
+        """
+        Exit from the correct space and enter a previous space.
+        If name is not the name of the context, OSError will be thrown.
+        """
         if spaceName:
             if self.context.name != spaceName:
                 raise OSError(f"fail to exit from space '{spaceName}'")
@@ -217,7 +251,11 @@ class FileOutputMeta(type):
             return f"<FileOutputClass {self.__name__} without space opened>"
             
     __repr__ = __str__
+
 class FileOutput(metaclass=FileOutputMeta):
+    """
+    Basic class of all file output steam.
+    """
 
     __slots__ = ["name", "path", "fileCache", "correct"]
 
@@ -352,7 +390,7 @@ class MCFunc(FileOutput):
 class MCJson(FileOutput):
 
     @FileFunc
-    def open(self, path: os.PathLike, *, mode: str = "w") -> None:
+    def open(self, path: Union[os.PathLike, str], *, mode: str = "w") -> None:
         if not path.endswith(".json"):
             path += ".json"
         super().f_open(path, mode=mode)

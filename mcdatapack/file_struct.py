@@ -1,3 +1,7 @@
+"""
+Prepare basic datapack dirs for Mcdp lancher.
+"""
+
 import os
 import ujson
 from shutil import copyfile
