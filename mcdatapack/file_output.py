@@ -44,6 +44,9 @@ class cacheFile(OrderedDict):
         self.check()
 
     def check(self) -> int:
+        """
+        Check whether the length of the cache do not match the capacity.
+        """
         overflow = len(self) - self._capacity
         if overflow <= 0:
             return 0
@@ -105,12 +108,18 @@ class FileFunc:
         return self.__func__(*args, **kwds)
 
 class FileOutputMeta(type):
+    """
+    Metaclass of file output stream class, support methods for FileOutput.
+    Normally, you should inherit FileOutput class for these are some methods defined in FileOutput class.
+    
+    More information is commented in FileOutput class.
+    """
 
     ACTIVATED = False
 
     def __new__(cls, name: str, bases: Tuple["FileOutputMeta"], attrs: dict) -> "FileOutputMeta":
         """
-        Build FileOutput class.
+        Build file output stream class.
         """
         NewAttrs = {
             "FileMethodList": set()
@@ -159,6 +168,9 @@ class FileOutputMeta(type):
         *,
         spacePath: Optional[Dict[str, os.PathLike]] = None,
     ) -> None:
+        """
+        Set the base path and the space paths.
+        """
         if not os.path.isabs(base):
             if self.__class__.ACTIVATED:
                 raise OSError("set file structure after activate spaces.")
@@ -174,6 +186,10 @@ class FileOutputMeta(type):
         self.context = self("__home__", base)
 
     def reset(self) -> None:
+        """
+        Reset path.
+        Enable to set file structure again.
+        """
         if not hasattr(self, "context"):
             return
         self.__class__.ACTIVATED = False
@@ -181,6 +197,9 @@ class FileOutputMeta(type):
         self.clearAll()
 
     def abspath(self, path: os.PathLike):
+        """
+        Fetch abspath base on the base path.
+        """
         if not hasattr(self, "base"):
             raise OSError("use path.join without initing base dir.")
         if os.path.isabs(path):
@@ -221,6 +240,9 @@ class FileOutputMeta(type):
         self.switch(self.spaceStack[-1])
 
     def switch(self, spaceName: str, path: Optional[os.PathLike] = None) -> None:
+        """
+        Switch to another space.
+        """
         if hasattr(self, "context"):
             if self.context.name == spaceName:
                 return
@@ -254,7 +276,9 @@ class FileOutputMeta(type):
 
 class FileOutput(metaclass=FileOutputMeta):
     """
-    Basic class of all file output steam.
+    Base class of all file output steams.
+    
+    
     """
 
     __slots__ = ["name", "path", "fileCache", "correct"]
