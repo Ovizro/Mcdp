@@ -1,11 +1,11 @@
 from typing import Dict
 
 from .variable import Variable
-from .file_output import MCFunc
+from .output_stream import MCFunc
 
 class Environment:
 
-    __slots__ = ["name", "var_list", ]
+    __slots__ = ["name", "var_list", "stream"]
 
     def __init__(self, name: str):
         self.name = name

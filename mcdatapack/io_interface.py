@@ -1,14 +1,8 @@
-"""
-High level interface for Mcdp lancher.
-"""
-
 from io import StringIO
-from typing import Tuple
-
 from .file_struct import BuildDirs
-from .file_output import FileOutput, MCFunc, MCJson, MCTag
+from .output_stream import FileOutput, MCFunc, MCJson, MCTag
 
-def insert(*content: Tuple[str]) -> None:
+def insert(*contents: str) -> None:
     """
     Insert commends into correct context.
     When context is not writeable, throw OSError.
@@ -16,7 +10,7 @@ def insert(*content: Tuple[str]) -> None:
     if not MCFunc.writable():
         raise OSError("cannot insert command.")
     
-    content: str = '\n'.join(content)
+    content: str = '\n'.join(contents)
     if not content.endswith("\n"): 
         content += "\n"
     MCFunc.write(content)

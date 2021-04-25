@@ -1,7 +1,7 @@
 import ujson
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Final, Optional, Union
 
-from .file_output import MCFunc
+from .output_stream import MCFunc
 
 class Counter:
 	
@@ -35,7 +35,7 @@ class Variable:
 
 	def link(self, var: Union["Variable", Counter]) -> None:
 		if isinstance(var, self.__class__):
-			var: Counter = var.counter
+			var: Final[Counter] = var.counter
 		if var.counter == self.counter:
 			raise RuntimeError("try to link a var to itself.")
 		self.linked.add(var)
