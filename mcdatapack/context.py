@@ -10,6 +10,7 @@ class Environment:
     def __init__(self, name: str):
         self.name = name
         self.var_list: Dict[str, Variable] = {}
+        self.stream: Stream = Stream(name)
 
     def __getitem__(self, key: str) -> Variable:
         if not key in self.var_list:
@@ -22,11 +23,14 @@ class Environment:
                 return
         self.var_list[name] = instance
 
-    def activate(self) -> None:
-        MCFunc.enter(self.name)
+    def write(self, content: str) -> None:
+        self.stream.write(content)
 
-    def exit(self) -> None:
-        MCFunc.exit(self.name)
+    async def activate(self) -> None:
+        await self.stream.open()
+    
+    async def exit(self) -> None:
+        await self.stream.close()
 
     def __str__(self) -> str:
         return f"<env {self.name} in >"
@@ -34,7 +38,15 @@ class Environment:
 class Context:
 
     __slots__ = ["stack"]
+
+    def __init__(self) -> None:
+        pass
+
+    @classmethod
+    def getcorrect(cls) -> "Context":
+        pass
     
+'''
 from io import StringIO
 from .file_struct import BuildDirs
 
@@ -65,3 +77,4 @@ def comment(content: str) -> None:
         MCFunc.write("#" + "\n#".join(l)+"\n")
     else:
         MCFunc.write('#'+content+"\n")
+'''
