@@ -1,4 +1,5 @@
 /testdatapack
 /testdatapack.py
 /.vscode
+disabled.*
 __pycache__

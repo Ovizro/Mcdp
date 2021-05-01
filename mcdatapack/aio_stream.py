@@ -1,18 +1,25 @@
 """
 High level interface for Mcdp lancher.
 """
+import os
 import asyncio
 from aiofile import AIOFile
-from typing import List, Optional, Union, Any
+from typing import List, Optional, Union, Any, IO
 
-async def waitTask(*tasks: Union[asyncio.Task, asyncio.Future]) -> Any:
-    ans: list = []
-
+def file_open(path: os.PathLike, mode: str = 'w', **kw) -> IO[Any]:
+    """
+    Open a file whether or not the dir exists.
+    """
+    if not os.path.isfile(path):
+        p = os.path.split(path)
+        if not os.path.isdir(p[0]) and p[0]:
+            os.makedirs(p[0])
+    return open(path, mode, **kw)
+    
+async def waitTask(*tasks: Union[asyncio.Task, asyncio.Future]) -> None:
     for task in tasks:
         if not task.done():
             ans.append(await task)
-    
-    return ans
 
 class Stream(AIOFile):
 
