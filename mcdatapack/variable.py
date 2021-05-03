@@ -1,8 +1,6 @@
 import ujson
 from typing import Any, Dict, Final, Optional, Union
 
-from .output_stream import MCFunc
-
 class Counter:
 	
 	__slots__ = ["_count",]
@@ -35,15 +33,15 @@ class Variable:
 
 	def link(self, var: Union["Variable", Counter]) -> None:
 		if isinstance(var, self.__class__):
-			var: Final[Counter] = var.counter
-		if var.counter == self.counter:
+			var = var.counter
+		if var == self.counter:
 			raise RuntimeError("try to link a var to itself.")
 		self.linked.add(var)
 
 	def unlink(self, var: Union["Variable", Counter]) -> None:
 		if isinstance(var, self.__class__):
-			var: Counter = var.counter
-		if var.counter == self.counter:
+			var = var.counter
+		if var == self.counter:
 			raise RuntimeError("try to unlink a var from itself.")
 		self.linked.remove(var)
 

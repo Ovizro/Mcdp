@@ -3,4 +3,5 @@
 /.vscode
 disabled.*
 test.*
+.last_tmp.py
 __pycache__
