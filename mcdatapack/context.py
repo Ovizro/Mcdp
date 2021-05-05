@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Callable, Union
 
 from .variable import Variable
 from .aio_stream import Stream, wraps
+from .counter import get_counter
 from .exception import McdpContextError
 
 class Environment:
@@ -36,25 +37,18 @@ class Environment:
         self.stream.write(content)
         
     def writable(self) -> bool:
-        return self.active and not self.closed
+        return self.stream.opened
 
     async def activate(self) -> None:
         self.closed = False
         await self.stream.open()
         self.active = True
     
-    async def exit(self) -> None:
+    async def deactivate(self) -> None:
         self.active = False
         await self.stream.close()
         self.closed = True
         
-    async def __aenter__(self) -> "Environment":
-        await self.activate()
-        return self
-        
-    async def __aexit__(self, *args)  -> None:
-        await self.exit()
-
     def __str__(self) -> str:
         return f"<env {self.name} in the context {get_context().name}>"
 
@@ -72,18 +66,24 @@ class StackCache(list):
         
     async def append(self, env: Environment) -> None:
         super().append(env)
+        await env.activate()
         overflow = len(self) - self._capacity
         if overflow > 0:
             for e in self[:overflow]:
-                await e.exit()
+                await e.deactivate()
 
     async def pop(self) -> Environment:
         ans: Environment = super().pop()
-        await ans.exit()
+        await ans.deactivate()
         if self:
             if not self[-1].writable():
                 await self[-1].activate()
         return ans
+        
+    async def clear(self) -> None:
+        for e in self:
+            await e.deactivate()
+        super().clear()
 
 class CCmethod:
     """
@@ -105,6 +105,8 @@ class CCmethod:
     def __get__(self, instance: Any, owner: type) -> Callable:
         if instance is None:
             instance = owner.current
+            if not instance:
+                raise McdpContextError("invalid current context")
             
         if self.use_async:
             @wraps(self.__func__)
@@ -130,15 +132,20 @@ class AbstractContext(metaclass=ABCMeta):
         self._lock = asyncio.Lock()
     
     @abstractmethod
-    def enter(self, env: Union[Environment, str], *args, **kwargs) -> None:
+    async def enter(self, env: Union[Environment, Stream, str], *args, **kwargs) -> None:
         raise NotImplementedError
     
     @abstractmethod
-    def exit(self, env: Optional[Union[Environment, str]] = None, *args, **kwargs) -> None:
+    async def exit(self, env: Optional[Union[Environment, Stream, str]] = None, *args, **kwargs) -> None:
+        raise NotImplementedError
+        
+    @abstractmethod
+    async def shutdown(self) -> None:
         raise NotImplementedError
     
     async def __aenter__(self) -> "AbstractContext":
         await self._lock.acquire()
+        self.__class__.current = self
         return self
     
     def __aexit__(self, *args) -> None:
@@ -169,9 +176,6 @@ class Context(AbstractContext):
         
         self.collect_context(self)
         
-        if not self.__class__.current:
-            self.__class__.current = self
-        
         self.stack: Union[List[Environment], StackCache] \
             = StackCache(self.__class__.MAX_OPENED)
         self.var_map = ChainMap()
@@ -183,15 +187,15 @@ class Context(AbstractContext):
         else:
             self.path: PurePath = path
             
-    def enter(self, env: Union[Environment, str]) -> None:
+    async def enter(self, env: Union[Environment, str]) -> None:
         if not isinstance(env, Environment):
             env = Environment(env, root_path=self.path)
             
-        self.stack.append(env)
+        await self.stack.append(env)
         self.var_map.new_child(env.var_list)
         self.path.joinpath(env.name)
     
-    def exit(self, env: Optional[Union[Environment, str]] = None) -> None:
+    async def exit(self, env: Optional[Union[Environment, str]] = None) -> None:
         if env:
             if isinstance(env, Environment):
                 if env in self.stack:
@@ -204,51 +208,51 @@ class Context(AbstractContext):
                 if self.stack[-1].name != env:
                     raise McdpContextError
         
-        self.stack.pop()
+        await self.stack.pop()
         self.var_map = self.var_map.parents
         self.path = self.path.parent
         
+    async def shutdown(self) -> None:
+        await self.stack.clear()
+        del self.stack
+        
+        self.var_map.clear()
+        del self.path
+        
+        self.__class__.collection.pop(self.name)
+        if self.get_context() is self:
+            self.__class__.current = None
+    
     @CCmethod
     def insert(self, *content: str) -> None:
         if not self.stack[-1].writable():
-            raise McdpContextError
+            raise McdpContextError("fail to insert command.")
+        counter = get_counter().commands
+        for command in content:
+            +counter
+            if not command.endswith("\n"):
+                command += "\n"
+            self.stack[-1].write(command)
             
     @CCmethod
-    def comment(self, content: str) -> None:
-        pass
+    def comment(self, *content: str) -> None:
+        if not self.stack[-1].writable():
+            raise McdpContextError("fail to add the comment.")
+        com = []
+        for c in content:
+            if "\n" in c:
+                lc = c.split("\n")
+                com.extend(lc)
+            else:
+                com.append(c)
+        
+        self.stack[-1].write("#" + "\n#".join(com) + "\n")
+
+class JsonContext(AbstractContext):
+    
+    __slots__ = ["name", ]
+    
 
 get_context = Context.get_context
 insert = Context.insert
 comment = Context.comment
-'''
-from io import StringIO
-from .file_struct import BuildDirs
-
-def insert(*contents: str) -> None:
-    """
-    Insert commends into correct context.
-    When context is not writeable, throw OSError.
-    """
-    if not MCFunc.writable():
-        raise OSError("cannot insert command.")
-    
-    content: str = '\n'.join(contents)
-    if not content.endswith("\n"): 
-        content += "\n"
-    MCFunc.write(content)
-
-_textCache = StringIO()
-    
-def comment(content: str) -> None:
-    """
-    Make a comment in correct file.
-    """
-    if not MCFunc.writable():
-        raise OSError("cannot comment.")
-
-    if '\n' in content:
-        l = content.split("\n")
-        MCFunc.write("#" + "\n#".join(l)+"\n")
-    else:
-        MCFunc.write('#'+content+"\n")
-'''

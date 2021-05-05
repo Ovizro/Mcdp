@@ -1,27 +1,8 @@
 import ujson
 from typing import Any, Dict, Final, Optional, Union
 
-class Counter:
-	
-	__slots__ = ["_count",]
-	
-	def __init__(self):
-		self._count = 0
-	
-	def __pos__(self) -> None:
-		self._count += 1
-		
-	def __neg__(self) -> None:
-		self._count -= 1
-		
-	def __invert__(self) -> None:
-		self._count = 0
-		
-	def __bool__(self) -> bool:
-		if self._count > 0:
-			return True
-		else:
-			return False
+from .counter import Counter
+from .context import insert, comment
 
 class Variable:
 
@@ -73,13 +54,13 @@ class ScoreboardType(Variable):
 			)
 	
 	def dump(self) -> None:
-		MCFunc.write(self.dumps())
+		insert(self.dumps())
 
 	def remove(self) -> None:
-		MCFunc.write(f"scoreboard objectives remove {self.name}\n")
+		insert(f"scoreboard objectives remove {self.name}\n")
 
 	def display(self, pos: str) -> None:
-		MCFunc.write(f"scoreboard objectives setdisplay {pos} {self.name}\n")
+		insert(f"scoreboard objectives setdisplay {pos} {self.name}\n")
 
 class ScoreType(ScoreboardType):
 
@@ -92,4 +73,4 @@ class ScoreType(ScoreboardType):
 	def __add__(self, other: Union[int, "ScoreType"]) -> "ScoreType":
 		+self.counter
 		if isinstance(other, int):
-			MCFunc.write()
+			pass

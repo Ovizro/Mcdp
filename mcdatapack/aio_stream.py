@@ -2,6 +2,7 @@
 High level interface for Mcdp lancher.
 """
 import os
+import ujson
 import asyncio
 from pathlib import PurePath
 from functools import partial, wraps
@@ -23,7 +24,7 @@ aio_makedirs = aio_wrap(os.makedirs)
     
 class Stream:
 
-    __slots__ = ["opened", "write_tasks", "__file", "path"]
+    __slots__ = ["opened", "closed", "write_tasks", "__file", "path"]
 
     pathtools = os.path
 
@@ -38,8 +39,6 @@ class Stream:
             if not root:
                 path = os.path.abspath(path)
             else:
-                if not os.path.isabs(root):
-                    raise ValueError("param 'root' should be an absolute path.")
                 if isinstance(root, PurePath):
                     path = root.joinpath(path)
                 else:
@@ -49,31 +48,47 @@ class Stream:
             self.path = PurePath(path)
         else:
             self.path: PurePath = path
+            
+        self.opened = False
+        self.closed = False
 
     async def open(self) -> None:
+        if self.opened:
+            return
         if not os.path.isdir(self.path.parent):
             await aio_makedirs(self.path.parent)
         self.__file = await aio_open(self.path, "w", encoding="utf-8")
         self.write_tasks: List[asyncio.Task] = []
         self.opened = True
+        self.closed = False
     
     def write(self, data: str) -> asyncio.Task:
-        if not self.opened:
-            raise asyncio.InvalidStateError("I/O operation without open the file.")
-
+        self._check()
         task = asyncio.create_task(self.__file.write(data))
         self.write_tasks.append(task)
         return task
+        
+    def dump(self, data: dict) -> None:
+        string = ujson.dumps(data)
+        self.write(string)
 
     async def awrite(self, data: str) -> None:
-        if not self.opened:
-            raise asyncio.InvalidStateError("I/O operation without open the file.")
-
+        self._check()
         await self.__file.write(data)
-
-    async def close(self) -> int:
+    
+    async def flush(self) -> int:
+        self._check()
         ans = await asyncio.gather(*self.write_tasks)
+        await self.__file.flush()
+        return sum(ans)
+    
+    async def close(self) -> int:
+        if not self.opened:
+            return
+        ans = await asyncio.gather(*self.write_tasks)
+        self.opened = False
         asyncio.create_task(self.__file.close())
+        self.closed = True
         return sum(ans)
     
     def __await__(self):
@@ -86,6 +101,14 @@ class Stream:
 
     async def __aexit__(self, *args):
         await self.close()
+        
+    def _check(self) -> None:
+        if self.opened:
+            return
+        if self.closed:
+            raise OSError("I/O operation on closed file.")
+        else:
+            raise OSError("I/O operation without opening the file.")
 
 if __name__ == "__main__":
     s = Stream(PurePath("test/test.txt"))
