@@ -1,8 +1,8 @@
 import asyncio
 from pathlib import PurePath
-from collections import ChainMap
+from collections import ChainMap, UserList
 from abc import ABCMeta, abstractmethod
-from typing import Any, Dict, List, Optional, Callable, Union
+from typing import Any, Dict, List, Optional, Callable, Union, Type
 
 from .variable import Variable
 from .aio_stream import Stream, wraps
@@ -11,48 +11,44 @@ from .exception import McdpContextError
 
 class Environment:
 
-    __slots__ = ["name", "var_list", "stream", "active", "closed"]
+    __slots__ = ["name", "var_dict", "stream"]
 
     def __init__(self, name: str, *, root_path: Optional[Union[str, PurePath]] = None):
         self.name = name
-        self.var_list: Dict[str, Variable] = {}
+        self.var_dict: Dict[str, Variable] = {}
         self.stream: Stream = Stream(name, root=root_path)
         self.active = True
         self.closed = False
 
     def __getitem__(self, key: str) -> Variable:
-        if not key in self.var_list:
+        if not key in self.var_dict:
             raise AttributeError(f"unfound var {key} in env {self.name}")
-        return self.var_list[key]
+        return self.var_dict[key]
 
     def __setitem__(self, name: str, instance: Variable) -> None:
-        if not self.active:
+        if not self.writable():
             raise McdpContextError
-        if name in self.var_list:
-            if self.var_list[name] == instance:
+        if name in self.var_dict:
+            if self.var_dict[name] == instance:
                 return
-        self.var_list[name] = instance
+        self.var_dict[name] = instance
 
     def write(self, content: str) -> None:
         self.stream.write(content)
         
     def writable(self) -> bool:
-        return self.stream.opened
+        return self.stream.writable()
 
     async def activate(self) -> None:
-        self.closed = False
         await self.stream.open()
-        self.active = True
     
     async def deactivate(self) -> None:
-        self.active = False
         await self.stream.close()
-        self.closed = True
         
     def __str__(self) -> str:
         return f"<env {self.name} in the context {get_context().name}>"
 
-class StackCache(list):
+class StackCache(UserList):
     
     __slots__ = "_capacity", 
     
@@ -82,6 +78,7 @@ class StackCache(list):
         
     async def clear(self) -> None:
         for e in self:
+            e: Environment
             await e.deactivate()
         super().clear()
 
@@ -102,7 +99,7 @@ class CCmethod:
         self.__func__ = func
         self.use_async = asyncio.iscoroutinefunction(func)
     
-    def __get__(self, instance: Any, owner: type) -> Callable:
+    def __get__(self, instance: Any, owner: Type) -> Callable:
         if instance is None:
             instance = owner.current
             if not instance:
@@ -110,21 +107,22 @@ class CCmethod:
             
         if self.use_async:
             @wraps(self.__func__)
-            async def wrapper(*args, **kw):
+            async def aio_wrapper(*args, **kw):
                 return await self.__func__(instance, *args, **kw)
+            return aio_wrapper
         else:
             @wraps(self.__func__)
             def wrapper(*args, **kw):
                 return self.__func__(*args, **kw)
-        
-        return wrapper
+            return wrapper
 
 class AbstractContext(metaclass=ABCMeta):
     
-    __slots__ = ["name", "_lock"]
+    __slots__ = ["name", "_lock", "root_path"]
     
     current: Optional["AbstractContext"] = None
     collection: Dict[str, "AbstractContext"] = {}
+    root_path: Optional[PurePath] = None
     
     @abstractmethod
     def __init__(self, name: str, *args, **kwargs) -> None:
@@ -176,7 +174,7 @@ class Context(AbstractContext):
         
         self.collect_context(self)
         
-        self.stack: Union[List[Environment], StackCache] \
+        self.stack: StackCache \
             = StackCache(self.__class__.MAX_OPENED)
         self.var_map = ChainMap()
         
@@ -192,7 +190,7 @@ class Context(AbstractContext):
             env = Environment(env, root_path=self.path)
             
         await self.stack.append(env)
-        self.var_map.new_child(env.var_list)
+        self.var_map.new_child(env.var_dict)
         self.path.joinpath(env.name)
     
     async def exit(self, env: Optional[Union[Environment, str]] = None) -> None:
@@ -200,8 +198,8 @@ class Context(AbstractContext):
             if isinstance(env, Environment):
                 if env in self.stack:
                     if not env.name == self.stack[-1].name:
-                        self.exit()
-                        self.exit(env)
+                        await self.exit()
+                        await self.exit(env)
                 else:
                     raise McdpContextError
             else:
@@ -211,7 +209,13 @@ class Context(AbstractContext):
         await self.stack.pop()
         self.var_map = self.var_map.parents
         self.path = self.path.parent
-        
+    
+    def __getitem__(self, key: str) -> Variable:
+        return self.var_map[key]
+    
+    def __setitem__(self, key: str, value: Variable) -> None:
+        self.var_map[key] = value
+    
     async def shutdown(self) -> None:
         await self.stack.clear()
         del self.stack

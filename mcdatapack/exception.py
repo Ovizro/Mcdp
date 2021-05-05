@@ -21,13 +21,13 @@ class McdpContextError(McdpError, OSError):
 		self.context = get_context()
 		super().__init__(*arg)
 
-class MinecraftVersionError(McdpError):
-    pass
-
-class McdpVersionError(MinecraftVersionError):
+class McdpVersionError(McdpError):
 
     def __init__(self, msg: str) -> None:
         super().__init__(msg.format(mcdp_version=VERSION))
+
+class MinecraftVersionError(McdpVersionError):
+    pass
 
 if __name__ == "__main__":
     raise McdpError("test error")

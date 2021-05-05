@@ -1,4 +1,4 @@
-from .file_struct import BuildDirs
+from .file_struct import build_dirs
 from .context import get_context, comment, insert
 from .exception import McdpError
 
@@ -7,7 +7,7 @@ __version_num__ = 100
 
 __all__ = [
     "get_context",
-    "BuildDirs",
+    "build_dirs",
     "comment",
     "insert",
     "McdpError"

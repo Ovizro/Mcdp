@@ -87,13 +87,19 @@ class Counter:
     
 class ContextCounter(object):
     
-    __slots__ = ["commands", "files", "dirs", "chars"]
+    __slots__ = ["dirs", "files", "commands", "chars"]
     
     def __init__(self):
-        self.commands = Counter("__command__")
-        self.files = Counter("__file__")
         self.dirs = Counter("__dir__")
+        self.files = Counter("__file__")
+        self.commands = Counter("__command__")
         self.chars = Counter("__char__")
+        
+    def reset(self) -> None:
+        ~self.dirs
+        ~self.files
+        ~self.commands
+        ~self.chars
         
     def print_out(self) -> None:
         print(f"{self.dirs}+ dirs, {self.files} files,",
