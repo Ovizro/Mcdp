@@ -7,11 +7,12 @@ import ujson
 import asyncio
 from shutil import copyfile
 from functools import partial
+from pathlib import PurePath
 from typing import Any, Callable, Dict, Optional, Set, Union
 
 from .exception import MinecraftVersionError
 from .context import get_context
-from .aio_stream import Stream
+from .aio_stream import Stream, mkdir, makedirs
 
 def get_version(version: str) -> int:
     vlist = [int(v) for v in version.split(".")]
@@ -81,14 +82,13 @@ def init_name_space(name: str, *, used: Optional[Set[str]] = None) -> None:
         os.makedirs(path, exist_ok=True)
 
 def analyse_file_struct(
-    structs: Union[dict, str], 
+    struct: Union[dict, str], 
     base: Optional[Union[os.PathLike, str]] = None
 ) -> Dict[str, Union[os.PathLike, str]]:
 
-    if isinstance(structs, str):
-        struct = ujson.loads(structs)
-    else:
-        struct = structs
+    if isinstance(struct, str):
+        struct = ujson.loads(struct)
+        
     ans = {}
     for k,v in struct.items():
         if not base:
@@ -133,7 +133,7 @@ async def build_dirs(
                 |-- predicates
                 |-- ...
     """
-    await Stream.mkdir(name)
+    await mkdir(name)
     os.chdir(name)
     asyncio.ensure_future(init_mcmeta(description, version))
     
@@ -142,10 +142,10 @@ async def build_dirs(
         loop = asyncio.get_event_loop()
         loop.run_in_executor(None, copyfile)
     
-    await Stream.mkdir("data")
+    await mkdir("data")
     os.chdir("data")
     namespace = namespace or name
-    asyncio.ensure_future(Stream.mkdir("minecraft"))
-    await Stream.mkdir(namespace)
+    asyncio.ensure_future(mkdir("minecraft"))
+    await kdir(namespace)
     
     

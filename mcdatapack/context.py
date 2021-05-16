@@ -9,7 +9,15 @@ from .aio_stream import Stream, wraps
 from .counter import get_counter
 from .exception import McdpContextError
 
-class Environment:
+class AbstractEnvironment(metaclass=ABCMeta):
+    
+    __slots__ = ["name", "stream"]
+    
+    def __init__(self, name: str, *, root_path: Optional[Union[str, PurePath]] = None): 
+        self.name = name
+        self.stream = Stream(name, root=root_path)
+
+class Environment(AbstractEnvironment):
 
     __slots__ = ["name", "var_dict", "stream"]
 
@@ -17,8 +25,6 @@ class Environment:
         self.name = name
         self.var_dict: Dict[str, Variable] = {}
         self.stream: Stream = Stream(name, root=root_path)
-        self.active = True
-        self.closed = False
 
     def __getitem__(self, key: str) -> Variable:
         if not key in self.var_dict:
@@ -100,21 +106,26 @@ class CCmethod:
         self.use_async = asyncio.iscoroutinefunction(func)
     
     def __get__(self, instance: Any, owner: Type) -> Callable:
-        if instance is None:
-            instance = owner.current
-            if not instance:
-                raise McdpContextError("invalid current context")
-            
         if self.use_async:
             @wraps(self.__func__)
-            async def aio_wrapper(*args, **kw):
+            async def wrapper(*args, **kw):
+                if instance is None:
+                    instance = owner.current
+                    if not instance:
+                        raise McdpContextError("invalid current context")
+                        
                 return await self.__func__(instance, *args, **kw)
-            return aio_wrapper
         else:
             @wraps(self.__func__)
             def wrapper(*args, **kw):
-                return self.__func__(*args, **kw)
-            return wrapper
+                if instance is None:
+                    instance = owner.current
+                    if not instance:
+                        raise McdpContextError("invalid current context")
+                        
+                return self.__func__(instance, *args, **kw)
+                
+        return wrapper
 
 class AbstractContext(metaclass=ABCMeta):
     

@@ -6,14 +6,16 @@ import ujson
 import asyncio
 from pathlib import PurePath
 from functools import partial, wraps
-from typing import List, Optional, Union
+from typing import List, Optional, Union, TypeVar
 
 from aiofiles import open as aio_open
 
 from .counter import get_counter
 counter = get_counter()
 
-def aio_wrap(func):
+PathType = TypeVar("PathType", str, os.PathLike)
+
+def aio_future(func):
     @wraps(func)
     async def run(*args, loop=None, executor=None, **kwargs):
         if loop is None:
@@ -23,7 +25,28 @@ def aio_wrap(func):
 
     return run
 
-aio_makedirs = aio_wrap(os.makedirs)
+@aio_future
+def mkdir(path: PathType, *, exist_ok: bool = True) -> None:
+    if os.path.isdir(path) and exist_ok:
+        return
+    os.mkdir(path)
+    +counter.dirs
+
+@aio_future
+def makedirs(path: PathType, *, exist_ok: bool = True) -> None:
+    if not os.path.isdir(path):
+        test_path = PurePath(path).parent
+        +counter.dirs
+        while not os.path.isdir(test_path):
+            +counter.dirs
+            test_path_p = test_path.parent
+            if test_path_p == test_path:
+                break
+            else:
+                test_path = test_path_p
+    elif exist_ok:
+        return
+    os.makedirs(path, exist_ok=exist_ok)
     
 class Stream:
 
@@ -58,12 +81,10 @@ class Stream:
     async def open(self) -> None:
         if self.opened:
             return
-        
-        if not os.path.isdir(self.path.parent):
-            await aio_makedirs(self.path.parent)
-            +counter.dirs
+        await makedirs(self.path.parent)
         self.__file = await aio_open(self.path, "w", encoding="utf-8")
         +counter.files
+        
         self.write_tasks: List[asyncio.Task] = []
         self.opened = True
         self.closed = False
@@ -102,14 +123,6 @@ class Stream:
         ans =  sum(ans)
         counter.chars += ans
         return ans
-    
-    @staticmethod
-    @aio_wrap
-    def mkdir(name: Union[str, os.PathLike], *, exist_ok: bool = True) -> None:
-        if os.path.isdir(name) and exist_ok:
-            return
-        os.mkdir(name)
-        +counter.dirs
     
     def __await__(self):
         yield from self.open().__await__()
