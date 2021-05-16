@@ -6,9 +6,8 @@ import ujson
 import asyncio
 from pathlib import PurePath
 from functools import partial, wraps
-from typing import List, Optional, Union, TypeVar
-
 from aiofiles import open as aio_open
+from typing import List, Optional, Union, TypeVar
 
 from .counter import get_counter
 counter = get_counter()
@@ -102,6 +101,10 @@ class Stream:
     async def awrite(self, data: str) -> None:
         self._check()
         await self.__file.write(data)
+    
+    async def adump(self, data: dict) -> None:
+        string = ujson.dumps(data)
+        await self.awrite(string)
     
     def writable(self) -> bool:
         return self.opened and not self.closed

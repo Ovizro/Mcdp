@@ -10,8 +10,8 @@ from functools import partial
 from pathlib import PurePath
 from typing import Any, Callable, Dict, Optional, Set, Union
 
-from .exception import MinecraftVersionError
 from .context import get_context
+from .typings import MinecraftVersionError
 from .aio_stream import Stream, mkdir, makedirs
 
 def get_version(version: str) -> int:
@@ -146,6 +146,6 @@ async def build_dirs(
     os.chdir("data")
     namespace = namespace or name
     asyncio.ensure_future(mkdir("minecraft"))
-    await kdir(namespace)
+    await mkdir(namespace)
     
     

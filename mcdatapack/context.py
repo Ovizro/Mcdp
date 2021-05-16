@@ -1,23 +1,13 @@
 import asyncio
 from pathlib import PurePath
-from collections import ChainMap, UserList
-from abc import ABCMeta, abstractmethod
-from typing import Any, Dict, List, Optional, Callable, Union, Type
+from collections import ChainMap, UserList, defaultdict
+from typing import Any, Dict, List, Literal, Optional, Callable, Union, Type
 
-from .variable import Variable
-from .aio_stream import Stream, wraps
+from .typings import Variable, ContextManager, McdpError
+from .aio_stream import Stream, PathType, wraps
 from .counter import get_counter
-from .exception import McdpContextError
 
-class AbstractEnvironment(metaclass=ABCMeta):
-    
-    __slots__ = ["name", "stream"]
-    
-    def __init__(self, name: str, *, root_path: Optional[Union[str, PurePath]] = None): 
-        self.name = name
-        self.stream = Stream(name, root=root_path)
-
-class Environment(AbstractEnvironment):
+class Environment(ContextManager):
 
     __slots__ = ["name", "var_dict", "stream"]
 
@@ -106,84 +96,39 @@ class CCmethod:
         self.use_async = asyncio.iscoroutinefunction(func)
     
     def __get__(self, instance: Any, owner: Type) -> Callable:
+        if instance is None:
+            instance = owner.current
+            if not instance:
+                raise McdpContextError("invalid current context")
+                
         if self.use_async:
             @wraps(self.__func__)
             async def wrapper(*args, **kw):
-                if instance is None:
-                    instance = owner.current
-                    if not instance:
-                        raise McdpContextError("invalid current context")
-                        
                 return await self.__func__(instance, *args, **kw)
         else:
             @wraps(self.__func__)
             def wrapper(*args, **kw):
-                if instance is None:
-                    instance = owner.current
-                    if not instance:
-                        raise McdpContextError("invalid current context")
-                        
                 return self.__func__(instance, *args, **kw)
                 
         return wrapper
 
-class AbstractContext(metaclass=ABCMeta):
-    
-    __slots__ = ["name", "_lock", "root_path"]
-    
-    current: Optional["AbstractContext"] = None
-    collection: Dict[str, "AbstractContext"] = {}
-    root_path: Optional[PurePath] = None
-    
-    @abstractmethod
-    def __init__(self, name: str, *args, **kwargs) -> None:
-        self.name = name
-        self._lock = asyncio.Lock()
-    
-    @abstractmethod
-    async def enter(self, env: Union[Environment, Stream, str], *args, **kwargs) -> None:
-        raise NotImplementedError
-    
-    @abstractmethod
-    async def exit(self, env: Optional[Union[Environment, Stream, str]] = None, *args, **kwargs) -> None:
-        raise NotImplementedError
-        
-    @abstractmethod
-    async def shutdown(self) -> None:
-        raise NotImplementedError
-    
-    async def __aenter__(self) -> "AbstractContext":
-        await self._lock.acquire()
-        self.__class__.current = self
-        return self
-    
-    def __aexit__(self, *args) -> None:
-        self._lock.release()
+class Context(ContextManager):
 
-    @classmethod
-    def collect_context(cls, instance: "AbstractContext") -> None:
-        cls.collection[instance.name] = instance
-
-    @classmethod
-    def get_context(cls) -> "AbstractContext":
-        if not cls.current:
-            raise McdpContextError
-        return cls.current
-        
-class Context(AbstractContext):
-
-    __slots__ = ["name", "stack", "path", "var_map"]
+    __slots__ = ["name", "_lock", "stack", "path", "var_map"]
     
     MAX_OPENED: int = 8
+    
+    current: Optional["Context"] = None
 
     def __init__(
         self, 
         name: str, 
         path: Union[PurePath, str],
     ) -> None:
-        super().__init__(name)
+        self.name = name
+        self._lock = asyncio.Lock()
         
-        self.collect_context(self)
+        self.collect(self)
         
         self.stack: StackCache \
             = StackCache(self.__class__.MAX_OPENED)
@@ -235,9 +180,17 @@ class Context(AbstractContext):
         del self.path
         
         self.__class__.collection.pop(self.name)
-        if self.get_context() is self:
+        if get_context() is self:
             self.__class__.current = None
     
+    async def __aenter__(self) -> "Context":
+        await self._lock.acquire()
+        self.__class__.current = self
+        return self
+    
+    def __aexit__(self, *args) -> None:
+        self._lock.release()
+
     @CCmethod
     def insert(self, *content: str) -> None:
         if not self.stack[-1].writable():
@@ -263,11 +216,63 @@ class Context(AbstractContext):
         
         self.stack[-1].write("#" + "\n#".join(com) + "\n")
 
-class JsonContext(AbstractContext):
-    
-    __slots__ = ["name", ]
-    
+_tagType = Literal["blocks", "entity_types", "items", "fluids", "functions"]
 
-get_context = Context.get_context
-insert = Context.insert
-comment = Context.comment
+class TagManager(ContextManager):
+    
+    __slots__ = ["type", "replace", "root_path", "cache"]
+    
+    def __init__(self, type: _tagType, *, root_path: PathType = '.', replace: bool = False) -> None:
+        self.type = type
+        self.replace = replace
+        self.root_path = PurePath(root_path, type)
+        self.cache = defaultdict(set)
+        
+    def add(self, tag: str, item: str, *, namaspace: Optional[str] = None) -> None:
+        if not ":" in item:
+            if not namaspace:
+                namaspace = self.get_namespace()
+            item = f"{namaspace}:{item}"
+            
+        self.cache[tag].add(item)
+    
+    def get_tag_data(self, tag: str) -> dict:
+        if not tag in self.cache:
+            raise McdpContextError
+        
+        values = list(self.cache[tag])
+        return {"replace":self.replace, "values":values}
+    
+    async def apply_tag(self, tag: str) -> None:
+        if not tag in self.cache:
+            raise McdpContextError
+        
+        async with Stream(tag, root=self.root_path) as stream:
+            await stream.adump(self.get_tag_data(tag))
+            
+    def apply(self) -> None:
+        for tag in self.cache:
+            asyncio.ensure_future(self.apply_tag(tag))
+        self.cache.clear()
+        
+    def __del__(self) -> None:
+        if self.cache:
+            raise RuntimeError
+class McdpContextError(McdpError):
+	
+	__slots__ = ["context", ]
+	
+	def __init__(self, *arg: str) -> None:
+		self.context = get_context()
+		super(McdpError, self).__init__(*arg)
+
+def get_context() -> "Context":
+    if not Context.current:
+        raise McdpContextError
+    return Context.current
+    
+def insert(*content: str) -> None:
+    return Context.insert(*content)
+
+def comment(*content: str) -> None:
+    return Context.comment(*content)
