@@ -11,30 +11,8 @@ from pathlib import PurePath
 from typing import Any, Callable, Dict, Optional, Set, Union
 
 from .context import get_context
-from .typings import MinecraftVersionError
+from .config import get_version
 from .aio_stream import Stream, mkdir, makedirs
-
-def get_version(version: str) -> int:
-    vlist = [int(v) for v in version.split(".")]
-
-    if vlist[0] != 1 or vlist[1] < 13:
-        raise MinecraftVersionError("only Minecraft version >= 1.13 can use datapack.")
-
-    if vlist[1] == 13 or vlist[1] == 14:
-        return 4
-    elif vlist[1] == 15:
-        return 5
-    elif vlist[1] == 16:
-        if len(vlist) <= 2:
-            return 5
-        if vlist[2] <= 1:
-            return 5
-        else:
-            return 6
-    elif vlist[1] == 17:
-        return 7
-    else:
-        raise ValueError(f"unknow Minecraft datapack version {version}")
 
 async def init_mcmeta(desc: str, version: Union[int, str]) -> None:
     async with Stream("pack.mcmeta") as f:

@@ -1,6 +1,6 @@
 """"
 All base classes of Mcdp variable.
-""""
+"""
 
 import sys
 from abc import ABCMeta, abstractmethod
@@ -16,6 +16,10 @@ class McdpVar:
     
     __accessible__: list = []
     
+    def get_attr(self, key: str) -> Any:
+        if not key in self.__class__.__accessible__:
+            raise McdpError
+        return self.__getattribute__(key)
 
 """
 ==============================
@@ -57,7 +61,7 @@ class Variable(McdpVar, metaclass=ABCMeta):
         self.linked.remove(var)
         
     def used(self) -> bool:
-        return any(self.linked.values())
+        return any(self.linked)
 
 """
 ==============================
@@ -66,11 +70,7 @@ Mcdp config
 """
 
 class McdpConfig(McdpVar, BaseModel):
-    
-    __slots__ = ["name", ]
-    
-    def __init__(self, name: str) -> None:
-        self.name = name
+    pass
 
 """
 ==============================
@@ -80,7 +80,8 @@ Mcdp Context Manager
 
 class ContextManager(McdpVar):
     
-    __slots__ = ["name"]
+    __slots__ = ["name",]
+    __accessible__ = ["name",]
     
     collection = {}
     

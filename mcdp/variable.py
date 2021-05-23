@@ -1,5 +1,5 @@
 import ujson
-from typing import Any, Dict, Final, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 from .counter import Counter
 from .context import insert, comment
