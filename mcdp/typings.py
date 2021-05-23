@@ -1,6 +1,11 @@
+""""
+All base classes of Mcdp variable.
+""""
+
 import sys
 from abc import ABCMeta, abstractmethod
-from typing import Union
+from pydantic import BaseModel
+from typing import Any, Union, Tuple, Dict, Type
 
 __version__ = "Alpha 0.1.0"
 __version_num__ = 100
@@ -8,7 +13,15 @@ __version_num__ = 100
 from .counter import Counter
 
 class McdpVar:
-    pass
+    
+    __accessible__: list = []
+    
+
+"""
+==============================
+Mcdp Variables
+==============================
+"""
 
 class Variable(McdpVar, metaclass=ABCMeta):
 
@@ -44,8 +57,27 @@ class Variable(McdpVar, metaclass=ABCMeta):
         self.linked.remove(var)
         
     def used(self) -> bool:
-        return any(self.linked)
+        return any(self.linked.values())
+
+"""
+==============================
+Mcdp config
+==============================
+"""
+
+class McdpConfig(McdpVar, BaseModel):
     
+    __slots__ = ["name", ]
+    
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+"""
+==============================
+Mcdp Context Manager
+==============================
+"""
+
 class ContextManager(McdpVar):
     
     __slots__ = ["name"]
@@ -62,6 +94,12 @@ class ContextManager(McdpVar):
     @classmethod
     def get_namespace(cls):
         pass
+
+"""
+==============================
+Mcdp Exceptions
+==============================
+"""
 
 class McdpError(Exception, McdpVar):
     

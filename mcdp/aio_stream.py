@@ -95,7 +95,7 @@ class Stream:
         return task
         
     def dump(self, data: dict) -> None:
-        string = ujson.dumps(data)
+        string = ujson.dumps(data, indent=4)
         self.write(string)
 
     async def awrite(self, data: str) -> None:

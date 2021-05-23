@@ -258,6 +258,7 @@ class TagManager(ContextManager):
     def __del__(self) -> None:
         if self.cache:
             raise RuntimeError
+            
 class McdpContextError(McdpError):
 	
 	__slots__ = ["context", ]
