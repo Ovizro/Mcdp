@@ -55,9 +55,9 @@ class Stream:
 
     def __init__(
     	self,
-    	path: Union[str, os.PathLike],
+    	path: PathType,
     	*,
-    	root: Optional[Union[str, os.PathLike]] = None
+    	root: Optional[PathType] = None
     ) -> None:
         
         if not os.path.isabs(path):
