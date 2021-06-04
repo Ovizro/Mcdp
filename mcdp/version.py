@@ -1,18 +1,19 @@
-from typing import List, Tuple, Iterable, Callable, Union, Optional, TypeVar
+from functools import wraps
+from typing import Any, List, NoReturn, Tuple, Iterable, Callable, Union, Optional, TypeVar
 
 from .typings import McdpError, __version__
 
-T_version = TypeVar("version", Tuple[int], str, "Version")
+T_version = TypeVar("T_version", Tuple[int], str, "Version")
 
 class Version:
     
     __slots__ = ["__num_list",]
     
     def __init__(self, version: T_version) -> None:
-        if isinstance(version, self.__class__):
-            self.__num_list = version.get_number()
-        elif isinstance(version, tuple):
+        if isinstance(version, tuple):
             self.__num_list = version
+        elif isinstance(version, self.__class__):
+            self.__num_list = version.get_number()
         else:
             try:
                 num = [int(i) for i in version.split('.')]
@@ -135,6 +136,22 @@ def get_version(mc_version: T_version) -> int:
 
 _version_func: dict = {}
 
+def fail_version_check(func: Callable) -> Callable:
+    name = func.__qualname__
+    if name in _version_func:
+        return _version_func[name]
+    @wraps(func)
+    def nope(*args, **kwargs) -> NoReturn:
+        raise McdpVersionError(f"the function '{name} fails to pass the version check.'")
+    return nope
+
+def pass_version_check(func: Callable) -> Any:
+    name = func.__qualname__
+    if name in _version_func:
+        raise McdpVersionError(f"the function '{name}' has a version conflict.")
+    _version_func[name] = func
+    return func
+        
 def version_check(
     version: Version,
     *args: str,
@@ -157,11 +174,35 @@ def version_check(
                 lt = lt or i[1:]
             elif i.startswith('=='):
                 eq.append(i[2:])
-
+            elif i.startswith('!='):
+                ne.append(i[2:])
+                
+    check = True
+    if gt:
+        check = check and (version > gt)
+    if ge:
+        check = check and (version >= ge)
+    if lt:
+        check = check and (version < lt)
+    if le:
+        check = check and (version <= le)
+    if eq:
+        check = check and (version in [Version(i) for i in eq])
+    if ne:
+        check = check and not (version in [Version(i) for i in ne])
+        
+    if not check:
+        return fail_version_check
+    else:
+        return pass_version_check
+    
 class McdpVersionError(McdpError):
 
-    def __init__(self, msg: str) -> None:
-        super().__init__(msg.format(mcdp_version=__version__))
+    def __init__(self, msg: Optional[str] = None) -> None:
+        if msg:
+            super().__init__(msg.format(mcdp_version=__version__))
+        else:
+            super().__init__()
 
 class MinecraftVersionError(McdpVersionError):
     pass

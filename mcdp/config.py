@@ -3,10 +3,9 @@ from typing import Union, Optional, Tuple, TypeVar
 from pydantic import Field, validator
 
 from .typings import McdpConfig, __version__
-from .version import Version, MinecraftVersionError
+from .version import Version, T_version
 
 _dp_version_field = Field(default=6, const=True, ge=4)
-T_version = TypeVar("version", Tuple[int], str, Version)
 
 class PydpConfig(McdpConfig):
     use_ast: bool = False
@@ -41,5 +40,5 @@ class Config(McdpConfig):
             namespace=namespace, iron_path=iron_path, **kw)
     
     @validator("version")
-    def _version(cls, value: T_version) -> int:
+    def _version(cls, value: T_version) -> Version:
         return Version(value)
