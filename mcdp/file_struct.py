@@ -10,8 +10,8 @@ from functools import partial
 from pathlib import PurePath
 from typing import Any, Callable, Dict, Optional, Set, Union
 
-from .context import get_context
-from .config import get_version
+from .context import get_context, Context, TagManager
+from .version import get_version
 from .aio_stream import Stream, mkdir, makedirs
 
 async def init_mcmeta(desc: str, version: Union[int, str]) -> None:
@@ -80,6 +80,9 @@ def analyse_file_struct(
             ans.update(analyse_file_struct(v, path))
     
     return ans
+    
+async def init_context() -> None:
+    ...
 
 async def build_dirs(
     name: str,
@@ -116,9 +119,9 @@ async def build_dirs(
     asyncio.ensure_future(init_mcmeta(description, version))
     
     if iron_path:
-        copyfile = partial(copyfile, iron_path, "pack.png")
+        copyiron = partial(copyfile, iron_path, "pack.png")
         loop = asyncio.get_event_loop()
-        loop.run_in_executor(None, copyfile)
+        loop.run_in_executor(None, copyiron)
     
     await mkdir("data")
     os.chdir("data")

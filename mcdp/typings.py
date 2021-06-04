@@ -3,8 +3,9 @@ All base classes of Mcdp variable.
 """
 
 import sys
+import ujson
 from abc import ABCMeta, abstractmethod
-from pydantic import BaseModel
+from pydantic import BaseModel, BaseConfig
 from typing import Any, Union, Tuple, Dict, Type
 
 __version__ = "Alpha 0.1.0"
@@ -70,7 +71,12 @@ Mcdp config
 """
 
 class McdpConfig(McdpVar, BaseModel):
-    pass
+    __accessible__ = ["@all.attr",]
+    
+    class Config(BaseConfig):
+        arbitrary_types_allowed = True
+        json_loads = ujson.loads
+        json_dumps = ujson.dumps
 
 """
 ==============================
@@ -89,8 +95,12 @@ class ContextManager(McdpVar):
         self.name = name
     
     @classmethod
-    def collect(cls, instance: "ContextManager") -> None:
+    def _collect(cls, instance: "ContextManager") -> None:
         cls.collection[instance.name] = instance
+    
+    @classmethod
+    def _remove_from_collection(cls, instance: "ContextManager") -> None:
+        cls.collection.pop(instance.name)
 
     @classmethod
     def get_namespace(cls):
@@ -110,11 +120,3 @@ class McdpError(Exception, McdpVar):
         self.mcdp_version = __version__
         self.python_version = sys.version
         super().__init__(*arg)
-        
-class McdpVersionError(McdpError):
-
-    def __init__(self, msg: str) -> None:
-        super().__init__(msg.format(mcdp_version=__version__))
-
-class MinecraftVersionError(McdpVersionError):
-    pass

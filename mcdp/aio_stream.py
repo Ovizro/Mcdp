@@ -4,7 +4,7 @@ Support async file stream for the Context.
 import os
 import ujson
 import asyncio
-from pathlib import PurePath
+from pathlib import Path
 from functools import partial, wraps
 from aiofiles import open as aio_open
 from typing import List, Optional, Union, TypeVar
@@ -12,7 +12,7 @@ from typing import List, Optional, Union, TypeVar
 from .counter import get_counter
 counter = get_counter()
 
-PathType = TypeVar("PathType", str, os.PathLike)
+T_Path = TypeVar("PathType", str, os.PathLike)
 
 def aio_future(func):
     @wraps(func)
@@ -25,27 +25,26 @@ def aio_future(func):
     return run
 
 @aio_future
-def mkdir(path: PathType, *, exist_ok: bool = True) -> None:
+def mkdir(path: T_Path, *, exist_ok: bool = True) -> None:
     if os.path.isdir(path) and exist_ok:
         return
     os.mkdir(path)
     +counter.dirs
 
 @aio_future
-def makedirs(path: PathType, *, exist_ok: bool = True) -> None:
-    if not os.path.isdir(path):
-        test_path = PurePath(path).parent
+def makedirs(path: T_Path, *, exist_ok: bool = True) -> None:
+    path = Path(path)
+    if not path.is_absolute():
+        test_path = path.parent
         +counter.dirs
-        while not os.path.isdir(test_path):
+        while not test_path.is_dir():
             +counter.dirs
             test_path_p = test_path.parent
             if test_path_p == test_path:
                 break
             else:
                 test_path = test_path_p
-    elif exist_ok:
-        return
-    os.makedirs(path, exist_ok=exist_ok)
+    path.mkdir(parents=True, exist_ok=exist_ok)
     
 class Stream:
 
@@ -55,25 +54,17 @@ class Stream:
 
     def __init__(
     	self,
-    	path: PathType,
+    	path: T_Path,
     	*,
-    	root: Optional[PathType] = None
+    	root: Optional[T_Path] = None
     ) -> None:
-        
-        if not os.path.isabs(path):
+        path = Path(path)
+        if not path.is_absolute():
             if not root:
-                path = os.path.abspath(path)
+                path = path.resolve()
             else:
-                if isinstance(root, PurePath):
-                    path = root.joinpath(path)
-                else:
-                    path = os.path.join(root, path)
+                Path(root).joinpath(path)
 
-        if not isinstance(path, PurePath):
-            self.path = PurePath(path)
-        else:
-            self.path: PurePath = path
-            
         self.opened = False
         self.closed = False
 
@@ -147,7 +138,7 @@ class Stream:
             raise OSError("I/O operation without opening the file.")
 
 if __name__ == "__main__":
-    s = Stream(PurePath("test/test.txt"))
+    s = Stream(Path("test/test.txt"))
     async def main():
         async with s:
             await s.write("hhh")

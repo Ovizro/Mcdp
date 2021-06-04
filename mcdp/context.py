@@ -1,17 +1,18 @@
 import asyncio
-from pathlib import PurePath
+from pathlib import Path
 from collections import ChainMap, UserList, defaultdict
 from typing import Any, Dict, List, Literal, Optional, Callable, Union, Type
 
 from .typings import Variable, ContextManager, McdpError
-from .aio_stream import Stream, PathType, wraps
+from .aio_stream import Stream, T_Path, wraps
 from .counter import get_counter
 
 class Environment(ContextManager):
 
     __slots__ = ["name", "var_dict", "stream"]
+    __accessible__ = ["name", "stream", "@item"]
 
-    def __init__(self, name: str, *, root_path: Optional[Union[str, PurePath]] = None):
+    def __init__(self, name: str, *, root_path: Optional[Union[str, Path]] = None):
         self.name = name
         self.var_dict: Dict[str, Variable] = {}
         self.stream: Stream = Stream(name, root=root_path)
@@ -115,6 +116,7 @@ class CCmethod:
 class Context(ContextManager):
 
     __slots__ = ["name", "_lock", "stack", "path", "var_map"]
+    __accessible__ = ["name", "stack", "@item"]
     
     MAX_OPENED: int = 8
     
@@ -123,23 +125,18 @@ class Context(ContextManager):
     def __init__(
         self, 
         name: str, 
-        path: Union[PurePath, str],
+        path: Union[Path, str],
     ) -> None:
         self.name = name
         self._lock = asyncio.Lock()
         
-        self.collect(self)
+        self._collect(self)
         
         self.stack: StackCache \
             = StackCache(self.__class__.MAX_OPENED)
         self.var_map = ChainMap()
         
-        if not Stream.pathtools.isabs(path):
-            path = Stream.pathtools.abspath(path)
-        if not isinstance(path, PurePath):
-            self.path = PurePath(path)
-        else:
-            self.path: PurePath = path
+        path = Path(path).resolve()
             
     async def enter(self, env: Union[Environment, str]) -> None:
         if not isinstance(env, Environment):
@@ -153,14 +150,14 @@ class Context(ContextManager):
         if env:
             if isinstance(env, Environment):
                 if env in self.stack:
-                    if not env.name == self.stack[-1].name:
+                    if not env.name == self.top.name:
                         await self.exit()
                         await self.exit(env)
                 else:
-                    raise McdpContextError
+                    raise McdpContextError(f"cannot find environment {env} in stack.")
             else:
-                if self.stack[-1].name != env:
-                    raise McdpContextError
+                if self.top.name != env:
+                    raise McdpContextError(f"cannot exit from the environment {env}.")
         
         await self.stack.pop()
         self.var_map = self.var_map.parents
@@ -171,6 +168,10 @@ class Context(ContextManager):
     
     def __setitem__(self, key: str, value: Variable) -> None:
         self.var_map[key] = value
+
+    @property
+    def top(self) -> Environment:
+        return self.stack[-1]
     
     async def shutdown(self) -> None:
         await self.stack.clear()
@@ -179,7 +180,7 @@ class Context(ContextManager):
         self.var_map.clear()
         del self.path
         
-        self.__class__.collection.pop(self.name)
+        self._remove_from_collection(self)
         if get_context() is self:
             self.__class__.current = None
     
@@ -221,11 +222,12 @@ _tagType = Literal["blocks", "entity_types", "items", "fluids", "functions"]
 class TagManager(ContextManager):
     
     __slots__ = ["type", "replace", "root_path", "cache"]
+    __accessible__ = ["type", "replace", "@item"]
     
-    def __init__(self, type: _tagType, *, root_path: PathType = '.', replace: bool = False) -> None:
+    def __init__(self, type: _tagType, *, root_path: T_Path = '.', replace: bool = False) -> None:
         self.type = type
         self.replace = replace
-        self.root_path = PurePath(root_path, type)
+        self.root_path = Path(root_path, type).resolve()
         self.cache = defaultdict(set)
         
     def add(self, tag: str, item: str, *, namaspace: Optional[str] = None) -> None:
@@ -235,6 +237,12 @@ class TagManager(ContextManager):
             item = f"{namaspace}:{item}"
             
         self.cache[tag].add(item)
+    
+    def __getitem__(self, key: str) -> set:
+        return self.cache[key]
+        
+    def __setitem__(self, key: str, item: str) -> None:
+        self.add(key, item)
     
     def get_tag_data(self, tag: str) -> dict:
         if not tag in self.cache:
@@ -257,19 +265,19 @@ class TagManager(ContextManager):
         
     def __del__(self) -> None:
         if self.cache:
-            raise RuntimeError
+            self.apply()
             
 class McdpContextError(McdpError):
 	
 	__slots__ = ["context", ]
 	
 	def __init__(self, *arg: str) -> None:
-		self.context = get_context()
+		self.context = Context.current
 		super(McdpError, self).__init__(*arg)
 
 def get_context() -> "Context":
     if not Context.current:
-        raise McdpContextError
+        raise McdpContextError("no context activated.")
     return Context.current
     
 def insert(*content: str) -> None:

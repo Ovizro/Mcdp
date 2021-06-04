@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional, Union
 from .counter import Counter
 from .context import insert, comment
 from .typings import Variable
+
 class ScoreboardType(Variable):
 
     __slots__ = ["name", "criteria", "displayName", "counter", "linked"]
