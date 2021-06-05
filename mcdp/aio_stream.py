@@ -12,7 +12,7 @@ from typing import List, Optional, Union, TypeVar
 from .counter import get_counter
 counter = get_counter()
 
-T_Path = TypeVar("PathType", str, os.PathLike)
+T_Path = TypeVar("T_Path", str, os.PathLike, Path)
 
 def aio_future(func):
     @wraps(func)
@@ -32,8 +32,8 @@ def mkdir(path: T_Path, *, exist_ok: bool = True) -> None:
     +counter.dirs
 
 @aio_future
-def makedirs(path: T_Path, *, exist_ok: bool = True) -> None:
-    path = Path(path)
+def makedirs(dir_path: T_Path, *, exist_ok: bool = True) -> None:
+    path = Path(dir_path)
     if not path.is_absolute():
         test_path = path.parent
         +counter.dirs
@@ -64,7 +64,8 @@ class Stream:
                 path = path.resolve()
             else:
                 Path(root).joinpath(path)
-
+                
+        self.path = path
         self.opened = False
         self.closed = False
 

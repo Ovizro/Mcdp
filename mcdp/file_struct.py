@@ -7,7 +7,7 @@ import ujson
 import asyncio
 from shutil import copyfile
 from functools import partial
-from pathlib import PurePath
+from pathlib import Path, PurePath
 from typing import Any, Callable, Dict, Optional, Set, Union
 
 from .context import get_context, Context, TagManager
@@ -81,7 +81,8 @@ def analyse_file_struct(
     
     return ans
     
-async def init_context() -> None:
+async def init_context(namespace: str) -> None:
+    mincraft_tag = Path("minecraft/tags")
     
 
 async def build_dirs(

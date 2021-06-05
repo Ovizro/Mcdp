@@ -6,9 +6,9 @@ import sys
 import ujson
 from abc import ABCMeta, abstractmethod
 from pydantic import BaseModel, BaseConfig
-from typing import Any, Union, Optional, Tuple, Dict, Type
+from typing import Any, Union, Optional
 
-from .version import Version, VersionError, __version__
+from .version import VersionError, __version__
 from .counter import Counter
 
 class McdpVar:
