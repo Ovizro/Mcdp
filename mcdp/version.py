@@ -1,9 +1,8 @@
 from functools import wraps
-from typing import Any, List, NoReturn, Tuple, Iterable, Callable, Union, Optional, TypeVar
-
-from .typings import McdpError, __version__
+from typing import Any, List, NoReturn, Tuple, Callable, Union, Optional, TypeVar
 
 T_version = TypeVar("T_version", Tuple[int], str, "Version")
+TS_version = TypeVar("TS_version", Tuple[str, int], str, "StepVersion")
 
 class Version:
     
@@ -24,7 +23,7 @@ class Version:
                 self.__num_list = tuple(num)
                 return
             
-            except (TypeError, ValueError):
+            except Exception:
                 pass
             raise ValueError("incorrect version form.")
     
@@ -44,7 +43,7 @@ class Version:
         if not isinstance(other, self.__class__):
             try:
                 other = self.__class__(other)
-            except (McdpVersionError, ValidationError):
+            except ValueError:
                 return NotImplemented
         
         m = max(len(self), len(other))
@@ -58,25 +57,48 @@ class Version:
             return e
     
     @staticmethod
-    def _D_compare(ops: Callable[[int,int], bool]) -> Callable[["Version", T_version], bool]:
+    def compare_decorator(ops: Callable[[int,int], bool]) -> Callable[["Version", T_version], bool]:
+        """
+        Be used to create a operator to compare two Version instance. 
+        The argument 'ops' will be used to compare every number of
+        the version list.
+        
+        Use as: 
+            ```
+            @Version.compare_decorator
+            def around(v1: int, v2: int) -> bool:
+                if abs(v1 - v2) < 5:
+                    return True
+                else:
+                    return False
+            print(around(Version("1.12"), Version("1.13")))
+            # stdout: True
+            ```
+        """
         def __compare__(self, other: T_version) -> bool:
             return self._compare(ops, other)
         return __compare__
         
     def __eq__(self, other: T_version) -> bool:
         if not isinstance(other, self.__class__):
-            other = self.__class__(other)
+            try:
+                other = self.__class__(other)
+            except ValueError:
+                return NotImplemented
         return self.__num_list == other.get_number()
         
     def __ne__(self, other: T_version) -> bool:
         if not isinstance(other, self.__class__):
-            other = self.__class__(other)
+            try:
+                other = self.__class__(other)
+            except ValueError:
+                return NotImplemented
         return self.__num_list != other.get_number()
     
-    __gt__ = _D_compare.__func__(lambda x, y: x > y)
-    __ge__ = _D_compare.__func__(lambda x, y: x >= y)
-    __lt__ = _D_compare.__func__(lambda x, y: x < y)
-    __le__ = _D_compare.__func__(lambda x, y: x <= y)
+    __gt__ = compare_decorator.__func__(lambda x, y: x > y)
+    __ge__ = compare_decorator.__func__(lambda x, y: x >= y)
+    __lt__ = compare_decorator.__func__(lambda x, y: x < y)
+    __le__ = compare_decorator.__func__(lambda x, y: x <= y)
     
     def __len__(self) -> int:
         return len(self.__num_list)
@@ -113,26 +135,75 @@ class Version:
         return f"Version{self.__num_list}"
     
     def __str__(self) -> str:
-        return '.'.join(self.__num_list)
+        return '.'.join([str(i) for i in self.__num_list])
 
-def get_version(mc_version: T_version) -> int:
-    if not isinstance(mc_version, Version):
-        mc_version = Version(mc_version)
+class StepVersion(Version):
+    
+    __slots__ = ["step"]
+    
+    def __init__(self, version: T_version, *, step: Optional[str] = None) -> None:
+        if isinstance(version, self.__class__):
+            self.step = version.step
+            super().__init__(version)
+        elif isinstance(version, Version):
+            self.step = step
+            super().__init__(version)
+        else:
+            try:
+                if isinstance(version, tuple):
+                    if isinstance(version[0], str):
+                        self.step = step or version[0]
+                        version = version[1:]
+                    else:
+                        self.step = step
+                else:
+                    l = version.split()
+                    if len(l) == 1:
+                        self.step = step
+                    elif len(l) > 2 or (not isinstance(l[0], str)):
+                        raise ValueError
+                    else:
+                        self.step = step or l[0]
+                        version = l[1]
+                return super().__init__(version)
+            except Exception:
+                pass
+            raise ValueError("incorrect version form.")
+    
+    def __eq__(self, other: T_version) -> None:
+        if not isinstance(other, self.__class__):
+            try:
+                other = self.__class__(other)
+            except ValueError:
+                return NotImplemented
+        if self.step and other.step:
+            if self.step != other.step:
+                return False
+        return super().__eq__(other)
+        
+    def __ne__(self, other: T_version) -> None:
+        if not isinstance(other, self.__class__):
+            try:
+                other = self.__class__(other)
+            except ValueError:
+                return NotImplemented
+        if self.step and other.step:
+            if self.step == other.step:
+                return False
+        return super().__ne__(other)
+    
+    def __repr__(self) -> str:
+        if not self.step:
+            return super().__repr__()
+        return f"StepVersion({self.step}, {self.get_number()})"
+    
+    def __str__(self) -> str:
+        num = super().__str__()
+        if not self.step:
+            return num
+        return f"{self.step} {num}"
 
-    if mc_version[0] != 1:
-        raise MinecraftVersionError
-    elif mc_version[1] < 14:
-        raise MinecraftVersionError
-    elif mc_version[1] < 15:
-        return 4
-    elif mc_version <= "1.16.1":
-        return 5
-    elif mc_version[1] < 17:
-        return 6
-    elif mc_version[1] == 17:
-        return 7
-    else:
-        raise ValueError(f"unknow Minecraft datapack version {version}")
+__version__ = StepVersion("Alpha 0.1.0")
 
 _version_func: dict = {}
 
@@ -142,26 +213,30 @@ def fail_version_check(func: Callable) -> Callable:
         return _version_func[name]
     @wraps(func)
     def nope(*args, **kwargs) -> NoReturn:
-        raise McdpVersionError(f"the function '{name} fails to pass the version check.'")
+        raise VersionError(f"the function '{name}' fails to pass the version check.")
     return nope
 
 def pass_version_check(func: Callable) -> Any:
     name = func.__qualname__
     if name in _version_func:
-        raise McdpVersionError(f"the function '{name}' has a version conflict.")
+        raise VersionError(f"the function '{name}' has a version conflict.")
     _version_func[name] = func
     return func
         
 def version_check(
     version: Version,
     *args: str,
-    eq: List[T_version] = [],
-    ne: List[T_version] = [],
+    eq: Union[List[T_version], T_version] = [],
+    ne: Union[List[T_version], T_version] = [],
     gt: Optional[T_version] = None,
     ge: Optional[T_version] = None,
     lt: Optional[T_version] = None,
     le: Optional[T_version] = None
 ) -> Callable[[Callable], Callable]:
+    if not isinstance(eq, List):
+        eq = [eq,]
+    if not isinstance(ne, List):
+        ne = [ne,]
     if args:
         for i in args:
             if i.startswith('>='):
@@ -176,7 +251,8 @@ def version_check(
                 eq.append(i[2:])
             elif i.startswith('!='):
                 ne.append(i[2:])
-                
+            else:
+                raise ValueError(f"cannot analyze the argument {i}")
     check = True
     if gt:
         check = check and (version > gt)
@@ -187,22 +263,21 @@ def version_check(
     if le:
         check = check and (version <= le)
     if eq:
-        check = check and (version in [Version(i) for i in eq])
+        check = check or (version in [Version(i) for i in eq])
+        eq.clear()
     if ne:
         check = check and not (version in [Version(i) for i in ne])
+        ne.clear()
         
     if not check:
         return fail_version_check
     else:
         return pass_version_check
+
+class VersionError(Exception):
     
-class McdpVersionError(McdpError):
-
-    def __init__(self, msg: Optional[str] = None) -> None:
-        if msg:
-            super().__init__(msg.format(mcdp_version=__version__))
-        else:
-            super().__init__()
-
-class MinecraftVersionError(McdpVersionError):
-    pass
+    __slots__ = ["version"]
+    
+    def __init__(self, *msg, version: Optional[Version] = None) -> None:
+        self.version = version
+        super().__init__(*msg)

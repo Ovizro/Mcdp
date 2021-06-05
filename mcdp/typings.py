@@ -6,11 +6,9 @@ import sys
 import ujson
 from abc import ABCMeta, abstractmethod
 from pydantic import BaseModel, BaseConfig
-from typing import Any, Union, Tuple, Dict, Type
+from typing import Any, Union, Optional, Tuple, Dict, Type
 
-__version__ = "Alpha 0.1.0"
-__version_num__ = 100
-
+from .version import Version, VersionError, __version__
 from .counter import Counter
 
 class McdpVar:
@@ -112,11 +110,19 @@ Mcdp Exceptions
 ==============================
 """
 
-class McdpError(Exception, McdpVar):
+class McdpError(VersionError, McdpVar):
     
-    __slots__ = ["mcdp_version", "python_version"]
+    __slots__ = ["version", "python_version"]
     
-    def __init__(self, *arg: str) -> None:
-        self.mcdp_version = __version__
+    def __init__(self, *arg: str, **kw) -> None:
         self.python_version = sys.version
-        super().__init__(*arg)
+        super().__init__(*arg, version=__version__)
+        
+class McdpVersionError(McdpError):
+
+    def __init__(self, msg: Optional[str] = None) -> None:
+        if msg:
+            super().__init__(
+                msg.format(mcdp_version=__version__))
+        else:
+            super().__init__()

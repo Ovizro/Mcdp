@@ -11,7 +11,7 @@ from pathlib import PurePath
 from typing import Any, Callable, Dict, Optional, Set, Union
 
 from .context import get_context, Context, TagManager
-from .version import get_version
+from .config import get_version
 from .aio_stream import Stream, mkdir, makedirs
 
 async def init_mcmeta(desc: str, version: Union[int, str]) -> None:
@@ -82,7 +82,7 @@ def analyse_file_struct(
     return ans
     
 async def init_context() -> None:
-    ...
+    
 
 async def build_dirs(
     name: str,
