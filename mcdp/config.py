@@ -2,8 +2,8 @@ from os import PathLike
 from typing import Union, Optional, Tuple, TypeVar
 from pydantic import Field, validator
 
-from .typings import McdpConfig, McdpVersionError, __version__
-from .version import Version, T_version
+from .typings import McdpConfig, McdpError, McdpVersionError
+from .version import Version, T_version, __version__
 
 _dp_version_field = Field(default=6, const=True, ge=4)
 
@@ -33,6 +33,8 @@ def get_version(mc_version: T_version) -> int:
     else:
         raise ValueError(f"unknow Minecraft datapack version {version}")
 
+_current_cfg: Optional["Config"] = None
+
 class Config(McdpConfig):
     name: str
     version: Version
@@ -40,8 +42,8 @@ class Config(McdpConfig):
     iron_path: Optional[Union[str, PathLike]] = None
     namespace: str
     
-    pydp: PydpConfig
-    vmcl: VmclConfig
+    pydp: PydpConfig = PydpConfig()
+    vmcl: VmclConfig = VmclConfig()
     
     def __init__(
         self,
@@ -54,13 +56,20 @@ class Config(McdpConfig):
         **kw
     ) -> None:
         namespace = namespace or name
+        version = Version(version)
         super().__init__(
             name=name, version=version, description=description,
             namespace=namespace, iron_path=iron_path, **kw)
+        _current_cfg = self
     
     @validator("version")
     def _version(cls, value: T_version) -> Version:
         return Version(value)
+
+def get_config() -> Config:
+    if not _current_cfg:
+        raise McdpError("fail to get the config.")
+    return _current_cfg
 
 class MinecraftVersionError(McdpVersionError):
     pass

@@ -3,7 +3,6 @@ Prepare basic datapack dirs for Mcdp lancher.
 """
 
 import os
-import ujson
 import asyncio
 from shutil import copyfile
 from functools import partial
@@ -11,12 +10,12 @@ from pathlib import Path, PurePath
 from typing import Any, Callable, Dict, Optional, Set, Union
 
 from .context import get_context, Context, TagManager
-from .config import get_version
+from .config import get_version, Version, T_version
 from .aio_stream import Stream, mkdir, makedirs
 
-async def init_mcmeta(desc: str, version: Union[int, str]) -> None:
+async def init_mcmeta(desc: str, version: T_version) -> None:
     async with Stream("pack.mcmeta") as f:
-        if isinstance(version, str):
+        if not isinstance(version, int):
             version = get_version(version)
         contain = {
             "pack":{
@@ -24,8 +23,7 @@ async def init_mcmeta(desc: str, version: Union[int, str]) -> None:
                 "description": desc
             }
         }
-        data = ujson.dumps(contain, indent=4)
-        await f.awrite(data)
+        await f.adump(contain)
 
 def init_name_space(name: str, *, used: Optional[Set[str]] = None) -> None:
     dirs = {
@@ -81,18 +79,19 @@ def analyse_file_struct(
     
     return ans
     
-async def init_context(namespace: str) -> None:
-    mincraft_tag = Path("minecraft/tags")
-    
+def init_context(namespace: str) -> Context:
+    TagManager("functions", namespace="minecraft")
+    TagManager("functions", namespace=namespace)
+    return Context(namespace, Path(namespace, "functions"))
 
 async def build_dirs(
     name: str,
+    version: T_version,
     description: str,
-    version: Union[int, str] = 4,
     *,
     iron_path: Optional[Union[os.PathLike, str]] = None,
     namespace: Optional[str] = None
-) -> None:
+) -> Context:
     """
     Build datapack.
     File struction:
@@ -117,7 +116,7 @@ async def build_dirs(
     """
     await mkdir(name)
     os.chdir(name)
-    asyncio.ensure_future(init_mcmeta(description, version))
+    mcmeta = asyncio.ensure_future(init_mcmeta(description, version))
     
     if iron_path:
         copyiron = partial(copyfile, iron_path, "pack.png")
@@ -127,7 +126,9 @@ async def build_dirs(
     await mkdir("data")
     os.chdir("data")
     namespace = namespace or name
-    asyncio.ensure_future(mkdir("minecraft"))
+    mcd_task = asyncio.ensure_future(mkdir("minecraft"))
     await mkdir(namespace)
     
+    await mcd_task
+    init_context(namespace)
     

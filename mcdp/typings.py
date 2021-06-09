@@ -78,34 +78,6 @@ class McdpConfig(McdpVar, BaseModel):
 
 """
 ==============================
-Mcdp Context Manager
-==============================
-"""
-
-class ContextManager(McdpVar):
-    
-    __slots__ = ["name",]
-    __accessible__ = ["name",]
-    
-    collection = {}
-    
-    def __init__(self, name: str) -> None:
-        self.name = name
-    
-    @classmethod
-    def _collect(cls, instance: "ContextManager") -> None:
-        cls.collection[instance.name] = instance
-    
-    @classmethod
-    def _remove_from_collection(cls, instance: "ContextManager") -> None:
-        cls.collection.pop(instance.name)
-
-    @classmethod
-    def get_namespace(cls):
-        pass
-
-"""
-==============================
 Mcdp Exceptions
 ==============================
 """

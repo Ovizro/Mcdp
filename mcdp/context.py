@@ -3,9 +3,38 @@ from pathlib import Path
 from collections import ChainMap, UserList, defaultdict
 from typing import Any, Dict, List, Literal, Optional, Callable, Union, Type
 
-from .typings import Variable, ContextManager, McdpError
+from .typings import McdpVar, Variable, McdpError
+from .config import get_config
 from .aio_stream import Stream, T_Path, wraps
 from .counter import get_counter
+
+class ContextManager(McdpVar):
+    
+    __slots__ = ["name",]
+    __accessible__ = ["name",]
+    
+    collection = {}
+    
+    def __init__(self, name: str) -> None:
+        self.name = name
+    
+    @classmethod
+    def _collect(cls, instance: "ContextManager") -> None:
+        cls.collection[instance.name] = instance
+    
+    @classmethod
+    def _remove_from_collection(cls, instance: "ContextManager") -> None:
+        cls.collection.pop(instance.name)
+    
+    def collect(self) -> None:
+        self._collect(self)
+    
+    def remove_from_collection(self) -> None:
+        self._remove_from_collection(self)
+    
+    @staticmethod
+    def get_namespace() -> str:
+        return get_config().namespace
 
 class Environment(ContextManager):
 
@@ -15,7 +44,7 @@ class Environment(ContextManager):
     def __init__(self, name: str, *, root_path: Optional[Union[str, Path]] = None):
         self.name = name
         self.var_dict: Dict[str, Variable] = {}
-        self.stream: Stream = Stream(name, root=root_path)
+        self.stream: Stream = Stream(name + ".mcfunction", root=root_path)
 
     def __getitem__(self, key: str) -> Variable:
         if not key in self.var_dict:
@@ -130,7 +159,7 @@ class Context(ContextManager):
         self.name = name
         self._lock = asyncio.Lock()
         
-        self._collect(self)
+        self.collect()
         
         self.stack: StackCache \
             = StackCache(self.__class__.MAX_OPENED)
@@ -180,7 +209,7 @@ class Context(ContextManager):
         self.var_map.clear()
         del self.path
         
-        self._remove_from_collection(self)
+        self.remove_from_collection()
         if get_context() is self:
             self.__class__.current = None
     
@@ -189,7 +218,8 @@ class Context(ContextManager):
         self.__class__.current = self
         return self
     
-    def __aexit__(self, *args) -> None:
+    async def __aexit__(self, *args) -> None:
+        await self.stack.clear()
         self._lock.release()
 
     @CCmethod
@@ -221,14 +251,19 @@ _tagType = Literal["blocks", "entity_types", "items", "fluids", "functions"]
 
 class TagManager(ContextManager):
     
-    __slots__ = ["type", "replace", "root_path", "cache"]
+    __slots__ = ["name", "type", "replace", "root_path", "cache"]
     __accessible__ = ["type", "replace", "@item"]
     
-    def __init__(self, type: _tagType, *, root_path: T_Path = '.', replace: bool = False) -> None:
+    def __init__(self, type: _tagType, *, namespace: Optional[str] = None, replace: bool = False) -> None:
         self.type = type
         self.replace = replace
-        self.root_path = Path(root_path, type).resolve()
+        if not namespace:
+            namespace = self.get_namespace()
+        self.root_path = Path(namespace, "tags", type).resolve()
         self.cache = defaultdict(set)
+        
+        self.name = f"{namespace}:{type}"
+        self.collect()
         
     def add(self, tag: str, item: str, *, namaspace: Optional[str] = None) -> None:
         if not ":" in item:
@@ -244,19 +279,23 @@ class TagManager(ContextManager):
     def __setitem__(self, key: str, item: str) -> None:
         self.add(key, item)
     
-    def get_tag_data(self, tag: str) -> dict:
+    def get_tag_data(self, tag: str, replace: bool = False) -> dict:
         if not tag in self.cache:
             raise McdpContextError
         
         values = list(self.cache[tag])
-        return {"replace":self.replace, "values":values}
+        if not replace:
+            replace = self.replace
+        return {"replace":replace, "values":values}
     
-    async def apply_tag(self, tag: str) -> None:
+    async def apply_tag(self, tag: str, *, replace: bool = False) -> None:
         if not tag in self.cache:
             raise McdpContextError
         
         async with Stream(tag, root=self.root_path) as stream:
-            await stream.adump(self.get_tag_data(tag))
+            await stream.adump(self.get_tag_data(tag, replace))
+        
+        del self.cache[tag]
             
     def apply(self) -> None:
         for tag in self.cache:
@@ -279,7 +318,8 @@ def get_context() -> "Context":
     if not Context.current:
         raise McdpContextError("no context activated.")
     return Context.current
-    
+
+
 def insert(*content: str) -> None:
     return Context.insert(*content)
 
