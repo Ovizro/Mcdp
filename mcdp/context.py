@@ -165,7 +165,7 @@ class Context(ContextManager):
             = StackCache(self.__class__.MAX_OPENED)
         self.var_map = ChainMap()
         
-        path = Path(path).resolve()
+        self.path = Path(path).resolve()
             
     async def enter(self, env: Union[Environment, str]) -> None:
         if not isinstance(env, Environment):
@@ -200,6 +200,8 @@ class Context(ContextManager):
 
     @property
     def top(self) -> Environment:
+        if not self.stack:
+            raise RuntimeError("no environment in the stack.")
         return self.stack[-1]
     
     async def shutdown(self) -> None:

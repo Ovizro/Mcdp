@@ -1,6 +1,7 @@
 /testdatapack
 /testdatapack.py
-/.vscode
+/mcdp/command
+.vscode
 disabled.*
 test.*
 .last_tmp.py

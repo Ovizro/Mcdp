@@ -6,9 +6,9 @@ import sys
 import ujson
 from abc import ABCMeta, abstractmethod
 from pydantic import BaseModel, BaseConfig
-from typing import Any, Union, Optional
+from typing import Any, Dict, Union, Optional
 
-from .version import VersionError, __version__
+from .version import __version__
 from .counter import Counter
 
 class McdpVar:
@@ -19,6 +19,17 @@ class McdpVar:
         if not key in self.__class__.__accessible__:
             raise McdpError
         return self.__getattribute__(key)
+    
+"""
+==============================
+Mcdp Functions
+==============================
+"""
+
+class BaseMcfunc(McdpVar):
+    
+    __slots__ = []
+    __accessible__ = ["name",]
 
 """
 ==============================
@@ -26,12 +37,26 @@ Mcdp Variables
 ==============================
 """
 
-class Variable(McdpVar, metaclass=ABCMeta):
+class VariableMeta(ABCMeta):
+    
+    def __new__(cls, name: str, bases: tuple, attrs: Dict[str, Any]) -> ABCMeta:
+        if not attrs.get('__accessible__', None):
+            attrs['__accessible__'] = []
+        elif not isinstance(attrs['__accessible__'], list):
+            attrs['__accessible__'] = list(attrs['__accessible__'])
+            
+        for k,v in attrs.items():
+            if isinstance(v, BaseMcfunc):
+                attrs['__accessible__'].append(k)
+        return ABCMeta.__new__(cls, name, bases, attrs)
 
-    __slots__ = ["counter", "linked"]
+class Variable(McdpVar, metaclass=VariableMeta):
+
+    __slots__ = ["counter", "linked", "applied"]
 
     @abstractmethod
     def __init__(self) -> None:
+        self.applied = False
         self.counter = Counter()
         self.linked = set()
         
@@ -64,25 +89,25 @@ class Variable(McdpVar, metaclass=ABCMeta):
 
 """
 ==============================
-Mcdp config
+Mcdp BaseModel
 ==============================
 """
 
-class McdpConfig(McdpVar, BaseModel):
+class McdpBaseModel(McdpVar, BaseModel):
     __accessible__ = ["@all.attr",]
     
     class Config(BaseConfig):
         arbitrary_types_allowed = True
         json_loads = ujson.loads
         json_dumps = ujson.dumps
-
+        
 """
 ==============================
 Mcdp Exceptions
 ==============================
 """
 
-class McdpError(VersionError, McdpVar):
+class McdpError(Exception, McdpVar):
     
     __slots__ = ["version", "python_version"]
     

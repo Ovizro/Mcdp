@@ -63,7 +63,7 @@ class Stream:
             if not root:
                 path = path.resolve()
             else:
-                Path(root).joinpath(path)
+                path = Path(root).joinpath(path)
                 
         self.path = path
         self.opened = False
@@ -95,7 +95,7 @@ class Stream:
         await self.__file.write(data)
     
     async def adump(self, data: dict) -> None:
-        string = ujson.dumps(data)
+        string = ujson.dumps(data, indent=4)
         await self.awrite(string)
     
     def writable(self) -> bool:

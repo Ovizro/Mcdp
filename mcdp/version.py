@@ -1,8 +1,10 @@
+from asyncio import iscoroutinefunction
 from functools import wraps
-from typing import Any, List, NoReturn, Tuple, Callable, Union, Optional, TypeVar
+from sys import version
+from typing import Any, Dict, List, NoReturn, Tuple, Callable, Union, Optional, TypeVar
 
 T_version = TypeVar("T_version", Tuple[int], str, "Version")
-TS_version = TypeVar("TS_version", Tuple[str, int], str, "StepVersion")
+TS_version = TypeVar("TS_version", Tuple[str, int], str, "PhaseVersion")
 
 class Version:
     
@@ -137,33 +139,33 @@ class Version:
     def __str__(self) -> str:
         return '.'.join([str(i) for i in self.__num_list])
 
-class StepVersion(Version):
+class PhaseVersion(Version):
     
-    __slots__ = ["step"]
+    __slots__ = ["phase"]
     
-    def __init__(self, version: T_version, *, step: Optional[str] = None) -> None:
+    def __init__(self, version: T_version, *, phase: Optional[str] = None) -> None:
         if isinstance(version, self.__class__):
-            self.step = version.step
+            self.phase = version.phase
             super().__init__(version)
         elif isinstance(version, Version):
-            self.step = step
+            self.phase = phase
             super().__init__(version)
         else:
             try:
                 if isinstance(version, tuple):
                     if isinstance(version[0], str):
-                        self.step = step or version[0]
+                        self.phase = phase or version[0]
                         version = version[1:]
                     else:
-                        self.step = step
+                        self.phase = phase
                 else:
                     l = version.split()
                     if len(l) == 1:
-                        self.step = step
+                        self.phase = phase
                     elif len(l) > 2 or (not isinstance(l[0], str)):
                         raise ValueError
                     else:
-                        self.step = step or l[0]
+                        self.phase = phase or l[0]
                         version = l[1]
                 return super().__init__(version)
             except Exception:
@@ -176,8 +178,8 @@ class StepVersion(Version):
                 other = self.__class__(other)
             except ValueError:
                 return NotImplemented
-        if self.step and other.step:
-            if self.step != other.step:
+        if self.phase and other.phase:
+            if self.phase != other.phase:
                 return False
         return super().__eq__(other)
         
@@ -187,42 +189,85 @@ class StepVersion(Version):
                 other = self.__class__(other)
             except ValueError:
                 return NotImplemented
-        if self.step and other.step:
-            if self.step == other.step:
+        if self.phase and other.phase:
+            if self.phase == other.phase:
                 return False
         return super().__ne__(other)
     
     def __repr__(self) -> str:
-        if not self.step:
+        if not self.phase:
             return super().__repr__()
-        return f"StepVersion({self.step}, {self.get_number()})"
+        return f"PhaseVersion({self.phase}, {self.get_number()})"
     
     def __str__(self) -> str:
         num = super().__str__()
-        if not self.step:
+        if not self.phase:
             return num
-        return f"{self.step} {num}"
+        return f"{self.phase} {num}"
 
-__version__ = StepVersion("Alpha 0.1.0")
+__version__ = PhaseVersion("Alpha 0.1.0")
 
-_version_func: dict = {}
+_version_func: Dict[str, Callable] = {}
 
-def fail_version_check(func: Callable) -> Callable:
+def fail_version_check(func: Callable, *, collection: Dict[str, Callable] = _version_func) -> Callable:
     name = func.__qualname__
-    if name in _version_func:
-        return _version_func[name]
-    @wraps(func)
-    def nope(*args, **kwargs) -> NoReturn:
-        raise VersionError(f"the function '{name}' fails to pass the version check.")
-    return nope
+    if name in collection:
+        return collection[name]
+    if not iscoroutinefunction(func):
+        @wraps(func)
+        def nope(*args, **kwargs) -> NoReturn:
+            raise VersionError(f"the function '{name}' fails to pass the version check.")
+        return nope
+    else:
+        @wraps(func)
+        async def aio_nope(*args, **kwargs) -> NoReturn:
+            raise VersionError(f"the function '{name}' fails to pass the version check.")
+        return aio_nope
 
-def pass_version_check(func: Callable) -> Any:
+def pass_version_check(func: Callable, *, collection: Dict[str, Callable] = _version_func) -> Any:
     name = func.__qualname__
-    if name in _version_func:
+    if name in collection:
         raise VersionError(f"the function '{name}' has a version conflict.")
-    _version_func[name] = func
+    collection[name] = func
     return func
+
+def analyse_check_sentences(
+        *args,
+        eq: Union[List[T_version], T_version] = [],
+        ne: Union[List[T_version], T_version] = [],
+        gt: Optional[T_version] = None,
+        ge: Optional[T_version] = None,
+        lt: Optional[T_version] = None,
+        le: Optional[T_version] = None
+    ) -> Dict[str, Union[List[T_version], T_version, None]]:
+    
+    ans: Dict[str, Union[List[T_version], T_version, None]] = {}
+    if not isinstance(eq, List):
+        ans['eq'] = [eq,]
+    else:
+        ans['eq'] = eq
+    if not isinstance(ne, List):
+        ans['ne'] = [ne,]
+    else:
+        ans['ne'] = ne
         
+    for i in args:
+        if i.startswith('>='):
+            ans['ge'] = ge or i[2:]
+        elif i.startswith('<='):
+            ans['le'] = le or i[2:]
+        elif i.startswith('>'):
+            ans['gt'] = gt or i[1:]
+        elif i.startswith('<'):
+            ans['lt'] = lt or i[1:]
+        elif i.startswith('=='):
+            ans['eq'].append(i[2:])
+        elif i.startswith('!='):
+            ans['ne'].append(i[2:])
+        else:
+            raise ValueError(f"cannot analyze the argument {i}")
+    return ans
+   
 def version_check(
     version: Version,
     *args: str,
@@ -273,6 +318,47 @@ def version_check(
         return fail_version_check
     else:
         return pass_version_check
+
+class VersionChecker:
+    
+    __slots__ = ["name", "collection", "version_factory", "checked", "__func__", "__sentence__", "__qualname__"]
+    
+    def __init__(self, name: str, version_factory: Callable[[], Version]) -> None:
+        self.name = name
+        self.collection: Dict[str, Callable] = {}
+        self.version_factory = version_factory
+        self.checked = False
+        self.__func__: Union[List[Callable], Callable, None] = []
+        self.__sentence__: List[dict] = []
+        
+    def register(self, func: Callable, *args: str, **kwds) -> None:
+        if not self.checked:
+            c = analyse_check_sentences(*args, **kwds)
+            self.__func__.append(func)
+            self.__sentence__.append(c)
+        else:
+            version = self.version_factory()
+            check_ans = version_check(version, *args, **kwds)
+            self.__func__ = check_ans(func, collection=self.collection)
+            
+    def apply_check(self) -> None:
+        if not self.checked:
+            l: list = self.__func__
+            for i in range(len(l)):
+                ans = version_check(self.version_factory(), **self.__sentence__[i])
+                self.__func__ = ans(l[i], collection=self.collection)
+            
+    def __call__(self, *args: Any, **kwds: Any) -> Any:
+        self.apply_check()
+        return self.__func__(*args, **kwds)
+
+class AioVersionChecker(VersionChecker):
+    
+    __slots__ = []
+    
+    async def __call__(self, *args: Any, **kwds: Any) -> Any:
+        self.apply_check()
+        return await self.__func__(*args, **kwds)
 
 class VersionError(Exception):
     

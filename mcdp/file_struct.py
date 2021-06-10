@@ -10,7 +10,7 @@ from pathlib import Path, PurePath
 from typing import Any, Callable, Dict, Optional, Set, Union
 
 from .context import get_context, Context, TagManager
-from .config import get_version, Version, T_version
+from .config import get_version, get_config, T_version
 from .aio_stream import Stream, mkdir, makedirs
 
 async def init_mcmeta(desc: str, version: T_version) -> None:
@@ -116,7 +116,7 @@ async def build_dirs(
     """
     await mkdir(name)
     os.chdir(name)
-    mcmeta = asyncio.ensure_future(init_mcmeta(description, version))
+    asyncio.ensure_future(init_mcmeta(description, version))
     
     if iron_path:
         copyiron = partial(copyfile, iron_path, "pack.png")
@@ -130,5 +130,8 @@ async def build_dirs(
     await mkdir(namespace)
     
     await mcd_task
-    init_context(namespace)
-    
+    return init_context(namespace)
+
+async def build_dirs_from_config() -> Context:
+    cfg = get_config()
+    return await build_dirs(cfg.name, cfg.version, cfg.description, iron_path=cfg.iron_path, namespace=cfg.namespace)
