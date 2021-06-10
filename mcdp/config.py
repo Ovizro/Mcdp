@@ -1,7 +1,7 @@
 from os import PathLike
 from asyncio import iscoroutinefunction
 from functools import partial, lru_cache
-from typing import Union, Optional, Tuple, TypeVar, Callable
+from typing import Union, Optional, Callable
 from pydantic import validator
 
 from .typings import McdpBaseModel, McdpError, McdpVersionError

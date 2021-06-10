@@ -1,6 +1,5 @@
 from asyncio import iscoroutinefunction
 from functools import wraps
-from sys import version
 from typing import Any, Dict, List, NoReturn, Tuple, Callable, Union, Optional, TypeVar
 
 T_version = TypeVar("T_version", Tuple[int], str, "Version")
