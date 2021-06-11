@@ -1,57 +1,83 @@
 import ujson
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from .counter import Counter
-from .context import insert
-from .typings import Variable
+from .context import insert, get_stack_id
+from .typings import Variable, McdpVar, McdpError
+from .mcstring import MCString, _stand_color
 
-class Scoreboard(Variable):
+class Scoreboard(McdpVar):
 
     __slots__ = ["name", "criteria", "display_name", "applied"]
     __accessible__ = ["name", "criteria", "display_name"]
+    
+    applied: List[str] = []
+    collection: Dict[str, "Scoreboard"] = {}
+    
+    def __new__(cls,
+        name: str,
+        *,
+        criteria: str = "dummy",
+        display: Optional[dict] = None
+    ):
+        if name in cls.collection:
+            instance = cls.collection[name]
+            if instance.criteria != criteria or instance.display != display:
+                raise McdpVarError()
+        else:
+            return McdpVar.__new__(cls)
 
     def __init__(
         self,
         name: str,
         *,
         criteria: str = "dummy",
-        display: Optional[dict] = None,
+        display: Optional[dict] = None
     ):
         self.name = name
+        self.__class__.collection[name] = self
         self.criteria = criteria
-        self.display_name = display
+        if display:
+            self.display_name = MCString(**display)
+        else:
+            self.display_name = None
 
         super().__init__()
 
-    def apply(self) -> Optional[str]:
+    def apply(self) -> None:
+        if self.name in self.__class__.applied:
+            raise McdpVarError("set up a scoreboard twice.", var=self)
+        self.__class__.applied.append(self.name)
         if self.display_name:
-            return "scoreboard objectives add {0} {1} {2}\n".format(
-                self.name, self.criteria, ujson.dumps(self.display_name)
-            )
+            insert("scoreboard objectives add {0} {1} {2}".format(
+                self.name, self.criteria, self.display_name.json()
+            ))
         else:
-            return "scoreboard objectives add {0} {1}\n".format(
+            insert("scoreboard objectives add {0} {1}".format(
                 self.name, self.criteria
-            )
+            ))
+    
+    @classmethod
+    def apply_all(cls) -> None:
+        for s in cls.collection.values():
+            s.apply()
     
     def remove(self) -> None:
-        insert(f"scoreboard objectives remove {self.name}\n")
+        if self.name in self.__class__.applied:
+            insert(f"scoreboard objectives remove {self.name}")
 
     def display(self, pos: str) -> None:
-        insert(f"scoreboard objectives setdisplay {pos} {self.name}\n")
-
-_current_owner: Optional[str] = None
+        if not pos in ["list", "sidebar", "belowName"]:
+            if pos.startswith("sidebar.team."):
+                c = pos[13:]
+                if c in _stand_color:
+                    insert(f"scoreboard objectives setdisplay {pos} {self.name}")
+        else:        
+            insert(f"scoreboard objectives setdisplay {pos} {self.name}")
+        raise ValueError("invalid scoreboard display position.")
 
 _score_cache: List[str] = []
 _score_cache_num: int = 0
-
-def set_owner(name: str) -> None:
-    global _current_owner
-    _current_owner = name
-    
-def get_owner() -> str:
-    if not _current_owner:
-        raise RuntimeError("no owner defined.")
-    return _current_owner
 
 def get_cache() -> str:
     global _score_cache, _score_cache_num
@@ -68,18 +94,33 @@ def free_cache(name: str) -> None:
 def apply_cache() -> None:
     for i in range(_score_cache_num):
         s = Scoreboard("dpc_"+hex(i))
+        s.apply()
+        
+def _get_selector(stack_id: int) -> str:
+    if stack_id == get_stack_id():
+        return "@s"
+    else:
+        return "@e[type=armor_stand,tag=mcdp_stack,scores={mcdpStackID=%i}]" % stack_id
     
-class dp_score(Scoreboard):
+class ScoreType(Variable):
 
-    __slots__ = ["name", "criteria", "display_name", "counter", "linked", "player"]
+    __slots__ = ["name", "stack_id", "scoreboard", "counter", "linked"]
 
-    def __init__(self, name: str, player: str = "#mcdp_main", *, criteria: str = "dummy", display: Optional[dict] = None):
-        self.player = player
-        super().__init__(name, criteria=criteria, display=display)
+    def __init__(self, name: str, *, criteria: str = "dummy", display: Optional[dict] = None):
+        self.stack_id = get_stack_id()
+        self.scoreboard = Scoreboard(name, criteria=criteria, display=display)
 
-    def __add__(self, other: Union[int, "dp_score"]) -> "dp_score":
+    def __add__(self, other: Union[int, "ScoreType"]) -> "ScoreType":
         +self.counter
         if isinstance(other, int):
             pass
         else:
             +other.counter
+
+class McdpVarError(McdpError):
+    
+    __slots__ = ["var"]
+    
+    def __init__(self, *arg: str, var: Optional[McdpVar] = None, **kw) -> None:
+        self.var = var
+        super().__init__(*arg, **kw)

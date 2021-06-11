@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Union, Optional
 
-from .config import Config
+from .config import Config, get_config
 from .file_struct import build_dirs
 from .context import get_context, Context, comment, insert
 from .typings import McdpError
@@ -9,7 +9,7 @@ from .version import __version__
 
 class Mcdatapack:
     
-    __slots__ = ["config"]
+    __slots__ = ["config",]
     
     def __init__(
         self,
@@ -23,6 +23,7 @@ __all__ = [
     "Config",
     "Context",
     "get_context",
+    "get_config",
     "build_dirs",
     "comment",
     "insert",

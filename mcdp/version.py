@@ -1,11 +1,15 @@
-from asyncio import iscoroutinefunction
 from functools import wraps
+from asyncio import iscoroutinefunction
 from typing import Any, Dict, List, NoReturn, Tuple, Callable, Union, Optional, TypeVar
 
 T_version = TypeVar("T_version", Tuple[int], str, "Version")
 TS_version = TypeVar("TS_version", Tuple[str, int], str, "PhaseVersion")
 
 class Version:
+    """
+    the base class in model 'version'.
+    Support boolean operations between version numbers like '1.0.2'.
+    """
     
     __slots__ = ["__num_list",]
     
@@ -132,6 +136,9 @@ class Version:
             else:
                 return tuple(self._generator(extend))
             
+    def check(self, *args, **kw):
+        return version_check(self, *args, **kw)
+            
     def __repr__(self) -> str:
         return f"Version{self.__num_list}"
     
@@ -139,6 +146,19 @@ class Version:
         return '.'.join([str(i) for i in self.__num_list])
 
 class PhaseVersion(Version):
+    """
+    Just add a version phase like 'Alpha' or 'Beta'. 
+    (In fact, 'Python 3.8.3' is valid, too.)
+    
+    The phase mark only used in '==' and '!=' when both sides have a phase mark.
+    That is to say:
+        ```
+        v = PhaseVersion('Beta 1.5.2')
+        v == '1.5.2'        #True
+        v == 'Alpha 1.5.2'  #False
+        v >= 'Alpha 1.4'    #True
+        ```
+    """
     
     __slots__ = ["phase"]
     
@@ -171,7 +191,7 @@ class PhaseVersion(Version):
                 pass
             raise ValueError("incorrect version form.")
     
-    def __eq__(self, other: T_version) -> None:
+    def __eq__(self, other: T_version) -> bool:
         if not isinstance(other, self.__class__):
             try:
                 other = self.__class__(other)
@@ -182,7 +202,7 @@ class PhaseVersion(Version):
                 return False
         return super().__eq__(other)
         
-    def __ne__(self, other: T_version) -> None:
+    def __ne__(self, other: T_version) -> bool:
         if not isinstance(other, self.__class__):
             try:
                 other = self.__class__(other)
@@ -277,6 +297,9 @@ def version_check(
     lt: Optional[T_version] = None,
     le: Optional[T_version] = None
 ) -> Callable[[Callable], Callable]:
+    """
+    The core function of the version check.
+    """
     if not isinstance(eq, List):
         eq = [eq,]
     if not isinstance(ne, List):
@@ -319,41 +342,104 @@ def version_check(
         return pass_version_check
 
 class VersionChecker:
+    """
+    The helper of version checker.
     
-    __slots__ = ["name", "collection", "version_factory", "checked", "__func__", "__sentence__", "__qualname__"]
+    Sometimes the version cannot be fetched when inited, so class VersionChecker is created.
+    The final function will be insure when the function is first called.
     
-    def __init__(self, name: str, version_factory: Callable[[], Version]) -> None:
-        self.name = name
+    In the same time, the class supports the multiple version check.
+    """
+    
+    __slots__ = ["collection", "version_factory", "checked", "__func__", "sentence", "__qualname__"]
+    
+    def __init__(self, version_factory: Callable[[], Version]) -> None:
         self.collection: Dict[str, Callable] = {}
         self.version_factory = version_factory
         self.checked = False
         self.__func__: Union[List[Callable], Callable, None] = []
-        self.__sentence__: List[dict] = []
+        self.sentence: List[dict] = []
         
     def register(self, func: Callable, *args: str, **kwds) -> None:
         if not self.checked:
             c = analyse_check_sentences(*args, **kwds)
             self.__func__.append(func)
-            self.__sentence__.append(c)
+            self.sentence.append(c)
         else:
             version = self.version_factory()
             check_ans = version_check(version, *args, **kwds)
             self.__func__ = check_ans(func, collection=self.collection)
             
+    @property
+    def decorator(self):
+        def version_check_decorator(*args, **kwds):
+            def get_func(func: Callable) -> Callable:
+                name = func.__qualname__
+                self.register(func, *args, **kwds)
+                
+                @wraps(func)
+                def wrapper(*arg, **kw) -> Any:
+                    self.apply_check()
+                    if name in self.collection:
+                        return self.collection[name](*arg, **kw)
+                    else:
+                        raise VersionError(
+                            f"the function '{name}' fails to pass the version check.", version=self.version_factory())
+                    
+                return wrapper
+            return get_func
+        return version_check_decorator
+            
     def apply_check(self) -> None:
         if not self.checked:
             l: list = self.__func__
             for i in range(len(l)):
-                ans = version_check(self.version_factory(), **self.__sentence__[i])
+                ans = version_check(self.version_factory(), **self.sentence[i])
                 self.__func__ = ans(l[i], collection=self.collection)
+            self.checked = True
             
     def __call__(self, *args: Any, **kwds: Any) -> Any:
         self.apply_check()
         return self.__func__(*args, **kwds)
 
-class AioVersionChecker(VersionChecker):
+class AioCompatVersionChecker(VersionChecker):
+    """
+    The async compat version of class VersionCheck.
+    """
     
     __slots__ = []
+    
+    @property
+    def decorator(self):
+        def version_check_decorator(*args, **kwds):
+            def get_func(func: Callable) -> Callable:
+                name = func.__qualname__
+                self.register(func, *args, **kwds)
+                
+                if not iscoroutinefunction(func):
+                    @wraps(func)
+                    def wrapper(*arg, **kw) -> Any:
+                        self.apply_check()
+                        if name in self.collection:
+                            return self.collection[name](*arg, **kw)
+                        else:
+                            raise VersionError(
+                                f"the function '{name}' fails to pass the version check.", version=self.version_factory())
+                        
+                    return wrapper
+                else:
+                    @wraps(func)
+                    async def aio_wrapper(*arg, **kw) -> Any:
+                        self.apply_check()
+                        if name in self.collection:
+                            return await self.collection[name](*arg, **kw)
+                        else:
+                            raise VersionError(
+                                f"the function '{name}' fails to pass the version check.", version=self.version_factory())
+                        
+                    return aio_wrapper
+            return get_func
+        return version_check_decorator
     
     async def __call__(self, *args: Any, **kwds: Any) -> Any:
         self.apply_check()

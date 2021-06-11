@@ -248,6 +248,10 @@ class Context(ContextManager):
                 com.append(c)
         
         self.stack[-1].write("#" + "\n#".join(com) + "\n")
+    
+    @CCmethod
+    def get_stack_id(self) -> int:
+        return len(self.stack) - 1
 
 _tagType = Literal["blocks", "entity_types", "items", "fluids", "functions"]
 
@@ -327,3 +331,6 @@ def insert(*content: str) -> None:
 
 def comment(*content: str) -> None:
     return Context.comment(*content)
+
+def get_stack_id() -> int:
+    return Context.get_stack_id()

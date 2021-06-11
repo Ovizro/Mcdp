@@ -113,11 +113,12 @@ class McdpError(Exception, McdpVar):
     
     def __init__(self, *arg: str, **kw) -> None:
         self.python_version = sys.version
-        super().__init__(*arg, version=__version__)
+        self.version = __version__
+        super().__init__(*arg)
         
 class McdpVersionError(McdpError):
 
-    def __init__(self, msg: Optional[str] = None) -> None:
+    def __init__(self, msg: Optional[str] = None, type=None) -> None:
         if msg:
             super().__init__(
                 msg.format(mcdp_version=__version__))

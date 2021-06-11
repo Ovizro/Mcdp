@@ -1,11 +1,10 @@
 from os import PathLike
-from asyncio import iscoroutinefunction
-from functools import partial, lru_cache
-from typing import Union, Optional, Callable
+from functools import partial
+from typing import Union, Optional
 from pydantic import validator
 
 from .typings import McdpBaseModel, McdpError, McdpVersionError
-from .version import (Version, T_version, __version__, version_check, VersionChecker, AioVersionChecker)
+from .version import (Version, T_version, __version__, version_check, AioCompatVersionChecker)
 
 class PydpConfig(McdpBaseModel):
     use_ast: bool = False
@@ -73,24 +72,7 @@ def get_config() -> Config:
     return _current_cfg
 
 check_mcdp_version = partial(version_check, __version__)
-
-@lru_cache()
-def get_mc_version_checker(name: str):
-    return VersionChecker(name, lambda: get_config().version)
-
-@lru_cache()
-def get_mc_version_aiochecker(name: str):
-    return AioVersionChecker(name, lambda: get_config().version)
-
-def check_mc_version(*args, **kw) -> Callable[[Callable], VersionChecker]:
-    def MCheker(func: Callable) -> VersionChecker:
-        if not iscoroutinefunction(func):
-            mcv_checker = get_mc_version_checker(func.__qualname__)
-        else:
-            mcv_checker = get_mc_version_aiochecker(func.__qualname__)
-        mcv_checker.register(func, *args, **kw)
-        return mcv_checker
-    return MCheker
+check_mc_version = AioCompatVersionChecker(lambda: get_config().version).decorator
 
 class MinecraftVersionError(McdpVersionError):
     pass
