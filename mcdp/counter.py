@@ -69,6 +69,8 @@ class Counter:
             
     def __int__(self) -> int:
         return self.__count
+        
+    __index__ = __int__
     
     def __bool__(self) -> bool:
         if self.__count > 0:

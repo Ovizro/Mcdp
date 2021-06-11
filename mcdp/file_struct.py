@@ -91,7 +91,7 @@ async def build_dirs(
     *,
     iron_path: Optional[Union[os.PathLike, str]] = None,
     namespace: Optional[str] = None
-) -> Context:
+) -> None:
     """
     Build datapack.
     File struction:
@@ -130,8 +130,13 @@ async def build_dirs(
     await mkdir(namespace)
     
     await mcd_task
-    return init_context(namespace)
 
-async def build_dirs_from_config() -> Context:
+async def build_dirs_from_config() -> None:
     cfg = get_config()
-    return await build_dirs(cfg.name, cfg.version, cfg.description, iron_path=cfg.iron_path, namespace=cfg.namespace)
+    await build_dirs(
+        cfg.name,
+        cfg.version,
+        cfg.description,
+        iron_path=cfg.iron_path,
+        namespace=cfg.namespace
+    )

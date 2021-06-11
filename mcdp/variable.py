@@ -76,24 +76,24 @@ class Scoreboard(McdpVar):
             insert(f"scoreboard objectives setdisplay {pos} {self.name}")
         raise ValueError("invalid scoreboard display position.")
 
-_score_cache: List[str] = []
+_score_cache: List["ScoreType"] = []
 _score_cache_num: int = 0
 
-def get_cache() -> str:
+def get_cache() -> Scoreboard:
     global _score_cache, _score_cache_num
     if _score_cache:
         return _score_cache.pop()
     else:
         name = "dpc_" + hex(_score_cache_num)
+        scoreboard = ScoreType(name)
         _score_cache_num += 1
-        return name
+        return scoreboard
 
-def free_cache(name: str) -> None:
-    _score_cache.append(name) 
+def free_cache(score: "ScoreType") -> None:
+    _score_cache.append(score) 
     
 def apply_cache() -> None:
-    for i in range(_score_cache_num):
-        s = Scoreboard("dpc_"+hex(i))
+    for s in range(_score_cache_num):
         s.apply()
         
 def _get_selector(stack_id: int) -> str:
@@ -112,10 +112,16 @@ class ScoreType(Variable):
 
     def __add__(self, other: Union[int, "ScoreType"]) -> "ScoreType":
         +self.counter
+        ans = get_cache()
         if isinstance(other, int):
             pass
         else:
             +other.counter
+        return ans
+        
+    def apply(self) -> None:
+        if not self.scoreboard in Scoreboard.applied:
+            self.scoreboard.apply()
 
 class McdpVarError(McdpError):
     
