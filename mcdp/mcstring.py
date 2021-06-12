@@ -13,7 +13,7 @@ class MCStringObj(McdpBaseModel):
 class Score(MCStringObj):
     name: str
     objective: str
-    value: str
+    value: Optional[str] = None
     
 class ClickEvent(MCStringObj):
     action: Literal["open_url", "run_command", "suggest_command", "change_page", "copy_to_clipboard"]

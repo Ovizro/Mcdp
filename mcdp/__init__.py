@@ -2,8 +2,9 @@ from pathlib import Path
 from typing import Union, Optional
 
 from .config import Config, get_config
-from .file_struct import build_dirs
+from .file_struct import build_dirs, build_dirs_from_config, init_context, init_mcmeta
 from .context import get_context, Context, comment, insert
+from .variable import Scoreboard, dp_int, dp_score
 from .typings import McdpError
 from .version import __version__
 
@@ -20,12 +21,23 @@ class Mcdatapack:
         pass
 
 __all__ = [
+    #config
     "Config",
+    "get_config",
+    #file
+    "build_dirs",
+    "build_dirs_from_config",
+    #context
+    "init_context",
     "Context",
     "get_context",
-    "get_config",
-    "build_dirs",
     "comment",
     "insert",
+    #variable
+    "Scoreboard",
+    "dp_score",
+    "dp_int",
+    
+    #exception
     "McdpError"
 ]
