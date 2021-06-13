@@ -5,7 +5,7 @@ from .context import insert, get_stack_id
 from .typings import Variable, McdpVar, McdpError
 from .mcstring import MCString, _stand_color
 
-class Scoreboard(McdpVar):
+class Scoreboard(Variable):
 
     __slots__ = ["name", "criteria", "display_name"]
     __accessible__ = ["name", "criteria", "display_name"]
@@ -50,6 +50,8 @@ class Scoreboard(McdpVar):
     def apply(self) -> None:
         if self.name in self.__class__.applied:
             raise McdpVarError("set up a scoreboard twice.", var=self)
+        if not self.used:
+            return
         self.__class__.applied.append(self.name)
         if self.display_name:
             insert("scoreboard objectives add {0} {1} {2}".format(
@@ -113,6 +115,7 @@ class ScoreType(Variable):
         self.scoreboard = Scoreboard(name, criteria=criteria, display=display)
         self.set_value(default)
         super().__init__()
+        self.scoreboard.link(self)
 
     def __iadd__(self, other: Union[int, "ScoreType"]):
         +self.counter

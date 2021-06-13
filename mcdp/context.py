@@ -153,6 +153,7 @@ class Context(ContextManager):
     MAX_OPENED: int = 8
     
     current: Optional["Context"] = None
+    collection = {}
 
     def __init__(
         self, 
@@ -239,6 +240,9 @@ class Context(ContextManager):
             self.__class__.current = None
     
     async def __aenter__(self) -> "Context":
+        """
+        init the datapack.
+        """
         await self._lock.acquire()
         self.__class__.current = self
         
@@ -246,10 +250,12 @@ class Context(ContextManager):
         await self.stack.append(default)
         self.var_map.new_child(default.var_dict)
         self.insert(
+            "function {0}:__init_score__".format(self.get_namespace()),
             "summon armor_stand ~ ~ ~ {0}".format(
                 ujson.dumps({
                     "Invulnerable":True, "Invisible": True, "Marker": True,
-                    "NoGravity": True, "Tags": ["mcdp_obj", "mcdp_stack_obj", "stack_top"]
+                    "NoGravity": True, 
+                    "Tags": ["mcdp_obj", "mcdp_stack_obj", "stack_top", "mcdp_home"]
                 })
             ),
             "scoreboard players set @e[tag=stack_top,limit=1] mcdpStackID 0"
@@ -318,7 +324,7 @@ class Context(ContextManager):
     
     @CCmethod
     def get_relative_path(self) -> Path:
-        return self.path.relative_to('.')
+        return self.path.relative_to(Path(f'{self.get_namespace()}/functions').resolve())
     
     @CCmethod
     def get_stack_id(self) -> int:
@@ -330,6 +336,8 @@ class TagManager(ContextManager):
     
     __slots__ = ["name", "type", "replace", "root_path", "cache"]
     __accessible__ = ["type", "replace", "@item"]
+    
+    collection = {}
     
     def __init__(self, type: _tagType, *, namespace: Optional[str] = None, replace: bool = False) -> None:
         self.type = type
@@ -369,7 +377,7 @@ class TagManager(ContextManager):
         if not tag in self.cache:
             raise McdpContextError
         
-        async with Stream(tag, root=self.root_path) as stream:
+        async with Stream(tag+".json", root=self.root_path) as stream:
             await stream.adump(self.get_tag_data(tag, replace))
         
         del self.cache[tag]
@@ -377,7 +385,12 @@ class TagManager(ContextManager):
     def apply(self) -> None:
         for tag in self.cache:
             asyncio.ensure_future(self.apply_tag(tag))
-        self.cache.clear()
+        
+    @classmethod
+    def apply_all(cls) -> None:
+        for i in cls.collection.values():
+            i: TagManager
+            i.apply()
         
     def __del__(self) -> None:
         if self.cache:
@@ -396,7 +409,6 @@ def get_context() -> "Context":
         raise McdpContextError("no context activated.")
     return Context.current
 
-
 def insert(*content: str) -> None:
     return Context.insert(*content)
 
@@ -405,3 +417,15 @@ def comment(*content: str) -> None:
 
 def get_stack_id() -> int:
     return Context.get_stack_id()
+
+def add_tag(tag: str, value: Optional[str] = None, *, namespace: Optional[str] = None, type: _tagType = "functions") -> None:
+    if not namespace:
+        namespace = TagManager.get_namespace()
+    if not value:
+        if type == "functions":
+            c = Context.current
+            value = str(c.get_relative_path() / c.top.name)
+        else:
+            raise ValueError("no value input.")
+    m_tag: TagManager = TagManager.collection[f"{namespace}:{type}"]
+    m_tag.add(tag, value)

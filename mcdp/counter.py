@@ -1,23 +1,42 @@
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 _current_counter: Optional["ContextCounter"] = None
 
 class Counter:
     
-    __slots__ = ["__count", "name"]
+    __slots__ = ["__count", "name", "_link"]
 	
     def __init__(self, name: Optional[str] = None, init: int = 0):
         self.__count = init
         self.name = name
+        self._link: List[Counter] = []
     
+    def link_to(self, other: "Counter") -> None:
+        if self in other.linked or other is self:
+            raise ValueError("circular link counters.")
+        self._link.append(other)
+        
     @property
     def value(self) -> int:
         return self.__count
     
+    @property
+    def linked(self) -> List["Counter"]:
+        l = set(self._link)
+        for c in l:
+            l.update(c.linked)
+        return list(l)
+    
     def __pos__(self) -> None:
+        if self.linked:
+            for c in self.linked:
+                c += 1
         self.__count += 1
     
     def __neg__(self) -> None:
+        if self.linked:
+            for c in self.linked:
+                c -= 1
         self.__count -= 1
     
     def __invert__(self) -> None:
@@ -35,7 +54,7 @@ class Counter:
     
     def __iadd__(self, other: Union[int, "Counter"]) -> "Counter":
         if isinstance(other, Counter):
-            self.__count += other.__count
+            self.__count += other.value
             return self
         elif isinstance(other, int):
             self.__count += other
@@ -45,7 +64,7 @@ class Counter:
         
     def __sub__(self, other: Union[int, "Counter"]) -> int:
         if isinstance(other, Counter):
-            return other.__count - self.__count
+            return other.value - self.__count
         elif isinstance(other, int):
             return other - self.__count
         else:
@@ -59,7 +78,7 @@ class Counter:
         
     def __isub__(self, other: Union[int, "Counter"]) -> "Counter":
         if isinstance(other, Counter):
-            self.__count -= other.__count
+            self.__count -= other.value
             return self
         elif isinstance(other, int):
             self.__count -= other
@@ -76,7 +95,7 @@ class Counter:
         if self.__count > 0:
             return True
         else:
-            return False
+            return any(self.linked)
 	
     def __repr__(self) -> str:
         if self.name:

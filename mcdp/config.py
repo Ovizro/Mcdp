@@ -1,6 +1,6 @@
 from os import PathLike
 from functools import partial
-from typing import Union, Optional
+from typing import Union, Optional, overload
 from pydantic import validator
 
 from .typings import McdpBaseModel, McdpError, McdpVersionError
@@ -8,11 +8,14 @@ from .version import (Version, T_version, __version__, version_check, AioCompatV
 
 class PydpConfig(McdpBaseModel):
     use_ast: bool = False
-    allow_overload: bool = True
 
 class VmclConfig(McdpBaseModel):
     enabled: bool = True
     enable_pywheel: bool = True
+
+class McFuncConfig(McdpBaseModel):
+    add_comments: bool = True
+    allow_overload: bool = True
     
 def get_version(mc_version: T_version) -> int:
     if not isinstance(mc_version, Version):
@@ -44,8 +47,6 @@ class Config(McdpBaseModel):
     
     pydp: PydpConfig = PydpConfig()
     vmcl: VmclConfig = VmclConfig()
-    
-    add_comments: bool = True
     
     def __init__(
         self,

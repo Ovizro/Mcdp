@@ -52,40 +52,24 @@ class VariableMeta(ABCMeta):
 
 class Variable(McdpVar, metaclass=VariableMeta):
 
-    __slots__ = ["counter", "linked", "applied"]
+    __slots__ = ["counter", "applied"]
 
     @abstractmethod
     def __init__(self) -> None:
         self.applied = False
         self.counter = Counter()
-        self.linked = set()
         
     @abstractmethod
     def apply(self) -> None:
         raise NotImplementedError
 
     def link(self, var: Union["Variable", Counter]) -> None:
-        if isinstance(var, self.__class__):
+        if not isinstance(var, Counter):
             var = var.counter
-        if var == self.counter:
-            raise RuntimeError("try linking a var to itself.")
-        elif var in self.linked:
-            return
-        
-        self.linked.add(var)
-
-    def unlink(self, var: Union["Variable", Counter]) -> None:
-        if isinstance(var, self.__class__):
-            var = var.counter
-        if var == self.counter:
-            raise RuntimeError("try unlinking a var from itself.")
-        elif not var in self.linked:
-            raise RuntimeError("has not linked with the variabvle yet.")
-        
-        self.linked.remove(var)
+        self.counter.link_to(var)
         
     def used(self) -> bool:
-        return any(self.linked)
+        return bool(self.counter)
 
 """
 ==============================

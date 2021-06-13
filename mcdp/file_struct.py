@@ -14,7 +14,7 @@ from .config import get_version, get_config, T_version
 from .aio_stream import Stream, mkdir, makedirs
 
 async def init_mcmeta(desc: str, version: T_version) -> None:
-    async with Stream("pack.mcmeta") as f:
+    async with Stream(os.path.abspath("pack.mcmeta")) as f:
         if not isinstance(version, int):
             version = get_version(version)
         contain = {
