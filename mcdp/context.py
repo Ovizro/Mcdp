@@ -1,4 +1,5 @@
 import asyncio
+import ujson
 from pathlib import Path
 from collections import ChainMap, UserList, defaultdict
 from typing import Any, Dict, List, Literal, Optional, Callable, Union, Type
@@ -38,12 +39,14 @@ class ContextManager(McdpVar):
 
 class Environment(ContextManager):
 
-    __slots__ = ["name", "var_dict", "stream"]
+    __slots__ = ["name", "var_dict", "stream", "storable"]
     __accessible__ = ["name", "stream", "@item"]
 
-    def __init__(self, name: str, *, root_path: Optional[Union[str, Path]] = None):
+    def __init__(self, name: str, *, root_path: Optional[Union[str, Path]] = None, storable: bool = False):
         self.name = name
-        self.var_dict: Dict[str, Variable] = {}
+        self.storable = storable
+        if storable:
+            self.var_dict: Dict[str, Variable] = {}
         self.stream: Stream = Stream(name + ".mcfunction", root=root_path)
 
     def __getitem__(self, key: str) -> Variable:
@@ -51,13 +54,13 @@ class Environment(ContextManager):
             raise AttributeError(f"unfound var {key} in env {self.name}")
         return self.var_dict[key]
 
-    def __setitem__(self, name: str, instance: Variable) -> None:
-        if not self.writable():
-            raise McdpContextError
+    def __setitem__(self, name: str, value: Variable) -> None:
+        if not (self.writable() and self.storable):
+            raise McdpContextError("fail to store ")
         if name in self.var_dict:
-            if self.var_dict[name] == instance:
+            if self.var_dict[name] == value:
                 return
-        self.var_dict[name] = instance
+        self.var_dict[name] = value
 
     def write(self, content: str) -> None:
         self.stream.write(content)
@@ -144,7 +147,7 @@ class CCmethod:
 
 class Context(ContextManager):
 
-    __slots__ = ["name", "_lock", "stack", "path", "var_map"]
+    __slots__ = ["name", "_lock", "stack", "path", "var_map", "dynamic_stack_num"]
     __accessible__ = ["name", "stack", "@item"]
     
     MAX_OPENED: int = 8
@@ -163,17 +166,30 @@ class Context(ContextManager):
         
         self.stack: StackCache \
             = StackCache(self.__class__.MAX_OPENED)
+        self.dynamic_stack_num = 0
         self.var_map = ChainMap()
         
         self.path = Path(path).resolve()
             
-    async def enter(self, env: Union[Environment, str]) -> None:
-        if not isinstance(env, Environment):
-            env = Environment(env, root_path=self.path)
+    async def enter(
+        self,
+        env: Union[Environment, str],
+        dir: T_Path = '.',
+        *,
+        build_ent: bool = False
+    ) -> None:
+        if not self.stack:
+            build_ent = True
             
-        await self.stack.append(env)
-        self.var_map.new_child(env.var_dict)
-        self.path.joinpath(env.name)
+        if not isinstance(env, Environment):
+            env = Environment(env, root_path=self.path / dir, storable=build_ent)
+        
+        if build_ent:
+            self.dynamic_pull()
+            await self.stack.append(env)
+            self.var_map.new_child(env.var_dict)
+        else:
+            await self.stack.append(env)
     
     async def exit(self, env: Optional[Union[Environment, str]] = None) -> None:
         if env:
@@ -188,10 +204,13 @@ class Context(ContextManager):
                 if self.top.name != env:
                     raise McdpContextError(f"cannot exit from the environment {env}.")
         
-        await self.stack.pop()
-        self.var_map = self.var_map.parents
-        self.path = self.path.parent
-    
+        if self.stack and self.storable:
+            self.dynamic_pop()
+            await self.stack.pop()
+            self.var_map = self.var_map.parents
+        else:
+            await self.stack.pop()
+            
     def __getitem__(self, key: str) -> Variable:
         return self.var_map[key]
     
@@ -203,6 +222,10 @@ class Context(ContextManager):
         if not self.stack:
             raise RuntimeError("no environment in the stack.")
         return self.stack[-1]
+    
+    @property
+    def storable(self) -> bool:
+        return self.top.storable
     
     async def shutdown(self) -> None:
         await self.stack.clear()
@@ -218,6 +241,20 @@ class Context(ContextManager):
     async def __aenter__(self) -> "Context":
         await self._lock.acquire()
         self.__class__.current = self
+        
+        default = Environment("__init__", root_path=self.path, storable=True)
+        await self.stack.append(default)
+        self.var_map.new_child(default.var_dict)
+        self.insert(
+            "summon armor_stand ~ ~ ~ {0}".format(
+                ujson.dumps({
+                    "Invulnerable":True, "Invisible": True, "Marker": True,
+                    "NoGravity": True, "Tags": ["mcdp_obj", "mcdp_stack_obj", "stack_top"]
+                })
+            ),
+            "scoreboard players set @e[tag=stack_top,limit=1] mcdpStackID 0"
+        )
+        self.dynamic_stack_num += 1
         return self
     
     async def __aexit__(self, *args) -> None:
@@ -238,7 +275,7 @@ class Context(ContextManager):
     @CCmethod
     def comment(self, *content: str) -> None:
         if not self.stack[-1].writable():
-            raise McdpContextError("fail to add the comment.")
+            raise McdpContextError("fail to add comments.")
         com = []
         for c in content:
             if "\n" in c:
@@ -250,8 +287,42 @@ class Context(ContextManager):
         self.stack[-1].write("#" + "\n#".join(com) + "\n")
     
     @CCmethod
+    def dynamic_pull(self) -> None:
+        self.insert(
+            "tag @s remove stack_top",
+            "summon armor_stand ~ ~ ~ {0}".format(
+                ujson.dumps({
+                    "Invulnerable":True, "Invisible": True, "Marker": True,
+                    "NoGravity": True, "Tags": ["mcdp_obj", "mcdp_stack_obj", "stack_top"]
+                })
+            ),
+            "scoreboard players set @e[tag=stack_top,limit=1] mcdpStackID {0}".format(self.dynamic_stack_num)
+        )
+        self.dynamic_stack_num += 1
+    
+    @CCmethod
+    def dynamic_pop(self) -> None:
+        self.dynamic_stack_num -= 1
+        self.insert(
+            "tag @e[tag=mcdp_stack_obj,scores={mcdpStackID=%i}] add stack_top" % (self.dynamic_stack_num-1),
+            "kill @s"
+        )
+    
+    @CCmethod
+    def enter_space(self, name: str) -> None:
+        self.path = self.path / name
+    
+    @CCmethod
+    def exit_space(self) -> None:
+        self.path = self.path.parent
+    
+    @CCmethod
+    def get_relative_path(self) -> Path:
+        return self.path.relative_to('.')
+    
+    @CCmethod
     def get_stack_id(self) -> int:
-        return len(self.stack) - 1
+        return self.dynamic_stack_num - 1
 
 _tagType = Literal["blocks", "entity_types", "items", "fluids", "functions"]
 

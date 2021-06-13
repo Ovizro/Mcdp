@@ -8,6 +8,7 @@ from .version import (Version, T_version, __version__, version_check, AioCompatV
 
 class PydpConfig(McdpBaseModel):
     use_ast: bool = False
+    allow_overload: bool = True
 
 class VmclConfig(McdpBaseModel):
     enabled: bool = True
@@ -43,6 +44,8 @@ class Config(McdpBaseModel):
     
     pydp: PydpConfig = PydpConfig()
     vmcl: VmclConfig = VmclConfig()
+    
+    add_comments: bool = True
     
     def __init__(
         self,

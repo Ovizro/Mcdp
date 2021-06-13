@@ -92,7 +92,7 @@ def _get_selector(score: Union[int, "ScoreType"]) -> str:
     if stack_id == get_stack_id():
         return "@s"
     else:
-        return "@e[type=armor_stand,tag=mcdp_stack,scores={mcdpStackID=%i}]" % stack_id
+        return "@e[tag=mcdp_stack_obj,scores={mcdpStackID=%i}]" % stack_id
     
 class ScoreType(Variable):
 
