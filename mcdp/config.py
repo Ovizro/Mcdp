@@ -13,7 +13,7 @@ class VmclConfig(McdpBaseModel):
     enabled: bool = True
     enable_pywheel: bool = True
 
-class McFuncConfig(McdpBaseModel):
+class MCFuncConfig(McdpBaseModel):
     add_comments: bool = True
     allow_overload: bool = True
     

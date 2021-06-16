@@ -39,28 +39,12 @@ class ContextManager(McdpVar):
 
 class Environment(ContextManager):
 
-    __slots__ = ["name", "var_dict", "stream", "storable"]
-    __accessible__ = ["name", "stream", "@item"]
+    __slots__ = ["name", "var_dict", "stream"]
+    __accessible__ = ["name", "stream"]
 
-    def __init__(self, name: str, *, root_path: Optional[Union[str, Path]] = None, storable: bool = False):
+    def __init__(self, name: str, *, root_path: Optional[Union[str, Path]] = None):
         self.name = name
-        self.storable = storable
-        if storable:
-            self.var_dict: Dict[str, Variable] = {}
         self.stream: Stream = Stream(name + ".mcfunction", root=root_path)
-
-    def __getitem__(self, key: str) -> Variable:
-        if not key in self.var_dict:
-            raise AttributeError(f"unfound var {key} in env {self.name}")
-        return self.var_dict[key]
-
-    def __setitem__(self, name: str, value: Variable) -> None:
-        if not (self.writable() and self.storable):
-            raise McdpContextError("fail to store ")
-        if name in self.var_dict:
-            if self.var_dict[name] == value:
-                return
-        self.var_dict[name] = value
 
     def write(self, content: str) -> None:
         self.stream.write(content)
@@ -147,7 +131,7 @@ class CCmethod:
 
 class Context(ContextManager):
 
-    __slots__ = ["name", "_lock", "stack", "path", "var_map", "dynamic_stack_num"]
+    __slots__ = ["name", "_lock", "stack", "path", "dynamic_stack_num"]
     __accessible__ = ["name", "stack", "@item"]
     
     MAX_OPENED: int = 8
@@ -168,30 +152,17 @@ class Context(ContextManager):
         self.stack: StackCache \
             = StackCache(self.__class__.MAX_OPENED)
         self.dynamic_stack_num = 0
-        self.var_map = ChainMap()
         
         self.path = Path(path).resolve()
-            
-    async def enter(
-        self,
-        env: Union[Environment, str],
-        dir: T_Path = '.',
-        *,
-        build_ent: bool = False
-    ) -> None:
-        if not self.stack:
-            build_ent = True
-            
-        if not isinstance(env, Environment):
-            env = Environment(env, root_path=self.path / dir, storable=build_ent)
-        
-        if build_ent:
-            self.dynamic_pull()
-            await self.stack.append(env)
-            self.var_map.new_child(env.var_dict)
-        else:
-            await self.stack.append(env)
     
+    @CCmethod
+    async def enter(self, env: Union[Environment, str], dir: T_Path = '.') -> None:
+        if not isinstance(env, Environment):
+            env = Environment(env, root_path=self.path / dir)
+        
+        await self.stack.append(env)
+    
+    @CCmethod
     async def exit(self, env: Optional[Union[Environment, str]] = None) -> None:
         if env:
             if isinstance(env, Environment):
@@ -205,34 +176,19 @@ class Context(ContextManager):
                 if self.top.name != env:
                     raise McdpContextError(f"cannot exit from the environment {env}.")
         
-        if self.stack and self.storable:
-            self.dynamic_pop()
-            await self.stack.pop()
-            self.var_map = self.var_map.parents
-        else:
+        if self.stack:
             await self.stack.pop()
             
-    def __getitem__(self, key: str) -> Variable:
-        return self.var_map[key]
-    
-    def __setitem__(self, key: str, value: Variable) -> None:
-        self.var_map[key] = value
-
     @property
     def top(self) -> Environment:
         if not self.stack:
             raise RuntimeError("no environment in the stack.")
         return self.stack[-1]
     
-    @property
-    def storable(self) -> bool:
-        return self.top.storable
-    
     async def shutdown(self) -> None:
         await self.stack.clear()
         del self.stack
         
-        self.var_map.clear()
         del self.path
         
         self.remove_from_collection()
@@ -246,9 +202,8 @@ class Context(ContextManager):
         await self._lock.acquire()
         self.__class__.current = self
         
-        default = Environment("__init__", root_path=self.path, storable=True)
+        default = Environment("__init__", root_path=self.path)
         await self.stack.append(default)
-        self.var_map.new_child(default.var_dict)
         self.insert(
             "function {0}:__init_score__".format(self.get_namespace()),
             "summon armor_stand ~ ~ ~ {0}".format(

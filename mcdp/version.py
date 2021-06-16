@@ -30,7 +30,7 @@ class Version:
             
             except Exception:
                 pass
-            raise ValueError("incorrect version form.")
+            raise ValueError("Incorrect version form.")
     
     def __getitem__(self, key: Union[int, slice]) -> Union[int, Tuple[int]]:
         try:
@@ -189,7 +189,7 @@ class PhaseVersion(Version):
                 return super().__init__(version)
             except Exception:
                 pass
-            raise ValueError("incorrect version form.")
+            raise ValueError("Incorrect version form.")
     
     def __eq__(self, other: T_version) -> bool:
         if not isinstance(other, self.__class__):
@@ -235,18 +235,18 @@ def fail_version_check(func: Callable, *, collection: Dict[str, Callable] = _ver
     if not iscoroutinefunction(func):
         @wraps(func)
         def nope(*args, **kwargs) -> NoReturn:
-            raise VersionError(f"the function '{name}' fails to pass the version check.")
+            raise VersionError(f"The function '{name}' fails to pass the version check.")
         return nope
     else:
         @wraps(func)
         async def aio_nope(*args, **kwargs) -> NoReturn:
-            raise VersionError(f"the function '{name}' fails to pass the version check.")
+            raise VersionError(f"The function '{name}' fails to pass the version check.")
         return aio_nope
 
 def pass_version_check(func: Callable, *, collection: Dict[str, Callable] = _version_func) -> Any:
     name = func.__qualname__
     if name in collection:
-        raise VersionError(f"the function '{name}' has a version conflict.")
+        raise VersionError(f"The function '{name}' has a version conflict.")
     collection[name] = func
     return func
 
@@ -284,7 +284,7 @@ def analyse_check_sentences(
         elif i.startswith('!='):
             ans['ne'].append(i[2:])
         else:
-            raise ValueError(f"cannot analyze the argument {i}")
+            raise ValueError(f"Cannot analyze the argument {i}")
     return ans
    
 def version_check(
@@ -319,7 +319,7 @@ def version_check(
             elif i.startswith('!='):
                 ne.append(i[2:])
             else:
-                raise ValueError(f"cannot analyze the argument {i}")
+                raise ValueError(f"Cannot analyze the argument {i}")
     check = True
     if gt:
         check = check and (version > gt)
@@ -384,7 +384,7 @@ class VersionChecker:
                         return self.collection[name](*arg, **kw)
                     else:
                         raise VersionError(
-                            f"the function '{name}' fails to pass the version check.", version=self.version_factory())
+                            f"The function '{name}' fails to pass the version check.", version=self.version_factory())
                     
                 return wrapper
             return get_func
@@ -424,7 +424,7 @@ class AioCompatVersionChecker(VersionChecker):
                             return self.collection[name](*arg, **kw)
                         else:
                             raise VersionError(
-                                f"the function '{name}' fails to pass the version check.", version=self.version_factory())
+                                f"The function '{name}' fails to pass the version check.", version=self.version_factory())
                         
                     return wrapper
                 else:
@@ -435,7 +435,7 @@ class AioCompatVersionChecker(VersionChecker):
                             return await self.collection[name](*arg, **kw)
                         else:
                             raise VersionError(
-                                f"the function '{name}' fails to pass the version check.", version=self.version_factory())
+                                f"The function '{name}' fails to pass the version check.", version=self.version_factory())
                         
                     return aio_wrapper
             return get_func

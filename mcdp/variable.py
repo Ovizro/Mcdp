@@ -1,8 +1,10 @@
-from functools import partial
-from typing import Any, Dict, List, Literal, Optional, Union
+from abc import abstractmethod
+from collections import defaultdict
+from typing import Any, DefaultDict, Dict, List, Literal, Optional, Type, Union
 
+from .counter import Counter
 from .context import insert, get_stack_id
-from .typings import Variable, McdpVar, McdpError
+from .typings import Variable, VariableMeta, McdpVar, McdpError
 from .mcstring import MCString, _stand_color
 
 class Scoreboard(Variable):
@@ -79,7 +81,7 @@ class Scoreboard(Variable):
                     insert(f"scoreboard objectives setdisplay {pos} {self.name}")
         else:        
             insert(f"scoreboard objectives setdisplay {pos} {self.name}")
-        raise ValueError("invalid scoreboard display position.")
+        raise ValueError("Invalid scoreboard display position.")
     
     def set_value(self, selector: str, value: int = 0) -> None:
         insert(f"scoreboard players set {selector} {self.name} {value}")
@@ -106,14 +108,17 @@ class ScoreType(Variable):
         name: str,
         default: Union[int, "ScoreType"] = 0,
         *,
+        init: bool = True,
+        stack_offset: int = 0,
         criteria: str = "dummy",
         display: Optional[dict] = None
     ) -> None:
         
         self.name = name
-        self.stack_id = get_stack_id()
+        self.stack_id = get_stack_id() - stack_offset
         self.scoreboard = Scoreboard(name, criteria=criteria, display=display)
-        self.set_value(default)
+        if init:
+            self.set_value(default)
         super().__init__()
         self.scoreboard.link(self)
 
@@ -214,35 +219,61 @@ class ScoreType(Variable):
         return f"<{self.__class__.__name__} objection {self.name} in stack {self.stack_id}>"
     
     __repr__ = __str__
+
+class _Cache:
     
-_score_cache: List[List[str]] = []
-_score_cache_num: int = 0
+    __slots__ = ["counter", "cache"]
     
-class ScoreCache(ScoreType):
+    def __init__(self) -> None:
+        self.counter = Counter('dpc')
+        self.cache: DefaultDict[int, List[str]] = defaultdict(self.new_stack)
+        
+    def get(self, stack_id: int) -> str:
+        dpc = self.cache[stack_id]
+        if not dpc:
+            name = self.get_name(self.counter)
+            for i in self.cache.values():
+                i.append(name)
+            +self.counter
+        return dpc.pop()
+
+    def __getitem__(self, key: int) -> List[str]:
+        return self.cache[key]
+    
+    def __setitem__(self, key: int, value: List[str]) -> None:
+        self.cache[key] = value
+    
+    def new_stack(self) -> List[str]:
+        return [self.get_name(i) for i in reversed(range(self.counter))]
+    
+    @staticmethod
+    def get_name(cache_id: Union[int, Counter]) -> str:
+        return "dpc_" + hex(cache_id)
+
+class ScoreMeta(VariableMeta):
+    
+    def __instancecheck__(self, instance: Any) -> bool:
+        if instance.__class__.__name__ == "dp_score" and instance.simulation is self:
+            return True
+        return super().__instancecheck__(instance)
+
+class ScoreCache(ScoreType, metaclass=ScoreMeta):
     
     __slots__ = ["freed"]
     __accessible__ = []
+    
+    cache = _Cache()
     
     def __init__(self, default: Union[int, ScoreType] = 0) -> None:
         global _score_cache_num
         stack_id = get_stack_id()
         self.freed = False
-        if stack_id+1 > len(_score_cache):
-            l = [self.get_name(i) for i in reversed(range(_score_cache_num))]
-            
-            while stack_id+1 > len(_score_cache):
-                _score_cache.append(l)
-            
-        dpc = _score_cache[stack_id]
-        if not dpc:
-            name = self.get_name(_score_cache_num)
-            for i in _score_cache:
-                i.append(name)
-            _score_cache_num += 1
-        name = dpc.pop()
+        name = self.cache.get(stack_id)
         super().__init__(name, default, display={"text":"Mcdp Cache", "color":"dark_blue"})
     
     def __add__(self, other: Union[int, ScoreType]):
+        if self.freed:
+            raise McdpVarError("operation on a freed variable.")
         ans = ScoreCache(self)
         ans += other
         -ans.counter
@@ -251,17 +282,23 @@ class ScoreCache(ScoreType):
     __radd__ = __add__
     
     def __sub__(self, other: Union[int, ScoreType]):
+        if self.freed:
+            raise McdpVarError("operation on a freed variable.")
         ans = ScoreCache(self)
         ans -= other
         -ans.counter
         return ans
     
     def __rsub__(self, other: Union[int, ScoreType]):
+        if self.freed:
+            raise McdpVarError("operation on a freed variable.")
         ans = ScoreCache(other)
         ans -= self
         return ans
     
     def __mul__(self, other: Union[int, ScoreType]):
+        if self.freed:
+            raise McdpVarError("operation on a freed variable.")
         ans = ScoreCache(self)
         ans *= other
         -ans.counter
@@ -269,21 +306,41 @@ class ScoreCache(ScoreType):
     
     __rmul__ = __mul__
     
-    def __truediv__(self, other: Union[int, ScoreType]) -> "ScoreCache":
+    def __truediv__(self, other: Union[int, ScoreType]):
+        if self.freed:
+            raise McdpVarError("operation on a freed variable.")
         ans = ScoreCache(self)
         ans /= other
         -ans.counter
         return ans
     
     def __rtruediv__(self, other: Union[int, ScoreType]):
+        if self.freed:
+            raise McdpVarError("operation on a freed variable.")
         ans = ScoreCache(other)
         ans /= self
+        -ans.counter
+        return ans
+
+    def __mod__(self, other: Union[int, ScoreType]):
+        if self.freed:
+            raise McdpVarError("operation on a freed variable.")
+        ans = ScoreCache(self)
+        ans %= other
+        -ans.counter
+        return ans
+    
+    def __rmod__(self, other: Union[int, ScoreType]):
+        if self.freed:
+            raise McdpVarError("operation on a freed variable.")
+        ans = ScoreCache(other)
+        ans %= self
         -ans.counter
         return ans
     
     def free(self) -> None:
         if not self.freed:
-            dpc = _score_cache[self.stack_id]
+            dpc = self.cache[self.stack_id]
             dpc.append(self.name)
             self.freed = True
         
@@ -294,21 +351,94 @@ class ScoreCache(ScoreType):
     def get_name(cache_id: int) -> str:
         return "dpc_" + hex(cache_id)
     
-    @classmethod
-    def apply_all(cls):
-        for i in range(cls.score_cache_num):
-            name = cls.get_name(i)
-            if name in Scoreboard.applied:
-                continue
-            Scoreboard(name, display={"text":"Mcdp Cache", "color":"dark_blue"}).apply()
-    
     def __str__(self) -> str:
         return f"<mcdp cache {self.name} in stack {self.stack_id}>"
 
 class dp_score(ScoreType):
-    pass
+    
+    __slots__ = ["simulation"]
+    
+    def __init__(
+        self,
+        name: str,
+        default: Union[int, "ScoreType"] = 0,
+        *,
+        init: bool = True,
+        stack_offset: int = 0,
+        criteria: str = "dummy",
+        display: Optional[dict] = None,
+        simulation: Optional[Type[ScoreCache]] = None
+    ) -> None:
+        if name.startswith("dpc_"):
+            raise McdpVarError("The name of dp_score cannot start with 'dpc_'.")
+        self.simulation = simulation
+        super().__init__(
+            name, default,
+            init=init, stack_offset=stack_offset,
+            criteria=criteria, display=display
+        )
+    
+    def simulate(self, t_score: Type[ScoreCache]) -> None:
+        if issubclass(t_score, ScoreCache):
+            self.simulation = t_score
+        else:
+            raise TypeError("Only support similating a subclass of ScoreType.")
+    
+    def __add__(self, other: ScoreType):
+        if not self.simulation:
+            return NotImplemented
+        ans = self.simulation(self)
+        return ans.__iadd__(other)
 
+    __radd__ = __add__
+    
+    def __sub__(self, other: ScoreType):
+        if not self.simulation:
+            return NotImplemented
+        ans = self.simulation(self)
+        return ans.__isub__(other)
+    
+    def __rsub__(self, other: ScoreType):
+        if not self.simulation:
+            return NotImplemented
+        ans = self.simulation(self)
+        return ans.__rsub__(other)
+    
+    def __mul__(self, other: ScoreType):
+        if not self.simulation:
+            return NotImplemented
+        ans = self.simulation(self)
+        return ans.__mul__(other)
+    
+    __rmul__ = __mul__
+    
+    def __truediv__(self, other: ScoreType):
+        if not self.simulation:
+            return NotImplemented
+        ans = self.simulation(self)
+        return ans.__truediv__(other)
+    
+    def __rtruediv__(self, other: ScoreType) -> ScoreType:
+        if not self.simulation:
+            return NotImplemented
+        ans = self.simulation(self)
+        return ans.__rtruediv__(other)
+    
+    def __mod__(self, other: ScoreType):
+        if not self.simulation:
+            return NotImplemented
+        ans = self.simulation(self)
+        return ans.__mod__(other)
+    
+    def __emod__(self, other: ScoreType):
+        if not self.simulation:
+            return NotImplemented
+        ans = self.simulation(self)
+        return ans.__rmod__(other)
+    
 class dp_int(ScoreCache):
+    
+    __slots__ = []
     
     def mcstr_ref(self) -> MCString:
         return MCString(score={"name":_get_selector(self), "objective":self.name})
@@ -317,6 +447,23 @@ class dp_int(ScoreCache):
         return f"<mcdp int objection in the scoreboard {self.name}>"
     
     __repr__ = __str__
+
+class StorageType(Variable):
+    
+    __slots__ = ["name"]
+    cache = _Cache()
+    
+    def __init__(self) -> None:
+        self.name = self.cache.get(get_stack_id())
+        super().__init__()
+    
+    @abstractmethod
+    def path(self, key: Union[int, str]) -> str:
+        raise NotImplementedError
+
+class dp_array(StorageType):
+    
+    __slots__ = ["type", ]
 
 class McdpVarError(McdpError):
     
