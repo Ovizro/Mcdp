@@ -369,7 +369,7 @@ class dp_score(ScoreType):
         display: Optional[dict] = None,
         simulation: Optional[Type[ScoreCache]] = None
     ) -> None:
-        if name.startswith("dpc_"):
+        if name.startswith("dpc_") and name != 'dpc_return':
             raise McdpVarError("The name of dp_score cannot start with 'dpc_'.")
         self.simulation = simulation
         super().__init__(
