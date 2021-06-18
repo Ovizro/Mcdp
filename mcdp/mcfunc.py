@@ -1,7 +1,7 @@
 import warnings
-from asyncio import iscoroutinefunction, run
+from asyncio import iscoroutinefunction, run, all_tasks, current_task, gather
 from inspect import signature, Parameter
-from typing import (Callable, Coroutine, Dict, List, Mapping,
+from typing import (Callable, Coroutine, Dict, List, Mapping, NoReturn,
     Union, Optional, Any, Tuple, Type, overload)
 
 from .counter import Counter, get_counter
@@ -11,7 +11,7 @@ from .config import get_config, MCFuncConfig
 from .context import Context, TagManager, add_tag, insert
 from .variable import ScoreType, Scoreboard, dp_int, dp_score
 
-def _toMcdpVar(c: Type) -> Type[McdpVar]:
+def _toMcdpVar(c: Type) -> Type[Variable]:
     if c == int:
         return dp_int
     raise ValueError("Unsupported function argument type.")
@@ -21,9 +21,10 @@ def _get_arguments(name: str, param: Mapping[str, Parameter]) -> Tuple[list, dic
     kwds = {}
     for k, v in param.items():
         ann = v.annotation
-        if not issubclass(ann, McdpVar):
+        if not issubclass(ann, Variable):
             ann = _toMcdpVar(ann)
-        s = dp_score("mcfarg_{0}_{1}".format(name, k), init=False)
+        s = dp_score("mcfarg_{0}_{1}".format(name, k), init=False, simulation=ann,
+                display={"text":f"Mcdp function {name} arguments", "color":"dark_blue"})
         if v.KEYWORD_ONLY:
             kwds[k] = s
         else:
@@ -55,14 +56,19 @@ class MCFunction(McdpVar):
         self.config = MCFuncConfig(**kw)
         self.overload: List = []
         self.overload_counter: List[Counter] = []
+        self.__class__.collection[name] = self
     
     def register(self, func: Callable) -> None:
         s = signature(func)
         sig = s.parameters
-        if not (s.return_annotation is None or issubclass(s.return_annotation, McdpVar)):
+        if not (s.return_annotation is None or issubclass(s.return_annotation, Variable)):
             func.__annotations__['return'] = _toMcdpVar(s.return_annotation)
         for k in sig:
             ann = sig[k].annotation
+            if not issubclass(ann, Variable):
+                func.__annotations__[k] = _toMcdpVar(ann)
+                warnings.warn("Argument annotations of the mcfunction should be a subclass of Varible.",
+                    SyntaxWarning)
             if not ann:
                 raise SyntaxError("Miss mcfunction arguments type annotation.")
         if not func.__name__ == self.__name__:
@@ -82,6 +88,7 @@ class MCFunction(McdpVar):
             f = self.overload[i]
             
             if not (len(self.overload) == 1 or self.overload_counter[i]):
+                print(Context.get_relative_path())
                 continue
             
             if i == 0:
@@ -93,7 +100,9 @@ class MCFunction(McdpVar):
             
             ans = f(*args, **kwds)
             if isinstance(ans, ScoreType):
-                dp_score("dpc_return", ans, stack_offset=1)
+                if ans.name != "dpc_return":
+                    dp_score("dpc_return", ans, stack_offset=1,
+                        display={"text":"Mcdp function return cache", "coloe":"dark_blue"})
             Context.dynamic_pop()
             await Context.exit()
     
@@ -123,7 +132,8 @@ class MCFunction(McdpVar):
         
         for k,v in binded.arguments.items():
             if issubclass(type(v), ScoreType):
-                dp_score("mcfarg_{0}_{1}".format(self.__name__, k), v)
+                dp_score("mcfarg_{0}_{1}".format(self.__name__, k), v,
+                    display={"text":f"Mcdp function {self.__name__} arguments", "color":"dark_blue"})
             
         path = Context.get_relative_path() / self.__name__
         Context.dynamic_pull()
@@ -136,11 +146,8 @@ class MCFunction(McdpVar):
             
         T_ret = sig.return_annotation
         if not T_ret is None:
-            ret = dp_score("dpc_return", init=False)
-            if T_ret is dp_score:
-                return ret
-            else:
-                return T_ret(ret)
+            return dp_score("dpc_return", init=False, simulation=T_ret,
+                display={"text":f"Mcdp function return cache", "color":"dark_blue"})
         
 @overload
 def mcfunc(func: Callable) -> MCFunction:
@@ -159,36 +166,41 @@ def mcfunc(func: Optional[Callable] = None, *args, **kw):
         return wrapper
 
 @overload
-def mcfunc_main(func: Callable) -> None:
+def mcfunc_main(func: Callable) -> NoReturn:
     ...
 @overload
-def mcfunc_main(*args, **kw) -> Callable[[Callable], None]:
+def mcfunc_main(*args, **kw) -> Callable[[Callable], NoReturn]:
     ...
 def mcfunc_main(func: Optional[Union[Callable]] = None, *args, **kw):
-    async def md_main(func: Callable[[], Optional[Coroutine]]) -> None:
+    async def md_main(func: Callable[[], Optional[Coroutine]]) -> NoReturn:
         config = get_config()
         await build_dirs_from_config()
         context = init_context(config.namespace)
         async with context:
+            add_tag('load', namespace='minecraft')
+            
+            await context.enter("__main__")
             if iscoroutinefunction(func):
                 await func()
             else:
                 func()
-            add_tag('load', namespace='minecraft')
-            
-            await MCFunction.apply_all()
-            TagManager.apply_all()
+            await context.exit()
             
             await context.enter('__init_score__')
             Scoreboard.apply_all()
             await context.exit()
             
+            TagManager.apply_all()
+            await MCFunction.apply_all()
+            
+        await gather(*[t for t in all_tasks() if t != current_task()])
         get_counter().print_out()
+        quit()
     
     if callable(func):
         run(md_main(func))
     else:
-        def get_func(func: Callable[[], Optional[Coroutine]]) -> None:
+        def get_func(func: Callable[[], Optional[Coroutine]]) -> NoReturn:
             run(md_main(func))
         return get_func
             

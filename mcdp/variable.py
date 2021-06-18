@@ -249,11 +249,11 @@ class _Cache:
     @staticmethod
     def get_name(cache_id: Union[int, Counter]) -> str:
         return "dpc_" + hex(cache_id)
-
+    
 class ScoreMeta(VariableMeta):
     
     def __instancecheck__(self, instance: Any) -> bool:
-        if instance.__class__.__name__ == "dp_score" and instance.simulation is self:
+        if isinstance(instance, dp_score) and instance.simulation is self:
             return True
         return super().__instancecheck__(instance)
 
@@ -347,10 +347,6 @@ class ScoreCache(ScoreType, metaclass=ScoreMeta):
     def __del__(self) -> None:
         self.free()
 
-    @staticmethod
-    def get_name(cache_id: int) -> str:
-        return "dpc_" + hex(cache_id)
-    
     def __str__(self) -> str:
         return f"<mcdp cache {self.name} in stack {self.stack_id}>"
 
@@ -371,6 +367,8 @@ class dp_score(ScoreType):
     ) -> None:
         if name.startswith("dpc_") and name != 'dpc_return':
             raise McdpVarError("The name of dp_score cannot start with 'dpc_'.")
+        if simulation is self.__class__:
+            simulation = None
         self.simulation = simulation
         super().__init__(
             name, default,
@@ -418,7 +416,7 @@ class dp_score(ScoreType):
         ans = self.simulation(self)
         return ans.__truediv__(other)
     
-    def __rtruediv__(self, other: ScoreType) -> ScoreType:
+    def __rtruediv__(self, other: ScoreType):
         if not self.simulation:
             return NotImplemented
         ans = self.simulation(self)
@@ -430,11 +428,17 @@ class dp_score(ScoreType):
         ans = self.simulation(self)
         return ans.__mod__(other)
     
-    def __emod__(self, other: ScoreType):
+    def __rmod__(self, other: ScoreType):
         if not self.simulation:
             return NotImplemented
         ans = self.simulation(self)
         return ans.__rmod__(other)
+    
+    def __str__(self) -> str:
+        if not self.simulation:
+            return super().__str__()
+        else:
+            return f"<{self.simulation.__name__} objection {self.name} in stack {self.stack_id}>"
     
 class dp_int(ScoreCache):
     
@@ -444,7 +448,7 @@ class dp_int(ScoreCache):
         return MCString(score={"name":_get_selector(self), "objective":self.name})
     
     def __str__(self) -> str:
-        return f"<mcdp int objection in the scoreboard {self.name}>"
+        return f"<dp_int objection in stack {self.stack_id}>"
     
     __repr__ = __str__
 

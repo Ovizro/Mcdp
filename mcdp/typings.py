@@ -49,6 +49,12 @@ class VariableMeta(ABCMeta):
             if isinstance(v, BaseMcfunc):
                 attrs['__accessible__'].append(k)
         return ABCMeta.__new__(cls, name, bases, attrs)
+    
+    def __instancecheck__(self, instance: Any) -> bool:
+        if instance.__class__ is self:
+            return True
+        else:
+            return self.__subclasscheck__(instance.__class__)
 
 class Variable(McdpVar, metaclass=VariableMeta):
 
