@@ -74,6 +74,13 @@ class SelectorScore(McdpBaseModel):
     def __str__(self) -> str:
         return f"{self.objective}={self.value}"
 
+class SelectorAdvance(McdpBaseModel):
+    name: str
+    achieved: bool
+
+    def __str__(self) -> str:
+        return f"{self.name}={str(self.achieved).lower()}"
+
 class Selector(McdpBaseModel):
     sel: Literal["@p", "@a", "@r", "@e", "@s"]
     

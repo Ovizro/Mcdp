@@ -7,7 +7,7 @@ import asyncio
 from pathlib import Path
 from functools import partial, wraps
 from aiofiles import open as aio_open
-from typing import List, Optional, Union, TypeVar
+from typing import List, Optional, TypeVar
 
 from .counter import get_counter
 counter = get_counter()
