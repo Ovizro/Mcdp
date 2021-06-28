@@ -1,3 +1,4 @@
+from mcdp.command import Selector
 from pydantic import validator, Field
 from typing import Dict, List, Any, Literal, Tuple, Union, Optional
 
@@ -132,7 +133,7 @@ class MCSS(MCStringObj):
 class MCString(MCSS):
     text: str = None
     translate: str = None
-    with_: List[str] = Field(default=None, alias='with')
+    with_: list = Field(default=None, alias='with')
     score: Score = None
     selector: str = None
     keybind: str = None
@@ -141,6 +142,29 @@ class MCString(MCSS):
     entity: str = None
     storage: str = None
     extra: list = None
+
+    def __init__(self, text: Optional[str] = None, **data: Any) -> None:
+        if text:
+            data["text"] = text
+        super().__init__(**data)
+
+    def __mod__(self, _with: Union[str, "MCString", Tuple[Any]]) -> "MCString":
+        self = self.copy()
+        
+        if not self.translate:
+            self.translate = self.text
+            del self.text
+
+        if isinstance(_with, str):
+            _with = (self.__class__(_with),)
+        elif isinstance(_with, self.__class__):
+            _with = (_with,)
+        if self.with_:
+            self.with_.extend(_with)
+        else:
+            self.with_ = list(_with)
+
+        return self
     
     def dict(
         self, 

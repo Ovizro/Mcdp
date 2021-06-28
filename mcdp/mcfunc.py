@@ -9,7 +9,7 @@ from .file_struct import build_dirs_from_config, init_context
 from .typings import McdpVar, Variable
 from .config import get_config, MCFuncConfig
 from .context import Context, TagManager, add_tag, insert
-from .variable import ScoreType, Scoreboard, dp_int, dp_score
+from .variable import Score, Scoreboard, dp_int, dp_score
 
 def _toMcdpVar(c: Type) -> Type[Variable]:
     if c == int:
@@ -99,7 +99,7 @@ class MCFunction(McdpVar):
             args, kwds = _get_arguments(self.__name__, sig)
             
             ans = f(*args, **kwds)
-            if isinstance(ans, ScoreType):
+            if isinstance(ans, Score):
                 if ans.name != "dpc_return":
                     dp_score("dpc_return", ans, stack_offset=1,
                         display={"text":"Mcdp function return cache", "coloe":"dark_blue"})
@@ -131,7 +131,7 @@ class MCFunction(McdpVar):
             raise TypeError("Invalid arguments. No overloaded function signature is matched.")
         
         for k,v in binded.arguments.items():
-            if issubclass(type(v), ScoreType):
+            if issubclass(type(v), Score):
                 dp_score("mcfarg_{0}_{1}".format(self.__name__, k), v,
                     display={"text":f"Mcdp function {self.__name__} arguments", "color":"dark_blue"})
             

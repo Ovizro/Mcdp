@@ -88,7 +88,7 @@ class Scoreboard(Variable):
         
 CONST_CACHE_NAME: str = "dpc_const"
         
-def _get_selector(score: Union[int, "ScoreType"]) -> str:
+def _get_selector(score: Union[int, "Score"]) -> str:
     if isinstance(score, int):
         stack_id = score
     else:
@@ -98,7 +98,7 @@ def _get_selector(score: Union[int, "ScoreType"]) -> str:
     else:
         return "@e[tag=mcdp_stack_obj,scores={mcdpStackID=%i}]" % stack_id
     
-class ScoreType(Variable):
+class Score(Variable):
 
     __slots__ = ["name", "stack_id", "scoreboard", "counter", "linked"]
     __accessible__ = ["scoreboard"]
@@ -106,7 +106,7 @@ class ScoreType(Variable):
     def __init__(
         self,
         name: str,
-        default: Union[int, "ScoreType"] = 0,
+        default: Union[int, "Score"] = 0,
         *,
         init: bool = True,
         stack_offset: int = 0,
@@ -122,7 +122,7 @@ class ScoreType(Variable):
         super().__init__()
         self.scoreboard.link(self)
 
-    def __iadd__(self, other: Union[int, "ScoreType"]):
+    def __iadd__(self, other: Union[int, "Score"]):
         +self.counter
         if isinstance(other, int):
             insert(
@@ -138,7 +138,7 @@ class ScoreType(Variable):
                 ))
         return self
     
-    def __isub__(self, other: Union[int, "ScoreType"]):
+    def __isub__(self, other: Union[int, "Score"]):
         +self.counter
         if isinstance(other, int):
             insert(
@@ -154,7 +154,7 @@ class ScoreType(Variable):
                 ))
         return self
     
-    def __imul__(self, other: Union[int, "ScoreType"]):
+    def __imul__(self, other: Union[int, "Score"]):
         +self.counter
         if isinstance(other, int):
             name = CONST_CACHE_NAME
@@ -170,7 +170,7 @@ class ScoreType(Variable):
             ))
         return self
     
-    def __itruediv__(self, other: Union[int, "ScoreType"]):
+    def __itruediv__(self, other: Union[int, "Score"]):
         +self.counter
         if isinstance(other, int):
             name = CONST_CACHE_NAME
@@ -186,7 +186,7 @@ class ScoreType(Variable):
             ))
         return self
     
-    def __imod__(self, other: Union[int, "ScoreType"]):
+    def __imod__(self, other: Union[int, "Score"]):
         +self.counter
         if isinstance(other, int):
             name = CONST_CACHE_NAME
@@ -202,7 +202,7 @@ class ScoreType(Variable):
             ))
         return self
     
-    def set_value(self, value: Union[int, "ScoreType"] = 0) -> None:
+    def set_value(self, value: Union[int, "Score"] = 0) -> None:
         if isinstance(value, int):
             self.scoreboard.set_value(_get_selector(self), value)
         else:
@@ -257,21 +257,21 @@ class ScoreMeta(VariableMeta):
             return True
         return super().__instancecheck__(instance)
 
-class ScoreCache(ScoreType, metaclass=ScoreMeta):
+class ScoreCache(Score, metaclass=ScoreMeta):
     
     __slots__ = ["freed"]
     __accessible__ = []
     
     cache = _Cache()
     
-    def __init__(self, default: Union[int, ScoreType] = 0) -> None:
+    def __init__(self, default: Union[int, Score] = 0) -> None:
         global _score_cache_num
         stack_id = get_stack_id()
         self.freed = False
         name = self.cache.get(stack_id)
         super().__init__(name, default, display={"text":"Mcdp Cache", "color":"dark_blue"})
     
-    def __add__(self, other: Union[int, ScoreType]):
+    def __add__(self, other: Union[int, Score]):
         if self.freed:
             raise McdpVarError("operation on a freed variable.")
         ans = ScoreCache(self)
@@ -281,7 +281,7 @@ class ScoreCache(ScoreType, metaclass=ScoreMeta):
     
     __radd__ = __add__
     
-    def __sub__(self, other: Union[int, ScoreType]):
+    def __sub__(self, other: Union[int, Score]):
         if self.freed:
             raise McdpVarError("operation on a freed variable.")
         ans = ScoreCache(self)
@@ -289,14 +289,14 @@ class ScoreCache(ScoreType, metaclass=ScoreMeta):
         -ans.counter
         return ans
     
-    def __rsub__(self, other: Union[int, ScoreType]):
+    def __rsub__(self, other: Union[int, Score]):
         if self.freed:
             raise McdpVarError("operation on a freed variable.")
         ans = ScoreCache(other)
         ans -= self
         return ans
     
-    def __mul__(self, other: Union[int, ScoreType]):
+    def __mul__(self, other: Union[int, Score]):
         if self.freed:
             raise McdpVarError("operation on a freed variable.")
         ans = ScoreCache(self)
@@ -306,7 +306,7 @@ class ScoreCache(ScoreType, metaclass=ScoreMeta):
     
     __rmul__ = __mul__
     
-    def __truediv__(self, other: Union[int, ScoreType]):
+    def __truediv__(self, other: Union[int, Score]):
         if self.freed:
             raise McdpVarError("operation on a freed variable.")
         ans = ScoreCache(self)
@@ -314,7 +314,7 @@ class ScoreCache(ScoreType, metaclass=ScoreMeta):
         -ans.counter
         return ans
     
-    def __rtruediv__(self, other: Union[int, ScoreType]):
+    def __rtruediv__(self, other: Union[int, Score]):
         if self.freed:
             raise McdpVarError("operation on a freed variable.")
         ans = ScoreCache(other)
@@ -322,7 +322,7 @@ class ScoreCache(ScoreType, metaclass=ScoreMeta):
         -ans.counter
         return ans
 
-    def __mod__(self, other: Union[int, ScoreType]):
+    def __mod__(self, other: Union[int, Score]):
         if self.freed:
             raise McdpVarError("operation on a freed variable.")
         ans = ScoreCache(self)
@@ -330,7 +330,7 @@ class ScoreCache(ScoreType, metaclass=ScoreMeta):
         -ans.counter
         return ans
     
-    def __rmod__(self, other: Union[int, ScoreType]):
+    def __rmod__(self, other: Union[int, Score]):
         if self.freed:
             raise McdpVarError("operation on a freed variable.")
         ans = ScoreCache(other)
@@ -350,14 +350,14 @@ class ScoreCache(ScoreType, metaclass=ScoreMeta):
     def __str__(self) -> str:
         return f"<mcdp cache {self.name} in stack {self.stack_id}>"
 
-class dp_score(ScoreType):
+class dp_score(Score):
     
     __slots__ = ["simulation"]
     
     def __init__(
         self,
         name: str,
-        default: Union[int, "ScoreType"] = 0,
+        default: Union[int, "Score"] = 0,
         *,
         init: bool = True,
         stack_offset: int = 0,
@@ -380,9 +380,9 @@ class dp_score(ScoreType):
         if issubclass(t_score, ScoreCache):
             self.simulation = t_score
         else:
-            raise TypeError("Only support similating a subclass of ScoreType.")
+            raise TypeError("Only support similating a subclass of Score.")
     
-    def __add__(self, other: ScoreType):
+    def __add__(self, other: Score):
         if not self.simulation:
             return NotImplemented
         ans = self.simulation(self)
@@ -390,19 +390,19 @@ class dp_score(ScoreType):
 
     __radd__ = __add__
     
-    def __sub__(self, other: ScoreType):
+    def __sub__(self, other: Score):
         if not self.simulation:
             return NotImplemented
         ans = self.simulation(self)
         return ans.__isub__(other)
     
-    def __rsub__(self, other: ScoreType):
+    def __rsub__(self, other: Score):
         if not self.simulation:
             return NotImplemented
         ans = self.simulation(self)
         return ans.__rsub__(other)
     
-    def __mul__(self, other: ScoreType):
+    def __mul__(self, other: Score):
         if not self.simulation:
             return NotImplemented
         ans = self.simulation(self)
@@ -410,25 +410,25 @@ class dp_score(ScoreType):
     
     __rmul__ = __mul__
     
-    def __truediv__(self, other: ScoreType):
+    def __truediv__(self, other: Score):
         if not self.simulation:
             return NotImplemented
         ans = self.simulation(self)
         return ans.__truediv__(other)
     
-    def __rtruediv__(self, other: ScoreType):
+    def __rtruediv__(self, other: Score):
         if not self.simulation:
             return NotImplemented
         ans = self.simulation(self)
         return ans.__rtruediv__(other)
     
-    def __mod__(self, other: ScoreType):
+    def __mod__(self, other: Score):
         if not self.simulation:
             return NotImplemented
         ans = self.simulation(self)
         return ans.__mod__(other)
     
-    def __rmod__(self, other: ScoreType):
+    def __rmod__(self, other: Score):
         if not self.simulation:
             return NotImplemented
         ans = self.simulation(self)
