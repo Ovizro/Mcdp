@@ -158,22 +158,18 @@ class AnchoredInstruction(Instruction):
         return f"anchored {self.anchor}"
 
 class AsInstruction(Instruction):
-    targets: Selector
+    targets: Union[Selector, str]
 
     def __init__(self, targets: Union[Selector, str]) -> None:
-        if isinstance(targets, str):
-            targets = Selector(targets)
         McdpBaseModel.__init__(self, targets=targets)
-    
+
     def __str__(self) -> str:
         return f"as {self.targets}"
 
 class AtInstruction(Instruction):
-    targets: Selector
+    targets: Union[Selector, str]
 
     def __init__(self, targets: Union[Selector, str]) -> None:
-        if isinstance(targets, str):
-            targets = Selector(targets)
         McdpBaseModel.__init__(self, targets=targets)
     
     def __str__(self) -> str:
@@ -192,4 +188,71 @@ class FacingInstruction(Instruction):
         *,
         entity: bool = False
     ) -> None:
-        ...
+        if entity:
+            if not anchor:
+                raise ValueError("Miss a argument 'anchor'.'")
+            McdpBaseModel.__init__(
+                self, targets=pos_or_targets, anchor=anchor, entity=True)
+        else:
+            if anchor:
+                raise ValueError("Invalid argument 'anchor'.")
+            if not isinstance(pos_or_targets, Position):
+                pos = Position(pos_or_targets)
+            else:
+                pos = pos_or_targets
+            McdpBaseModel.__init__(self, pos=pos, entity=entity)
+        
+    def __str__(self) -> str:
+        if self.entity:
+            return f"facing entity {self.targets} {self.anchor}"
+        else:
+            return f"facing {self.pos}"
+
+class InInstruction(Instruction):
+    dimension: str
+
+    def __init__(self, dimension: str) -> None:
+        McdpBaseModel.__init__(self, dimension=dimension)
+    
+    def __str__(self) -> str:
+        return f"in {self.dimension}"
+
+class PositionedInstruction(Instruction):
+    entity: bool
+    pos: Optional[Position] = None
+    targets: Union[str, Selector, None] = None
+
+    def __init__(self, pos_or_targets: Union[str, Position, Selector], *, entity: bool = False) -> None:
+        if entity:
+            McdpBaseModel.__init__(self, targets=pos_or_targets, entity=True)
+        else:
+            if not isinstance(pos_or_targets, Position):
+                pos = Position(pos_or_targets)
+            else:
+                pos = pos_or_targets
+            McdpBaseModel.__init__(self, pos=pos, entity=False)
+    
+    def __str__(self) -> str:
+        if self.entity:
+            return f"positioned as {self.targets}"
+        else:
+            return f"positioned {self.pos}"
+
+class RotatedInstruction(Instruction):
+    entity: bool
+    rot: Optional[Tuple[Union[int, float], Union[int, float]]] = None
+    targets: Union[str, Selector, None] = None
+
+    def __init__(self, rot_or_targets: Union[Tuple, str, Selector], *, entity: bool = False) -> None:
+        if entity:
+            McdpBaseModel.__init__(self, targets=rot_or_targets, entity=True)
+        else:
+            McdpBaseModel.__init__(self, rot=rot_or_targets, entity=entity)
+
+    def __str__(self) -> str:
+        if self.entity:
+            return f"rotated as {self.targets}"
+        else:
+            return f"rotated {self.rot[0]} {self.rot[1]}"
+
+
