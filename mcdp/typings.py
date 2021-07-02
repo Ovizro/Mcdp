@@ -69,6 +69,17 @@ class Variable(McdpVar, metaclass=VariableMeta):
     def apply(self) -> None:
         raise NotImplementedError
 
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+    
+    @classmethod
+    def validate(cls, val: "Variable"):
+        if not isinstance(val, cls):
+            raise TypeError(f"{val} is not a instance of {cls}.")
+        else:
+            return val
+
     def link(self, var: Union["Variable", Counter]) -> None:
         if not isinstance(var, Counter):
             var = var.counter

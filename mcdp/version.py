@@ -83,6 +83,17 @@ class Version:
         def __compare__(self, other: T_version) -> bool:
             return self._compare(ops, other)
         return __compare__
+    
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+    
+    @classmethod
+    def validate(cls, val: Union[str, "Version"]):
+        if isinstance(val, cls):
+            return val
+        else:
+            return cls(val)
         
     def __eq__(self, other: T_version) -> bool:
         if not isinstance(other, self.__class__):

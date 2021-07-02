@@ -1,5 +1,4 @@
-from os import name
-from typing import Any, List, Literal, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Type, Union
 from pydantic import constr
 
 from .typings import McdpBaseModel, McdpVar
@@ -56,6 +55,17 @@ class Position(McdpVar):
                 tid = 3
         
         self._posXYZ = tuple(l)
+    
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+    
+    @classmethod
+    def validate(cls, val: Union[str, "Position"]):
+        if isinstance(val, cls):
+            return val
+        else:
+            return cls(val)
         
     def __repr__(self) -> str:
         return f"Position{self._posXYZ}"
@@ -63,11 +73,11 @@ class Position(McdpVar):
     def __str__(self) -> str:
         return " ".join([i.value for i in self._posXYZ])
 
-class SelectArg:
+class KeywordArg:
 
     __slots__ = ["name", "value"]
 
-    def __init__(self, name: str, value: Union[str, Set["SelectArg"]]) -> None:
+    def __init__(self, name: str, value: Union[str, Set["KeywordArg"]]) -> None:
         self.name = name
         self.value = value
     
@@ -83,7 +93,7 @@ class SelectArg:
 
 class Selector(McdpBaseModel):
     name: Literal["@p", "@a", "@r", "@e", "@s"]
-    args: List[Union[SelectArg, str]] = []
+    args: List[Union[KeywordArg, str]] = []
 
     def __init__(self, name: str, *args) -> None:
         if name in  ["@p", "@a", "@r", "@e", "@s"]:
@@ -110,6 +120,17 @@ class NBTPath(McdpVar):
     
     def __init__(self, *args: str) -> None:
         self.path = list(args)
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+    
+    @classmethod
+    def validate(cls, val: Union[str, "NBTPath"]):
+        if isinstance(val, cls):
+            return val
+        else:
+            return cls(val)
     
     def __repr__(self) -> str:
         return f"NBTPath({self.__str__()})"
@@ -196,11 +217,7 @@ class FacingInstruction(Instruction):
         else:
             if anchor:
                 raise ValueError("Invalid argument 'anchor'.")
-            if not isinstance(pos_or_targets, Position):
-                pos = Position(pos_or_targets)
-            else:
-                pos = pos_or_targets
-            McdpBaseModel.__init__(self, pos=pos, entity=entity)
+            McdpBaseModel.__init__(self, pos=pos_or_targets, entity=entity)
         
     def __str__(self) -> str:
         if self.entity:
@@ -226,11 +243,7 @@ class PositionedInstruction(Instruction):
         if entity:
             McdpBaseModel.__init__(self, targets=pos_or_targets, entity=True)
         else:
-            if not isinstance(pos_or_targets, Position):
-                pos = Position(pos_or_targets)
-            else:
-                pos = pos_or_targets
-            McdpBaseModel.__init__(self, pos=pos, entity=False)
+            McdpBaseModel.__init__(self, pos=pos_or_targets, entity=False)
     
     def __str__(self) -> str:
         if self.entity:
@@ -255,4 +268,119 @@ class RotatedInstruction(Instruction):
         else:
             return f"rotated {self.rot[0]} {self.rot[1]}"
 
+_case_register: Dict[str, Type["Case"]] = {}
+
+class Case(McdpBaseModel):
+
+    def __init__(self, **data) -> None:
+        super().__init__(**data)
+
+    def __new__(cls, type: str, *args, **kwds) -> "Case":
+        return _case_register[type](*args, **kwds)
+    
+    def __init_subclass__(cls, *, type: str) -> None:
+        _case_register[type] = cls
+        super().__init_subclass__()
+
+class BlockCase(Case, type="block"):
+    pos: Position
+    block: str
+
+    def __init__(self, pos: Union[str, Position], block: str) -> None:
+        super().__init__(pos=pos, block=block)
+    
+    def __str__(self) -> str:
+        return f"block {self.pos} {self.block}"
+
+class BlocksCase(Case, type="blocks"):
+    start: Position
+    end: Position
+
+    destination: Position
+
+    scan_mode: Literal["all", "marked"]
+
+    def __init__(
+        self,
+        start: Union[str, Position],
+        end: Union[str, Position],
+        destination: Union[str, Position],
+        *,
+        scan_mode: Literal["all", "marked"] = "all"
+    ) -> None:
+        super().__init__(start=start, end=end, destination=destination, scan_mode=scan_mode)
+
+    def __str__(self) -> str:
+        return f"blocks {self.start} {self.end} {self.destination} {self.scan_mode}"
+
+class DataCase(Case, type="data"):
+    type: Literal["block", "entity", "storage"]
+    pos: Optional[Position] = None
+    targets: Union[str, Selector, None] = None
+    path: NBTPath
+
+    def __init__(
+        self,
+        type: Literal["block", "entity", "storage"],
+        pos_or_targets: Union[Position, str, Selector],
+        path: Union[str, NBTPath]
+    ) -> None:
+        if type == "block":
+            super().__init__(type=type, pos=pos_or_targets, path=path)
+        else:
+            super().__init__(type=type, targets=pos_or_targets, path=path)
+
+    def __str__(self) -> str:
+        if type == "block":
+            return f"data block {self.pos} {self.path}"
+        else:
+            return f"data {self.type} {self.targets} {self.path}"
+
+class EntityCase(Case, type="entity"):
+    targets: Union[str, Selector]
+
+    def __init__(self, targets: Union[str, Selector]) -> None:
+        super().__init__(targets=targets)
+    
+    def __str__(self) -> str:
+        return f"entity {self.targets}"
+
+class PredicateCase(Case, type="predicate"):
+    predicate: str
+
+    def __init__(self, predicate: str) -> None:
+        super().__init__(predicate=predicate)
+    
+    def __str__(self) -> str:
+        return f"predicate {self.predicate}"
+
+class ScoreCase(Case, type="score"):
+    target: Union[str, Selector]
+    target_obj: str
+    ops: Literal["<", "<=", "=", ">=", ">", "matches"]
+    source: Union[str, Selector, None] = None
+    source_obj: Optional[str] = None
+    range: Optional[str] = None
+
+    def __init__(
+        self,
+        target: Union[str, Selector],
+    ) -> None:
+        super().__init__(target=target)
+    
+    def __str__(self) -> str:
+        return f"score {self.target}"
+
+class CaseInstruction(Instruction):
+    unless: bool
+    case: Case
+
+    def __init__(self, case: Case, *, unless: bool = False) -> None:
+        McdpBaseModel.__init__(self, case=case, unless=unless)
+
+    def __str__(self) -> str:
+        if self.unless:
+            return "unless "
+        else:
+            return "if "
 

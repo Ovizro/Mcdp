@@ -165,6 +165,15 @@ class MCString(MCSS):
             self.with_ = list(_with)
 
         return self
+
+    @classmethod
+    def validate(cls, val):
+        if isinstance(val, str):
+            return cls(val)
+        elif isinstance(val, cls):
+            return val
+        else:
+            raise TypeError("Invalid mcstring.")
     
     def dict(
         self, 
