@@ -1,4 +1,3 @@
-from mcdp.command import Selector
 from pydantic import validator, Field
 from typing import Dict, List, Any, Literal, Tuple, Union, Optional
 
@@ -121,7 +120,7 @@ class MCSS(MCStringObj):
     hoverEvent: HoverEvent = None
     
     @validator('color')
-    def _color(cls, val: str) -> str:
+    def colorValidator(cls, val: str) -> str:
         _check_color(val)
         return val
     
@@ -143,9 +142,17 @@ class MCString(MCSS):
     storage: str = None
     extra: list = None
 
-    def __init__(self, text: Optional[str] = None, **data: Any) -> None:
-        if text:
-            data["text"] = text
+    def __new__(cls, string: Any = None, **data) -> "MCString":
+        if not string or isinstance(string, str):
+            return MCSS.__new__(cls)
+        elif hasattr(string, "__mcstr__"):
+            return string.__mcstr__()
+        else:
+            raise TypeError(f"Invalid string {string}.")
+
+    def __init__(self, string: Optional[str] = None, **data: Any) -> None:
+        if string:
+            data["text"] = string
         super().__init__(**data)
 
     def __mod__(self, _with: Union[str, "MCString", Tuple[Any]]) -> "MCString":
@@ -168,7 +175,7 @@ class MCString(MCSS):
 
     @classmethod
     def validate(cls, val):
-        if isinstance(val, str):
+        if isinstance(val, str) or hasattr(val, "__mcstr__"):
             return cls(val)
         elif isinstance(val, cls):
             return val
@@ -185,3 +192,6 @@ class MCString(MCSS):
         if 'with_' in data:
             data['with'] = data.pop('with_')
         return data
+
+    def __str__(self) -> str:
+        return self.json()

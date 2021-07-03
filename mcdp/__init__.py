@@ -5,6 +5,7 @@ from .config import Config, get_config
 from .file_struct import build_dirs, build_dirs_from_config, init_context, init_mcmeta
 from .context import get_context, Context, TagManager, comment, insert, add_tag
 from .variable import Scoreboard, dp_int, dp_score
+from .command import cout, endl
 from .mcfunc import mcfunc, mcfunc_main, MCFunction
 from .typings import McdpError
 from .version import __version__
@@ -22,13 +23,13 @@ class Mcdatapack:
         pass
 
 __all__ = [
-    #config
+    # config
     "Config",
     "get_config",
-    #file
+    # file
     "build_dirs",
     "build_dirs_from_config",
-    #context
+    # context
     "init_context",
     "Context",
     "get_context",
@@ -36,14 +37,17 @@ __all__ = [
     "insert",
     "TagManager",
     "add_tag",
-    #variable
+    # variable
     "Scoreboard",
     "dp_score",
     "dp_int",
-    #mcfunction
+    # command
+    "cout",
+    "endl",
+    # mcfunction
     "mcfunc",
     "mcfunc_main",
     "MCFunction",
-    #exception
+    # exception
     "McdpError"
 ]

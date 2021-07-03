@@ -215,6 +215,9 @@ class Score(Variable):
         if not self.name in Scoreboard.applied:
             self.scoreboard.apply()
     
+    def __mcstr__(self) -> MCString:
+        return MCString(score={"name":_get_selector(self), "objective":self.name})
+    
     def __str__(self) -> str:
         return f"<{self.__class__.__name__} objection {self.name} in stack {self.stack_id}>"
     
@@ -443,9 +446,6 @@ class dp_score(Score):
 class dp_int(ScoreCache):
     
     __slots__ = []
-    
-    def mcstr_ref(self) -> MCString:
-        return MCString(score={"name":_get_selector(self), "objective":self.name})
     
     def __str__(self) -> str:
         return f"<dp_int objection in stack {self.stack_id}>"

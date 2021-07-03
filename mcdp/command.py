@@ -1,7 +1,10 @@
+from warnings import warn
+from io import StringIO
 from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Type, Union
-from pydantic import constr
 
-from .typings import McdpBaseModel, McdpVar
+from .typings import McdpBaseModel, McdpVar, McdpError
+from .mcstring import MCString
+from .context import insert
 
 class PosComponent(McdpVar):
     
@@ -104,6 +107,9 @@ class Selector(McdpBaseModel):
             _args.extend(args)
 
             super().__init__(name=_name, args=_args)
+
+    def __mcstr__(self) -> MCString:
+        return MCString(selector=str(self))
 
     def __str__(self) -> str:
         if not self.args:
@@ -272,9 +278,6 @@ _case_register: Dict[str, Type["Case"]] = {}
 
 class Case(McdpBaseModel):
 
-    def __init__(self, **data) -> None:
-        super().__init__(**data)
-
     def __new__(cls, type: str, *args, **kwds) -> "Case":
         return _case_register[type](*args, **kwds)
     
@@ -365,13 +368,38 @@ class ScoreCase(Case, type="score"):
     def __init__(
         self,
         target: Union[str, Selector],
+        target_obj: str,
+        ops: Literal["<", "<=", "=", ">=", ">", "matches"],
+        source_or_range: Union[str, Selector],
+        source_obj: Optional[str] = None
     ) -> None:
-        super().__init__(target=target)
+        if ops == "matches":
+            if source_obj:
+                raise ValueError("Invalid source objective.")
+            super().__init__(
+                target=target,
+                target_obj=target_obj,
+                ops=ops,
+                range=source_or_range
+            )
+        else:
+            super().__init__(
+                target=target,
+                target_obj=target_obj,
+                ops=ops,
+                source=source_or_range,
+                source_obj=source_obj
+            )
     
     def __str__(self) -> str:
-        return f"score {self.target}"
+        if self.ops == "matches":
+            return f"score {self.target} {self.target_obj} \
+                {self.ops} {self.range}"
+        else:
+            return f"score {self.target} {self.target_obj} \
+                {self.ops} {self.source} {self.source_obj}"
 
-class CaseInstruction(Instruction):
+class ConditionInstruction(Instruction):
     unless: bool
     case: Case
 
@@ -380,7 +408,230 @@ class CaseInstruction(Instruction):
 
     def __str__(self) -> str:
         if self.unless:
-            return "unless "
+            return f"unless {self.case}"
         else:
-            return "if "
+            return f"if {self.case}"
 
+T_C_type = Literal["byte", "short", "int", "long", "float", "double"]
+
+_store_register: Dict[str, Type["StoreMode"]] = {}
+
+class StoreMode(McdpBaseModel):
+
+    def __init__(self, **data) -> None:
+        super().__init__(**data)
+
+    def __new__(cls, type: str, *args, **kwds) -> "StoreMode":
+        return _store_register[type](*args, **kwds)
+    
+    def __init_subclass__(cls, *, type: str) -> None:
+        _store_register[type] = cls
+        super().__init_subclass__()
+
+class BlockStore(StoreMode, type="block"):
+    target_pos: Position
+    path: NBTPath
+    type: T_C_type
+    scale: float
+
+    def __init__(
+        self, 
+        target_pos: Union[str, Position],
+        path: Union[str, NBTPath],
+        type: T_C_type,
+        scale: float
+    ) -> None:
+        super().__init__(target_pos=target_pos, path=path, type=type, scale=scale)
+    
+    def __str__(self) -> str:
+        return f"block {self.target_pos} {self.path} {self.type} {self.scale}"
+
+class BossbarStore(StoreMode, type="bossbar"):
+    id: str
+    value: Literal["value", "max"]
+
+    def __init__(self, id: str, value: Literal["value", "max"]) -> None:
+        super().__init__(id=id, value=value)
+
+    def __str__(self) -> str:
+        return f"bossbar {self.id} {self.value}"
+
+class EntityStore(StoreMode, type="entity"):
+    target: Union[str, Selector]
+    path: NBTPath
+    type: T_C_type
+    scale: float
+
+    def __init__(
+        self, 
+        target: Union[str, Selector],
+        path: Union[str, NBTPath],
+        type: T_C_type,
+        scale: float
+    ) -> None:
+        super().__init__(target=target, path=path, type=type, scale=scale)
+    
+    def __str__(self) -> str:
+        return f"entity {self.target} {self.path} {self.type} {self.scale}"
+
+class ScoreStore(StoreMode, type="score"):
+    targets: Union[str, Selector]
+    objective: str
+
+    def __init__(self, targets: Union[str, Selector], objective: str) -> None:
+        super().__init__(targets=targets, objective=objective)
+    
+    def __str__(self) -> str:
+        return f"score {self.targets} {self.objective}"
+
+class StorageStore(StoreMode, type="storage"):
+    target: str
+    path: NBTPath
+    type: T_C_type
+    scale: float
+
+    def __init__(
+        self, 
+        target: str,
+        path: Union[str, NBTPath],
+        type: T_C_type,
+        scale: float
+    ) -> None:
+        super().__init__(target=target, path=path, type=type, scale=scale)
+    
+    def __str__(self) -> str:
+        return f"storage {self.target} {self.path} {self.type} {self.scale}"
+
+class StoreInstruction(Instruction):
+    store_success: bool
+    mode: StoreMode
+
+    def __init__(self, mode: StoreMode, *, store_success: bool = False) -> None:
+        McdpBaseModel.__init__(self, mode=mode, store_success=store_success)
+
+    def __str__(self) -> str:
+        if self.store_success:
+            return f"store success {self.mode}"
+        else:
+            return f"store result {self.mode}"
+
+class Execute(McdpVar):
+
+    __slots__ = ["instructions"]
+
+    def __init__(self, *instructions: Instruction) -> None:
+        if not instructions:
+            warn("No instruction is given.", RuntimeWarning)
+        self.instructions = list(instructions)
+
+    def __call__(self, command: Optional[str] = None) -> None:
+        exc = "execute " + " ".join((str(i) for i in self.instructions))
+        if not command:
+            if not isinstance(self.instructions[-1], ConditionInstruction):
+                raise McdpCommandError(
+                    "execute", TypeError(
+                        "Final instruction should be a conditon instruction."
+                    ))
+            insert(exc)
+        else:
+            insert(f"{exc} run {command}")
+
+    def __str__(self) -> str:
+        return f"Execute{tuple(self.instructions)}"
+    
+    __repr__ = __str__
+
+class IOStreamObject(McdpVar):
+
+    __slots__ = ["data", "base"]
+
+    data: List[str]
+
+    def __init__(self, data: Optional[List[str]] = None, *, base: bool = False):
+        if not data:
+            data = []
+        self.data = data
+        self.base = base
+
+    def __getitem__(self, value: Any) -> "IOStreamObject":
+        if self.base:
+            self = self.copy()
+
+        self.data.append(value)
+        return self
+
+    def copy(self):
+        return self.__class__(self.data.copy())
+
+class Printer(IOStreamObject):
+
+    __slots__ = []
+
+    input: List[MCString]
+    cmd: str = "tellraw {targets} {input}"
+
+    def __init__(self, data: Optional[List[str]] = None, *, base: bool = False):
+        super().__init__(data, base=base)
+        self.input = []
+
+    def __lshift__(self, other: Any) -> "Printer":
+        if isinstance(other, PrinterEOF):
+            if len(self.input) < 1:
+                raise McdpCommandError(
+                    "tellraw", ValueError(
+                        "No string griven."
+                    ))
+            elif len(self.input) == 1:
+                input = self.input[0]
+            else:
+                input = "[{0}]".format(','.join((str(i) for i in self.input)))
+            other.__apply_printer__(self.cmd, input=input)
+            self.input.clear()
+            return self
+
+        if not isinstance(other, MCString):
+            other = MCString.validate(other)
+
+        if self.base:
+            self = self.copy()
+        self.input.append(other)
+        return self
+
+class TitlePrinter(Printer):
+
+    __slots__ = []
+
+class PrinterEOF(IOStreamObject):
+
+    __slots__ = []
+
+    def __apply_printer__(self, cmd: str, **kw) -> None:
+        if len(self.data) == 0:
+            targets = "@a"
+        elif len(self.data) == 1:
+            targets = self.data[0]
+        else:
+            raise McdpCommandError(
+                "tellraw/title", ValueError(
+                    "Invalid EOF data."
+                ))
+        insert(cmd.format(targets=targets, **kw))
+
+cout = Printer(base=True)
+endl = PrinterEOF(base=True)
+
+class McdpCommandError(McdpError):
+
+    __slots__ = ["command"]
+    
+    def __init__(self, command: str, *arg: Exception) -> None:
+        self.command = command
+        if not arg:
+            msg = f"Fail to handle command {command}."
+        else:
+            s = StringIO(f"During handle command {command}, {len(arg)} error(s) occur:\n")
+            for err in arg:
+                s.write(f"    {err.__class__.__qualname__}: {' '.join(err.args)}\n")
+            msg = s.getvalue()
+            s.close()
+        super().__init__(msg)
