@@ -11,6 +11,8 @@ class Scoreboard(Variable):
 
     __slots__ = ["name", "criteria", "display_name"]
     __accessible__ = ["name", "criteria", "display_name"]
+
+    builtins: List[str] = ["dpc_const", "mcdpStackID"]
     
     applied: List[str] = []
     collection: Dict[str, "Scoreboard"] = {}
@@ -66,6 +68,9 @@ class Scoreboard(Variable):
     
     @classmethod
     def apply_all(cls) -> None:
+        for s in cls.builtins:
+            if not s in cls.collection:
+                cls(s)
         for s in cls.collection.values():
             s.apply()
     

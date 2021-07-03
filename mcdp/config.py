@@ -1,6 +1,6 @@
 from os import PathLike
 from functools import partial
-from typing import Union, Optional, overload
+from typing import Literal, Union, Optional, overload
 from pydantic import validator
 
 from .typings import McdpBaseModel, McdpError, McdpVersionError
@@ -14,6 +14,7 @@ class VmclConfig(McdpBaseModel):
     enable_pywheel: bool = True
 
 class MCFuncConfig(McdpBaseModel):
+    type: Literal["sfunction", "normal"] = "normal"
     add_comments: bool = True
     allow_overload: bool = True
     
