@@ -5,6 +5,7 @@ from .config import Config, get_config
 from .file_struct import build_dirs, build_dirs_from_config, init_context, init_mcmeta
 from .context import get_context, Context, TagManager, comment, insert, add_tag
 from .variable import Scoreboard, dp_int, dp_score
+from .mcstring import MCString, MCSS
 from .command import cout, endl
 from .mcfunc import mcfunc, mcfunc_main, MCFunction
 from .typings import McdpError
@@ -44,6 +45,8 @@ __all__ = [
     # command
     "cout",
     "endl",
+    "MCString",
+    "MCSS",
     # mcfunction
     "mcfunc",
     "mcfunc_main",

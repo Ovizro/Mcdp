@@ -592,8 +592,6 @@ class Printer(IOStreamObject):
         if not isinstance(other, MCString):
             other = MCString.validate(other)
 
-        if self.base:
-            self = self.copy()
         self.input.append(other)
         return self
 

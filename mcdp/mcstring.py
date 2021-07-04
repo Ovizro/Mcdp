@@ -150,8 +150,10 @@ class MCString(MCSS):
         else:
             raise TypeError(f"Invalid string {string}.")
 
-    def __init__(self, string: Optional[str] = None, **data: Any) -> None:
+    def __init__(self, string: Optional[Union[str, "MCString"]] = None, **data: Any) -> None:
         if string:
+            if not isinstance(string, str):
+                return
             data["text"] = string
         super().__init__(**data)
 
