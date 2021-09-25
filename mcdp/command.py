@@ -17,10 +17,12 @@ class PosComponent(McdpVar):
     ) -> None:
         self.value = value
         if '^' in value:
-            int(value[1:])
+            if len(value) > 1:
+                int(value[1:])
             self.type = "local"
         elif '~' in value:
-            int(value[1:])
+            if len(value) > 1:
+                int(value[1:])
             self.type = "relative"
         else:
             int(value)
@@ -76,9 +78,18 @@ class Position(McdpVar):
     def __str__(self) -> str:
         return " ".join([i.value for i in self._posXYZ])
 
-class KeywordArg:
+class KeywordArg(McdpVar):
 
     __slots__ = ["name", "value"]
+
+    def __new__(cls, name: Union[str, Dict[str, Any]], value: Union[str, Set["KeywordArg"], None] = None):
+        if not value:
+            ans = []
+            for t in name.items():
+                ans.append(cls(t[0], t[1]))
+            return ans
+        else:
+            return McdpVar.__new__(cls)
 
     def __init__(self, name: str, value: Union[str, Set["KeywordArg"]]) -> None:
         self.name = name
@@ -98,9 +109,16 @@ class Selector(McdpBaseModel):
     name: Literal["@p", "@a", "@r", "@e", "@s"]
     args: List[Union[KeywordArg, str]] = []
 
-    def __init__(self, name: str, *args) -> None:
+    def __new__(cls, name_or_entity: Any, *args, **kwds):
+        if not isinstance(name_or_entity, str):
+            return name_or_entity.__selector__()
+        return McdpBaseModel.__new__(cls)
+
+    def __init__(self, name: str, *args, **kwds) -> None:
         if name in  ["@p", "@a", "@r", "@e", "@s"]:
-            super().__init__(name=name, args = list(args))
+            l = list(args)
+            l.extend(KeywordArg(kwds))
+            super().__init__(name=name, args = l)
         else:
             _name = name[:2]
             _args = name[2:-1].split(',')
@@ -274,18 +292,17 @@ class RotatedInstruction(Instruction):
         else:
             return f"rotated {self.rot[0]} {self.rot[1]}"
 
-_case_register: Dict[str, Type["Case"]] = {}
+_case_register: Dict[str, Type["_Case"]] = {}
 
-class Case(McdpBaseModel):
+class _Case(McdpBaseModel):
 
-    def __new__(cls, type: str, *args, **kwds) -> "Case":
-        return _case_register[type](*args, **kwds)
-    
     def __init_subclass__(cls, *, type: str) -> None:
         _case_register[type] = cls
         super().__init_subclass__()
 
-class BlockCase(Case, type="block"):
+    async def __aenter__(self):...
+
+class BlockCase(_Case, type="block"):
     pos: Position
     block: str
 
@@ -295,7 +312,7 @@ class BlockCase(Case, type="block"):
     def __str__(self) -> str:
         return f"block {self.pos} {self.block}"
 
-class BlocksCase(Case, type="blocks"):
+class BlocksCase(_Case, type="blocks"):
     start: Position
     end: Position
 
@@ -316,7 +333,7 @@ class BlocksCase(Case, type="blocks"):
     def __str__(self) -> str:
         return f"blocks {self.start} {self.end} {self.destination} {self.scan_mode}"
 
-class DataCase(Case, type="data"):
+class DataCase(_Case, type="data"):
     type: Literal["block", "entity", "storage"]
     pos: Optional[Position] = None
     targets: Union[str, Selector, None] = None
@@ -339,7 +356,7 @@ class DataCase(Case, type="data"):
         else:
             return f"data {self.type} {self.targets} {self.path}"
 
-class EntityCase(Case, type="entity"):
+class EntityCase(_Case, type="entity"):
     targets: Union[str, Selector]
 
     def __init__(self, targets: Union[str, Selector]) -> None:
@@ -348,7 +365,7 @@ class EntityCase(Case, type="entity"):
     def __str__(self) -> str:
         return f"entity {self.targets}"
 
-class PredicateCase(Case, type="predicate"):
+class PredicateCase(_Case, type="predicate"):
     predicate: str
 
     def __init__(self, predicate: str) -> None:
@@ -357,7 +374,7 @@ class PredicateCase(Case, type="predicate"):
     def __str__(self) -> str:
         return f"predicate {self.predicate}"
 
-class ScoreCase(Case, type="score"):
+class ScoreCase(_Case, type="score"):
     target: Union[str, Selector]
     target_obj: str
     ops: Literal["<", "<=", "=", ">=", ">", "matches"]
@@ -401,9 +418,9 @@ class ScoreCase(Case, type="score"):
 
 class ConditionInstruction(Instruction):
     unless: bool
-    case: Case
+    case: _Case
 
-    def __init__(self, case: Case, *, unless: bool = False) -> None:
+    def __init__(self, case: _Case, *, unless: bool = False) -> None:
         McdpBaseModel.__init__(self, case=case, unless=unless)
 
     def __str__(self) -> str:
@@ -540,6 +557,9 @@ class Execute(McdpVar):
         return f"Execute{tuple(self.instructions)}"
     
     __repr__ = __str__
+
+def case(type: str, *args, **kwds) -> _Case:
+    return _case_register[type](*args, **kwds)
 
 class IOStreamObject(McdpVar):
 

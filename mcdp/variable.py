@@ -6,13 +6,14 @@ from .counter import Counter
 from .context import insert, get_stack_id
 from .typings import Variable, VariableMeta, McdpVar, McdpError
 from .mcstring import MCString, _stand_color
+from .entities import McdpStack, set_stack_scb
 
 class Scoreboard(Variable):
 
     __slots__ = ["name", "criteria", "display_name"]
     __accessible__ = ["name", "criteria", "display_name"]
 
-    builtins: List[str] = ["dpc_const", "mcdpStackID"]
+    builtins: List[str] = ["dpc_const", "mcdpStackID", "entityID"]
     
     applied: List[str] = []
     collection: Dict[str, "Scoreboard"] = {}
@@ -456,6 +457,9 @@ class dp_int(ScoreCache):
         return f"<dp_int objection in stack {self.stack_id}>"
     
     __repr__ = __str__
+
+stack_scb = Score("mcdpStackID")
+set_stack_scb(stack_scb)
 
 class StorageType(Variable):
     

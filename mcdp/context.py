@@ -370,6 +370,12 @@ def insert(*content: str) -> None:
 def comment(*content: str) -> None:
     return Context.comment(*content)
 
+def pull_stack(func: Callable) -> None:
+    Context.dynamic_pull = CCmethod(func)
+
+def pop_stack(func: Callable) -> None:
+    Context.dynamic_pop = CCmethod(func)
+
 def get_stack_id() -> int:
     return Context.get_stack_id()
 

@@ -66,10 +66,6 @@ class Config(McdpBaseModel):
             name=name, version=version, description=description,
             namespace=namespace, iron_path=iron_path, **kw)
         _current_cfg = self
-    
-    @validator("version")
-    def _version(cls, value: T_version) -> Version:
-        return Version(value)
 
 def get_config() -> Config:
     if not _current_cfg:

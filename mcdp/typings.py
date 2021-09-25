@@ -60,6 +60,8 @@ class Variable(McdpVar, metaclass=VariableMeta):
 
     __slots__ = ["counter", "applied"]
 
+    counter: Counter
+
     @abstractmethod
     def __init__(self) -> None:
         self.applied = False
