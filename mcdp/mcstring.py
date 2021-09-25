@@ -164,10 +164,12 @@ class MCString(MCSS):
             self.translate = self.text
             del self.text
 
-        if isinstance(_with, str):
-            _with = (self.__class__(_with),)
-        elif isinstance(_with, self.__class__):
+        if isinstance(_with, self.__class__):
             _with = (_with,)
+        elif isinstance(_with, tuple):
+            _with = tuple((self.__class__(x) for x in _with))
+        else:
+            _with = (self.__class__(_with),)
         if self.with_:
             self.with_.extend(_with)
         else:

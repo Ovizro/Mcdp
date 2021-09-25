@@ -283,7 +283,7 @@ class ScoreCache(Score, metaclass=ScoreMeta):
     def __add__(self, other: Union[int, Score]):
         if self.freed:
             raise McdpVarError("operation on a freed variable.")
-        ans = ScoreCache(self)
+        ans = self.__class__(self)
         ans += other
         -ans.counter
         return ans
@@ -293,7 +293,7 @@ class ScoreCache(Score, metaclass=ScoreMeta):
     def __sub__(self, other: Union[int, Score]):
         if self.freed:
             raise McdpVarError("operation on a freed variable.")
-        ans = ScoreCache(self)
+        ans = self.__class__(self)
         ans -= other
         -ans.counter
         return ans
@@ -301,14 +301,14 @@ class ScoreCache(Score, metaclass=ScoreMeta):
     def __rsub__(self, other: Union[int, Score]):
         if self.freed:
             raise McdpVarError("operation on a freed variable.")
-        ans = ScoreCache(other)
+        ans = self.__class__(other)
         ans -= self
         return ans
     
     def __mul__(self, other: Union[int, Score]):
         if self.freed:
             raise McdpVarError("operation on a freed variable.")
-        ans = ScoreCache(self)
+        ans = self.__class__(self)
         ans *= other
         -ans.counter
         return ans
@@ -318,7 +318,7 @@ class ScoreCache(Score, metaclass=ScoreMeta):
     def __truediv__(self, other: Union[int, Score]):
         if self.freed:
             raise McdpVarError("operation on a freed variable.")
-        ans = ScoreCache(self)
+        ans = self.__class__(self)
         ans /= other
         -ans.counter
         return ans
@@ -326,7 +326,7 @@ class ScoreCache(Score, metaclass=ScoreMeta):
     def __rtruediv__(self, other: Union[int, Score]):
         if self.freed:
             raise McdpVarError("operation on a freed variable.")
-        ans = ScoreCache(other)
+        ans = self.__class__(other)
         ans /= self
         -ans.counter
         return ans
@@ -334,7 +334,7 @@ class ScoreCache(Score, metaclass=ScoreMeta):
     def __mod__(self, other: Union[int, Score]):
         if self.freed:
             raise McdpVarError("operation on a freed variable.")
-        ans = ScoreCache(self)
+        ans = self.__class__(self)
         ans %= other
         -ans.counter
         return ans
@@ -342,7 +342,7 @@ class ScoreCache(Score, metaclass=ScoreMeta):
     def __rmod__(self, other: Union[int, Score]):
         if self.freed:
             raise McdpVarError("operation on a freed variable.")
-        ans = ScoreCache(other)
+        ans = self.__class__(other)
         ans %= self
         -ans.counter
         return ans
@@ -458,8 +458,8 @@ class dp_int(ScoreCache):
     
     __repr__ = __str__
 
-stack_scb = Score("mcdpStackID")
-set_stack_scb(stack_scb)
+#stack_scb = Score("mcdpStackID")
+#set_stack_scb(stack_scb)
 
 class StorageType(Variable):
     
