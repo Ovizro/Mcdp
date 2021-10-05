@@ -11,17 +11,18 @@ from .mcfunc import mcfunc, mcfunc_main, MCFunction
 from .typings import McdpError
 from .version import __version__
 
+
 class Mcdatapack:
-    
-    __slots__ = ["config",]
-    
+    __slots__ = ["config", ]
+
     def __init__(
-        self,
-        path: Union[str, Path],
-        *,
-        config: Optional[Config] = None
+            self,
+            path: Union[str, Path],
+            *,
+            config: Optional[Config] = None
     ) -> None:
         pass
+
 
 __all__ = [
     # config
