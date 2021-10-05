@@ -5,14 +5,15 @@ from typing import Any, Dict, List, NoReturn, Tuple, Callable, Union, Optional, 
 T_version = TypeVar("T_version", Tuple[int], str, "Version")
 TS_version = TypeVar("TS_version", Tuple[str, int], str, "PhaseVersion")
 
+
 class Version:
     """
     the base class in model 'version'.
     Support boolean operations between version numbers like '1.0.2'.
     """
-    
-    __slots__ = ["__num_list",]
-    
+
+    __slots__ = ["__num_list", ]
+
     def __init__(self, version: T_version) -> None:
         if isinstance(version, tuple):
             self.__num_list = version
@@ -27,11 +28,11 @@ class Version:
                     raise ValueError
                 self.__num_list = tuple(num)
                 return
-            
+
             except Exception:
                 pass
             raise ValueError("Incorrect version form.")
-    
+
     def __getitem__(self, key: Union[int, slice]) -> Union[int, Tuple[int]]:
         try:
             return self.__num_list[key]
@@ -40,17 +41,17 @@ class Version:
                 raise
             else:
                 return 0
-        
+
     def __iter__(self) -> Tuple[int]:
         return self.__num_list
-                
+
     def _compare(self, ops: Callable[[int, int], bool], other: T_version) -> bool:
         if not isinstance(other, self.__class__):
             try:
                 other = self.__class__(other)
             except ValueError:
                 return NotImplemented
-        
+
         m = max(len(self), len(other))
         e = ops(1, 1)
         for i, j in zip(self._generator(m), other.get_number(extend=m)):
@@ -60,9 +61,9 @@ class Version:
                 return ops(i, j)
         else:
             return e
-    
+
     @staticmethod
-    def compare_decorator(ops: Callable[[int,int], bool]) -> Callable[["Version", T_version], bool]:
+    def compare_decorator(ops: Callable[[int, int], bool]) -> Callable[["Version", T_version], bool]:
         """
         Be used to create a operator to compare two Version instance. 
         The argument 'ops' will be used to compare every number of
@@ -80,21 +81,23 @@ class Version:
             # stdout: True
             ```
         """
+
         def __compare__(self, other: T_version) -> bool:
             return self._compare(ops, other)
+
         return __compare__
-    
+
     @classmethod
     def __get_validators__(cls):
         yield cls.validate
-    
+
     @classmethod
     def validate(cls, val: Union[str, "Version"]):
         if isinstance(val, cls):
             return val
         else:
             return cls(val)
-        
+
     def __eq__(self, other: T_version) -> bool:
         if not isinstance(other, self.__class__):
             try:
@@ -102,7 +105,7 @@ class Version:
             except ValueError:
                 return NotImplemented
         return self.__num_list == other.get_number()
-        
+
     def __ne__(self, other: T_version) -> bool:
         if not isinstance(other, self.__class__):
             try:
@@ -110,15 +113,15 @@ class Version:
             except ValueError:
                 return NotImplemented
         return self.__num_list != other.get_number()
-    
+
     __gt__ = compare_decorator.__func__(lambda x, y: x > y)
     __ge__ = compare_decorator.__func__(lambda x, y: x >= y)
     __lt__ = compare_decorator.__func__(lambda x, y: x < y)
     __le__ = compare_decorator.__func__(lambda x, y: x <= y)
-    
+
     def __len__(self) -> int:
         return len(self.__num_list)
-    
+
     def _generator(self, max: Optional[int] = None):
         l = len(self)
         i = 0
@@ -127,14 +130,14 @@ class Version:
                 yield self.__num_list[i]
             else:
                 yield 0
-            
+
             i += 1
             if not max is None:
                 if i >= max:
                     return
             elif i > 32:
                 raise RuntimeError
-    
+
     def get_number(self, index: Optional[int] = None, *, extend: Optional[int] = None) -> Union[Tuple[int], int]:
         if index:
             try:
@@ -146,15 +149,16 @@ class Version:
                 return self.__num_list
             else:
                 return tuple(self._generator(extend))
-            
+
     def check(self, *args, **kw):
         return version_check(self, *args, **kw)
-            
+
     def __repr__(self) -> str:
         return f"Version{self.__num_list}"
-    
+
     def __str__(self) -> str:
         return '.'.join([str(i) for i in self.__num_list])
+
 
 class PhaseVersion(Version):
     """
@@ -170,9 +174,9 @@ class PhaseVersion(Version):
         v >= 'Alpha 1.4'    #True
         ```
     """
-    
+
     __slots__ = ["phase"]
-    
+
     def __init__(self, version: T_version, *, phase: Optional[str] = None) -> None:
         if isinstance(version, self.__class__):
             self.phase = version.phase
@@ -201,7 +205,7 @@ class PhaseVersion(Version):
             except Exception:
                 pass
             raise ValueError("Incorrect version form.")
-    
+
     def __eq__(self, other: T_version) -> bool:
         if not isinstance(other, self.__class__):
             try:
@@ -212,7 +216,7 @@ class PhaseVersion(Version):
             if self.phase != other.phase:
                 return False
         return super().__eq__(other)
-        
+
     def __ne__(self, other: T_version) -> bool:
         if not isinstance(other, self.__class__):
             try:
@@ -223,21 +227,23 @@ class PhaseVersion(Version):
             if self.phase == other.phase:
                 return False
         return super().__ne__(other)
-    
+
     def __repr__(self) -> str:
         if not self.phase:
             return super().__repr__()
         return f"PhaseVersion({self.phase}, {self.get_number()})"
-    
+
     def __str__(self) -> str:
         num = super().__str__()
         if not self.phase:
             return num
         return f"{self.phase} {num}"
 
+
 __version__ = PhaseVersion("Alpha 0.1.0")
 
 _version_func: Dict[str, Callable] = {}
+
 
 def fail_version_check(func: Callable, *, collection: Dict[str, Callable] = _version_func) -> Callable:
     name = func.__qualname__
@@ -247,12 +253,15 @@ def fail_version_check(func: Callable, *, collection: Dict[str, Callable] = _ver
         @wraps(func)
         def nope(*args, **kwargs) -> NoReturn:
             raise VersionError(f"The function '{name}' fails to pass the version check.")
+
         return nope
     else:
         @wraps(func)
         async def aio_nope(*args, **kwargs) -> NoReturn:
             raise VersionError(f"The function '{name}' fails to pass the version check.")
+
         return aio_nope
+
 
 def pass_version_check(func: Callable, *, collection: Dict[str, Callable] = _version_func) -> Any:
     name = func.__qualname__
@@ -260,6 +269,7 @@ def pass_version_check(func: Callable, *, collection: Dict[str, Callable] = _ver
         raise VersionError(f"The function '{name}' has a version conflict.")
     collection[name] = func
     return func
+
 
 def analyse_check_sentences(
         *args,
@@ -269,18 +279,17 @@ def analyse_check_sentences(
         ge: Optional[T_version] = None,
         lt: Optional[T_version] = None,
         le: Optional[T_version] = None
-    ) -> Dict[str, Union[List[T_version], T_version, None]]:
-    
+) -> Dict[str, Union[List[T_version], T_version, None]]:
     ans: Dict[str, Union[List[T_version], T_version, None]] = {}
     if not isinstance(eq, List):
-        ans['eq'] = [eq,]
+        ans['eq'] = [eq, ]
     else:
         ans['eq'] = eq
     if not isinstance(ne, List):
-        ans['ne'] = [ne,]
+        ans['ne'] = [ne, ]
     else:
         ans['ne'] = ne
-        
+
     for i in args:
         if i.startswith('>='):
             ans['ge'] = ge or i[2:]
@@ -297,24 +306,25 @@ def analyse_check_sentences(
         else:
             raise ValueError(f"Cannot analyze the argument {i}")
     return ans
-   
+
+
 def version_check(
-    version: Version,
-    *args: str,
-    eq: Union[List[T_version], T_version] = [],
-    ne: Union[List[T_version], T_version] = [],
-    gt: Optional[T_version] = None,
-    ge: Optional[T_version] = None,
-    lt: Optional[T_version] = None,
-    le: Optional[T_version] = None
+        version: Version,
+        *args: str,
+        eq: Union[List[T_version], T_version] = [],
+        ne: Union[List[T_version], T_version] = [],
+        gt: Optional[T_version] = None,
+        ge: Optional[T_version] = None,
+        lt: Optional[T_version] = None,
+        le: Optional[T_version] = None
 ) -> Callable[[Callable], Callable]:
     """
     The core function of the version check.
     """
     if not isinstance(eq, List):
-        eq = [eq,]
+        eq = [eq, ]
     if not isinstance(ne, List):
-        ne = [ne,]
+        ne = [ne, ]
     if args:
         for i in args:
             if i.startswith('>='):
@@ -346,11 +356,12 @@ def version_check(
     if ne:
         check = check and not (version in [Version(i) for i in ne])
         ne.clear()
-        
+
     if not check:
         return fail_version_check
     else:
         return pass_version_check
+
 
 class VersionChecker:
     """
@@ -361,16 +372,16 @@ class VersionChecker:
     
     In the same time, the class supports the multiple version check.
     """
-    
+
     __slots__ = ["collection", "version_factory", "checked", "__func__", "sentence", "__qualname__"]
-    
+
     def __init__(self, version_factory: Callable[[], Version]) -> None:
         self.collection: Dict[str, Callable] = {}
         self.version_factory = version_factory
         self.checked = False
         self.__func__: Union[List[Callable], Callable, None] = []
         self.sentence: List[dict] = []
-        
+
     def register(self, func: Callable, *args: str, **kwds) -> None:
         if not self.checked:
             c = analyse_check_sentences(*args, **kwds)
@@ -380,14 +391,14 @@ class VersionChecker:
             version = self.version_factory()
             check_ans = version_check(version, *args, **kwds)
             self.__func__ = check_ans(func, collection=self.collection)
-            
+
     @property
     def decorator(self):
         def version_check_decorator(*args, **kwds):
             def get_func(func: Callable) -> Callable:
                 name = func.__qualname__
                 self.register(func, *args, **kwds)
-                
+
                 @wraps(func)
                 def wrapper(*arg, **kw) -> Any:
                     self.apply_check()
@@ -395,12 +406,14 @@ class VersionChecker:
                         return self.collection[name](*arg, **kw)
                     else:
                         raise VersionError(
-                            f"The function '{name}' fails to pass the version check.", version=self.version_factory())
-                    
+                                f"The function '{name}' fails to pass the version check.", version=self.version_factory())
+
                 return wrapper
+
             return get_func
+
         return version_check_decorator
-            
+
     def apply_check(self) -> None:
         if not self.checked:
             l: list = self.__func__
@@ -408,25 +421,26 @@ class VersionChecker:
                 ans = version_check(self.version_factory(), **self.sentence[i])
                 self.__func__ = ans(l[i], collection=self.collection)
             self.checked = True
-            
+
     def __call__(self, *args: Any, **kwds: Any) -> Any:
         self.apply_check()
         return self.__func__(*args, **kwds)
+
 
 class AioCompatVersionChecker(VersionChecker):
     """
     The async compat version of class VersionCheck.
     """
-    
+
     __slots__ = []
-    
+
     @property
     def decorator(self):
         def version_check_decorator(*args, **kwds):
             def get_func(func: Callable) -> Callable:
                 name = func.__qualname__
                 self.register(func, *args, **kwds)
-                
+
                 if not iscoroutinefunction(func):
                     @wraps(func)
                     def wrapper(*arg, **kw) -> Any:
@@ -435,8 +449,8 @@ class AioCompatVersionChecker(VersionChecker):
                             return self.collection[name](*arg, **kw)
                         else:
                             raise VersionError(
-                                f"The function '{name}' fails to pass the version check.", version=self.version_factory())
-                        
+                                    f"The function '{name}' fails to pass the version check.", version=self.version_factory())
+
                     return wrapper
                 else:
                     @wraps(func)
@@ -446,20 +460,22 @@ class AioCompatVersionChecker(VersionChecker):
                             return await self.collection[name](*arg, **kw)
                         else:
                             raise VersionError(
-                                f"The function '{name}' fails to pass the version check.", version=self.version_factory())
-                        
+                                    f"The function '{name}' fails to pass the version check.", version=self.version_factory())
+
                     return aio_wrapper
+
             return get_func
+
         return version_check_decorator
-    
+
     async def __call__(self, *args: Any, **kwds: Any) -> Any:
         self.apply_check()
         return await self.__func__(*args, **kwds)
 
+
 class VersionError(Exception):
-    
     __slots__ = ["version"]
-    
+
     def __init__(self, *msg, version: Optional[Version] = None) -> None:
         self.version = version
         super().__init__(*msg)
