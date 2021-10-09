@@ -25,7 +25,7 @@ def _get_arguments(name: str, param: Mapping[str, Parameter]) -> Tuple[list, dic
         ann = v.annotation
         if not issubclass(ann, Variable):
             ann = _toMcdpVar(ann)
-        s = dp_score("mcfarg_{0}_{1}".format(name, k), init=False, simulation=ann,
+        s = dp_score("mcfarg_{0}_{1}".format(name, k), init=False, simulation=ann, stack_offset=1,
                      display={"text": f"Mcdp function {name} arguments", "color": "dark_blue"})
         if v.KEYWORD_ONLY:
             kwds[k] = s

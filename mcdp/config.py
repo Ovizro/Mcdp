@@ -1,7 +1,6 @@
 from os import PathLike
 from functools import partial
-from typing import Literal, Union, Optional, overload
-from pydantic import validator
+from typing import Literal, Union, Optional
 
 from .typings import McdpBaseModel, McdpError, McdpVersionError
 from .version import (Version, T_version, __version__, version_check, AioCompatVersionChecker)
