@@ -11,6 +11,7 @@ from .counter import get_counter
 
 
 class ContextManager(McdpVar):
+    
     __slots__ = ["name", ]
     __accessible__ = ["name", ]
 
@@ -39,6 +40,7 @@ class ContextManager(McdpVar):
 
 
 class Environment(ContextManager):
+
     __slots__ = ["name", "var_dict", "stream"]
     __accessible__ = ["name", "stream"]
 
@@ -63,6 +65,7 @@ class Environment(ContextManager):
 
 
 class StackCache(UserList):
+
     __slots__ = "_capacity",
 
     def __init__(self, capacity: int = 12):
@@ -132,6 +135,7 @@ class CCmethod:
 
 
 class Context(ContextManager):
+
     __slots__ = ["name", "_lock", "stack", "path", "dynamic_stack_num"]
     __accessible__ = ["name", "stack", "@item"]
 

@@ -55,4 +55,25 @@ Mcdp中的计分板类。注意，不是计分板储存型变量，因为Scorebo
 
 ## `class Score`
 计分板储存型变量的基类。仅支持+=, -=, *=, /=, %=运算符。
+不建议用户直接使用此类，如果想指定储存计分板名称，请使用`dp_score`。
 
+### \_\_init\_\_(name,default=0,*,init=True,stack_offset=0,criteria="dummy",display=None):
+初始化Score对象
+- param name(str): 储存计分板名称
+- param default(int): 变量初始值，若不进行初始化则无效
+- param init(bool): 是否对变量进行初始化
+- param stack_offset(int): 储存栈偏移量
+- param criteria(str): 储存计分板判据
+- param dispaly(dict | MCString | None): 储存计分板显示名称
+- return (None): 无返回值
+
+### set_value(value=0):
+设置当前变量的值
+- param value(int | Score): 新的变量值
+- return (None): 无返回值
+
+### apply():
+应用当前储存计分板
+- return (None): 无返回值
+
+## `class ScoreCache`

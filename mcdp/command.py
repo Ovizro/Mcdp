@@ -8,6 +8,7 @@ from .context import insert
 
 
 class PosComponent(McdpVar):
+
     __slots__ = ["type", "value"]
 
     def __init__(
@@ -37,6 +38,7 @@ class PosComponent(McdpVar):
 
 
 class Position(McdpVar):
+
     __slots__ = ["_posXYZ", "type"]
 
     def __init__(self, pos: str) -> None:
@@ -80,6 +82,7 @@ class Position(McdpVar):
 
 
 class KeywordArg(McdpVar):
+
     __slots__ = ["name", "value"]
 
     def __new__(cls, name: Union[str, Dict[str, Any]], value: Union[str, Set["KeywordArg"], None] = None):
@@ -141,6 +144,7 @@ class Selector(McdpBaseModel):
 
 
 class NBTPath(McdpVar):
+
     __slots__ = ["path"]
 
     def __init__(self, *args: str) -> None:
@@ -165,6 +169,7 @@ class NBTPath(McdpVar):
 
 
 class Instruction(McdpBaseModel):
+
     __slots__ = []
 
     def __init__(self) -> None:
@@ -560,6 +565,7 @@ class StoreInstruction(Instruction):
 
 
 class Execute(McdpVar):
+
     __slots__ = ["instructions"]
 
     def __init__(self, *instructions: Instruction) -> None:
@@ -590,6 +596,7 @@ def case(type: str, *args, **kwds) -> _Case:
 
 
 class IOStreamObject(McdpVar):
+
     __slots__ = ["data", "base"]
 
     data: List[str]
@@ -612,6 +619,7 @@ class IOStreamObject(McdpVar):
 
 
 class Printer(IOStreamObject):
+
     __slots__ = []
 
     input: List[MCString]
@@ -644,10 +652,12 @@ class Printer(IOStreamObject):
 
 
 class TitlePrinter(Printer):
+
     __slots__ = []
 
 
 class PrinterEOF(IOStreamObject):
+
     __slots__ = []
 
     def __apply_printer__(self, cmd: str, **kw) -> None:
@@ -668,6 +678,7 @@ endl = PrinterEOF(base=True)
 
 
 class McdpCommandError(McdpError):
+    
     __slots__ = ["command"]
 
     def __init__(self, command: str, *arg: Exception) -> None:

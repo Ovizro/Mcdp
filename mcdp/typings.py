@@ -13,6 +13,7 @@ from .counter import Counter
 
 
 class McdpVar:
+
     __accessible__: list = []
 
     def get_attr(self, key: str) -> Any:
@@ -61,6 +62,7 @@ class VariableMeta(ABCMeta):
 
 
 class Variable(McdpVar, metaclass=VariableMeta):
+
     __slots__ = ["counter", "applied"]
 
     counter: Counter
@@ -102,6 +104,7 @@ Mcdp BaseModel
 
 
 class McdpBaseModel(McdpVar, BaseModel):
+
     __accessible__ = ["@all.attr", ]
 
     class Config(BaseConfig):
@@ -118,6 +121,7 @@ Mcdp Exceptions
 
 
 class McdpError(Exception, McdpVar):
+    
     __slots__ = ["version", "python_version"]
 
     def __init__(self, *arg: str, **kw) -> None:

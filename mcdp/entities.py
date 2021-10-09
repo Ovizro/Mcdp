@@ -31,6 +31,7 @@ def set_stack_scb(score) -> None:
 
 
 class Entity(Variable):
+
     __slots__ = ["id", "type", "tags"]
 
     def __init__(
@@ -76,6 +77,7 @@ class Entity(Variable):
 
 
 class McdpStack(Entity):
+    
     __slots__ = ["stack_id"]
 
     def __init__(self, stack_id: int, *, home: bool = False) -> None:

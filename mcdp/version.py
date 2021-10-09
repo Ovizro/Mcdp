@@ -406,7 +406,9 @@ class VersionChecker:
                         return self.collection[name](*arg, **kw)
                     else:
                         raise VersionError(
-                                f"The function '{name}' fails to pass the version check.", version=self.version_factory())
+                                f"The function '{name}' fails to pass the version check.",
+                                version=self.version_factory()
+                            )
 
                 return wrapper
 

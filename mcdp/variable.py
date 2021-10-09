@@ -10,6 +10,7 @@ from .entities import McdpStack, set_stack_scb
 
 
 class Scoreboard(Variable):
+
     __slots__ = ["name", "criteria", "display_name"]
     __accessible__ = ["name", "criteria", "display_name"]
 
@@ -18,12 +19,13 @@ class Scoreboard(Variable):
     applied: List[str] = []
     collection: Dict[str, "Scoreboard"] = {}
 
-    def __new__(cls,
-                name: str,
-                *,
-                criteria: str = "dummy",
-                display: Optional[Union[dict, MCString]] = None
-                ):
+    def __new__(
+            cls,
+            name: str,
+            *,
+            criteria: str = "dummy",
+            display: Optional[Union[dict, MCString]] = None
+    ):
         if name in cls.collection:
             instance = cls.collection[name]
             if instance.criteria != criteria:
@@ -108,6 +110,7 @@ def _get_selector(score: Union[int, "Score"]) -> str:
 
 
 class Score(Variable):
+
     __slots__ = ["name", "stack_id", "scoreboard", "counter", "linked"]
     __accessible__ = ["scoreboard"]
 
@@ -119,7 +122,7 @@ class Score(Variable):
             init: bool = True,
             stack_offset: int = 0,
             criteria: str = "dummy",
-            display: Optional[dict] = None
+            display: Optional[Union[dict, MCString]] = None
     ) -> None:
         self.name = name
         self.stack_id = get_stack_id() - stack_offset
@@ -232,6 +235,7 @@ class Score(Variable):
 
 
 class _Cache:
+
     __slots__ = ["counter", "cache"]
 
     def __init__(self) -> None:
@@ -270,13 +274,13 @@ class ScoreMeta(VariableMeta):
 
 
 class ScoreCache(Score, metaclass=ScoreMeta):
+
     __slots__ = ["freed"]
     __accessible__ = []
 
     cache = _Cache()
 
     def __init__(self, default: Union[int, Score] = 0) -> None:
-        global _score_cache_num
         stack_id = get_stack_id()
         self.freed = False
         name = self.cache.get(stack_id)
@@ -363,6 +367,7 @@ class ScoreCache(Score, metaclass=ScoreMeta):
 
 
 class dp_score(Score):
+
     __slots__ = ["simulation"]
 
     def __init__(
@@ -453,6 +458,7 @@ class dp_score(Score):
 
 
 class dp_int(ScoreCache):
+
     __slots__ = []
 
     def __str__(self) -> str:
@@ -465,6 +471,7 @@ class dp_int(ScoreCache):
 # set_stack_scb(stack_scb)
 
 class StorageType(Variable):
+
     __slots__ = ["name"]
     cache = _Cache()
 
@@ -482,6 +489,7 @@ class dp_array(StorageType):
 
 
 class McdpVarError(McdpError):
+
     __slots__ = ["var"]
 
     def __init__(self, *arg: str, var: Optional[McdpVar] = None, **kw) -> None:
