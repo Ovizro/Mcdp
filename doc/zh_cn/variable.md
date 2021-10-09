@@ -1,6 +1,6 @@
 # Mcdp.variable
 
-此模块包含所有的储存变量
+此模块包含所有的储存型变量。
 
 ## `class Scoreboard`
 Mcdp中的计分板类。注意，不是计分板储存型变量，因为Scoreboard没有关联实体。
@@ -76,4 +76,48 @@ Mcdp中的计分板类。注意，不是计分板储存型变量，因为Scorebo
 应用当前储存计分板
 - return (None): 无返回值
 
+### (str) name: 
+储存计分板名称
+
+### (int) stack_id:
+当前所在的栈层级
+
+### (Mcdp.variable.Scoreboard) scoreboard:
+储存计分板实例
+
 ## `class ScoreCache`
+缓存型计分板储存变量基类，继承自Score。不建议用户直接使用，请使用下面的`dp_int`作为替代。储存计分板的名称不再能够自定义，而是自动分配。得益于这样的机制，ScoreCache的实例可以支持各种四则运算。
+
+### \_\_init\_\_(default=0):
+初始化ScoreCache实例
+- param default(int | Score): 变量初始值
+- return (None): 无返回值
+
+### free():
+释放该变量的占用。之后对该变量的运算会导致程序报错。
+- return (None): 无返回值
+
+### (bool) freed:
+变量是否已经释放占用
+
+## `class dp_score`
+继承自Score类。在Score类型的基础上添加了类型模拟的功能，以支持Score无法支持的四则运算。
+
+### \_\_init\_\_(name,default=0,*,init=True,stack_offset=0,criteria="dummy",display=None,simulation=None):
+初始化Score对象
+- param name(str): 储存计分板名称
+- param default(int): 变量初始值，若不进行初始化则无效
+- param init(bool): 是否对变量进行初始化
+- param stack_offset(int): 储存栈偏移量
+- param criteria(str): 储存计分板判据
+- param dispaly(dict | MCString | None): 储存计分板显示名称
+- param simulation(Type[ScoreCache] | None): 模拟类型，若为空则与Score行为相同
+- return (None): 无返回值
+
+### simulate(t_score):
+设置模拟类型
+- param t_score(Type[ScoreCache]): 模拟类型
+- return (None): 无返回值
+
+## `class dp_int`
+继承自ScoreCache。与ScoreCache行为相同。
