@@ -79,7 +79,7 @@ def get_config() -> Config:
     return _current_cfg
 
 
-check_mcdp_version = partial(version_check, __version__)
+check_mcdp_version = __version__.check
 check_mc_version = AioCompatVersionChecker(lambda: get_config().version).decorator
 
 

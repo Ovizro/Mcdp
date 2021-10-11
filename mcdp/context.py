@@ -136,7 +136,7 @@ class CCmethod:
 
 class Context(ContextManager):
 
-    __slots__ = ["name", "_lock", "stack", "path", "dynamic_stack_num"]
+    __slots__ = ["name", "_lock", "stack", "path", "dynamic_stack"]
     __accessible__ = ["name", "stack", "@item"]
 
     MAX_OPENED: int = 8
@@ -156,7 +156,7 @@ class Context(ContextManager):
 
         self.stack: StackCache \
             = StackCache(self.__class__.MAX_OPENED)
-        self.dynamic_stack_num = 0
+        self.dynamic_stack = 0
 
         self.path = Path(path).resolve()
 
@@ -220,7 +220,7 @@ class Context(ContextManager):
                 ),
                 "scoreboard players set @e[tag=stack_top,limit=1] mcdpStackID 0"
         )
-        self.dynamic_stack_num += 1
+        self.dynamic_stack += 1
         return self
 
     async def __aexit__(self, *args) -> None:
@@ -262,15 +262,15 @@ class Context(ContextManager):
                             "NoGravity":    True, "Tags": ["mcdp_obj", "mcdp_stack_obj", "stack_top"]
                         })
                 ),
-                "scoreboard players set @e[tag=stack_top,limit=1] mcdpStackID {0}".format(self.dynamic_stack_num)
+                "scoreboard players set @e[tag=stack_top,limit=1] mcdpStackID {0}".format(self.dynamic_stack)
         )
-        self.dynamic_stack_num += 1
+        self.dynamic_stack += 1
 
     @CCmethod
     def dynamic_pop(self) -> None:
-        self.dynamic_stack_num -= 1
+        self.dynamic_stack -= 1
         self.insert(
-                "tag @e[tag=mcdp_stack_obj,scores={mcdpStackID=%i}] add stack_top" % (self.dynamic_stack_num - 1),
+                "tag @e[tag=mcdp_stack_obj,scores={mcdpStackID=%i}] add stack_top" % (self.dynamic_stack - 1),
                 "kill @s"
         )
 
@@ -288,10 +288,10 @@ class Context(ContextManager):
 
     @CCmethod
     def get_stack_id(self) -> int:
-        return self.dynamic_stack_num - 1
+        return self.dynamic_stack - 1
 
 
-_tagType = Literal["blocks", "entity_types", "items", "fluids", "functions"]
+T_tag = Literal["blocks", "entity_types", "items", "fluids", "functions"]
 
 
 class TagManager(ContextManager):
@@ -300,7 +300,7 @@ class TagManager(ContextManager):
 
     collection = {}
 
-    def __init__(self, type: _tagType, *, namespace: Optional[str] = None, replace: bool = False) -> None:
+    def __init__(self, type: T_tag, *, namespace: Optional[str] = None, replace: bool = False) -> None:
         self.type = type
         self.replace = replace
         if not namespace:
@@ -388,11 +388,10 @@ def pop_stack(func: Callable) -> None:
     Context.dynamic_pop = CCmethod(func)
 
 
-def get_stack_id() -> int:
-    return Context.get_stack_id()
+get_stack_id = Context.get_stack_id
 
 
-def add_tag(tag: str, value: Optional[str] = None, *, namespace: Optional[str] = None, type: _tagType = "functions") -> None:
+def add_tag(tag: str, value: Optional[str] = None, *, namespace: Optional[str] = None, type: T_tag = "functions") -> None:
     if not namespace:
         namespace = TagManager.get_namespace()
     if not value:

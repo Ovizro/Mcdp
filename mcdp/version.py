@@ -8,7 +8,7 @@ TS_version = TypeVar("TS_version", Tuple[str, int], str, "PhaseVersion")
 
 class Version:
     """
-    the base class in model 'version'.
+    The base class in model 'version'.
     Support boolean operations between version numbers like '1.0.2'.
     """
 
@@ -78,7 +78,7 @@ class Version:
                 else:
                     return False
             print(around(Version("1.12"), Version("1.13")))
-            # stdout: True
+            # output: True
             ```
         """
 

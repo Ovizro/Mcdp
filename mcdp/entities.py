@@ -1,27 +1,21 @@
 import ujson
 from io import StringIO
 from functools import lru_cache
+from itertools import count
 from typing import Generator, Literal, Optional, Union, Dict
 
 from .config import get_config
-from .context import insert
+from .context import insert, pull_stack, pop_stack
 from .command import Position, Selector
 from .typings import Variable, McdpVar
-
-
-def _get_entity_id():
-    n = 0
-    while True:
-        yield n
-        n += 1
 
 
 @lru_cache(2)
 def get_tag() -> str:
     return "Mcdp_" + get_config().namespace
 
-
-_entity_factory = lambda: next(_get_entity_id())
+_entity_id_generater = count(0)
+_entity_factory = lambda: next(_entity_id_generater)
 _stack_scb = None
 
 
@@ -72,7 +66,13 @@ class Entity(Variable):
 
     def remove(self) -> None:
         insert(f"kill {Selector(self)}")
-
+    
+    def add_tag(self, tag: str) -> None:
+        insert(f"tag {Selector(self)} add {tag}")
+    
+    def remove_tag(self, tag: str) -> None:
+        insert(f"tag {Selector(self)} remove {tag}")
+    
     def apply(self) -> None: ...
 
 
@@ -87,16 +87,22 @@ class McdpStack(Entity):
         }
         if home:
             nbt["Tags"].append(get_tag() + "_HOME")
-        # insert("tag @s remove stack_top")
+        else:
+            insert("tag @s remove stack_top")
         super().__init__("armor_stand", nbt=nbt)
         self.stack_id = stack_id
         insert("scoreboard players set @e[tag=stack_top,limit=1] mcdpStackID {0}".format(stack_id))
 
     def __selector__(self) -> Selector:
-        return Selector("@e", "scores={mcdpStackID=%i}" % self.stack_id, "tag=Mcdp_stack", type=self.type, limit=1, tag=get_tag())
+        return Selector(
+            "@e", "scores={mcdpStackID=%i}" % self.stack_id, 
+            "tag=Mcdp_stack", type=self.type, limit=1, tag=get_tag())
 
     def remove(self) -> None:
         insert(
-                "tag @e[tag=mcdp_stack_obj,scores={mcdpStackID=%i}] add stack_top" % (self.stack_id - 1)
+            "tag @e[tag=mcdp_stack_obj,scores={mcdpStackID=%i}] add stack_top" % (self.stack_id - 1)
         )
         super().remove()
+
+# @pull_stack
+def _pull():...
