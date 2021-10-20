@@ -2,6 +2,7 @@ import ujson
 from io import StringIO
 from itertools import count
 from functools import lru_cache
+from itertools import count
 from typing import Generator, Literal, Optional, Union, Dict
 
 from .config import get_config
@@ -67,7 +68,13 @@ class Entity(Variable):
 
     def remove(self) -> None:
         insert(f"kill {Selector(self)}")
-
+    
+    def add_tag(self, tag: str) -> None:
+        insert(f"tag {Selector(self)} add {tag}")
+    
+    def remove_tag(self, tag: str) -> None:
+        insert(f"tag {Selector(self)} remove {tag}")
+    
     def apply(self) -> None: ...
 
 
@@ -82,17 +89,20 @@ class McdpStack(Entity):
         }
         if home:
             nbt["Tags"].append(get_tag() + "_HOME")
-        # insert("tag @s remove stack_top")
+        else:
+            insert("tag @s remove stack_top")
         super().__init__("armor_stand", nbt=nbt)
         self.stack_id = stack_id
         insert("scoreboard players set @e[tag=stack_top,limit=1] mcdpStackID {0}".format(stack_id))
 
     def __selector__(self) -> Selector:
-        return Selector("@e", "scores={mcdpStackID=%i}" % self.stack_id, "tag=Mcdp_stack", type=self.type, limit=1, tag=get_tag())
+        return Selector(
+            "@e", "scores={mcdpStackID=%i}" % self.stack_id, 
+            "tag=Mcdp_stack", type=self.type, limit=1, tag=get_tag())
 
     def remove(self) -> None:
         insert(
-                "tag @e[tag=mcdp_stack_obj,scores={mcdpStackID=%i}] add stack_top" % (self.stack_id - 1)
+            "tag @e[tag=mcdp_stack_obj,scores={mcdpStackID=%i}] add stack_top" % (self.stack_id - 1)
         )
         super().remove()
 
