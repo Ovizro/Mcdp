@@ -62,14 +62,14 @@ class Stream:
             *,
             root: Optional[T_Path] = None
     ) -> None:
-        path = Path(path)
-        if not path.is_absolute():
+        p = Path(path)
+        if not p.is_absolute():
             if not root:
-                path = path.resolve()
+                p = p.resolve()
             else:
-                path = Path(root).joinpath(path)
+                p = Path(root).joinpath(path)
 
-        self.path = path
+        self.path = p
         self.opened = False
         self.closed = False
 

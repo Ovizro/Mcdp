@@ -1,19 +1,13 @@
 import ujson
 from io import StringIO
+from itertools import count
 from functools import lru_cache
 from typing import Generator, Literal, Optional, Union, Dict
 
 from .config import get_config
-from .context import insert
+from .context import insert, enter_stack_ops, leave_stack_ops
 from .command import Position, Selector
 from .typings import Variable, McdpVar
-
-
-def _get_entity_id():
-    n = 0
-    while True:
-        yield n
-        n += 1
 
 
 @lru_cache(2)
@@ -21,7 +15,8 @@ def get_tag() -> str:
     return "Mcdp_" + get_config().namespace
 
 
-_entity_factory = lambda: next(_get_entity_id())
+_entity_counter = count(0)
+_entity_factory = lambda: next(_entity_counter)
 _stack_scb = None
 
 
@@ -100,3 +95,4 @@ class McdpStack(Entity):
                 "tag @e[tag=mcdp_stack_obj,scores={mcdpStackID=%i}] add stack_top" % (self.stack_id - 1)
         )
         super().remove()
+

@@ -2,8 +2,8 @@ from pathlib import Path
 from typing import Union, Optional
 
 from .config import Config, get_config
-from .file_struct import build_dirs, build_dirs_from_config, init_context, init_mcmeta
-from .context import get_context, Context, TagManager, comment, insert, add_tag
+from .file_struct import build_dirs, build_dirs_from_config, init_mcmeta
+from .context import Context, TagManager, comment, insert, add_tag
 from .variable import Scoreboard, dp_int, dp_score
 from .mcstring import MCString, MCSS
 from .command import cout, endl
@@ -32,9 +32,7 @@ __all__ = [
     "build_dirs",
     "build_dirs_from_config",
     # context
-    "init_context",
     "Context",
-    "get_context",
     "comment",
     "insert",
     "TagManager",

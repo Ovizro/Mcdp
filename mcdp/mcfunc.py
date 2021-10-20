@@ -1,3 +1,5 @@
+import asyncio
+from asyncio.events import get_running_loop
 import warnings
 from asyncio import iscoroutinefunction, run, all_tasks, current_task, gather
 from inspect import signature, Parameter
@@ -5,7 +7,7 @@ from typing import (Callable, Coroutine, Dict, List, Mapping, NoReturn,
                     Union, Optional, Any, Tuple, Type, overload)
 
 from .counter import Counter, get_counter
-from .file_struct import build_dirs_from_config, init_context
+from .file_struct import build_dirs_from_config
 from .typings import McdpVar, Variable
 from .config import get_config, MCFuncConfig
 from .context import Context, TagManager, add_tag, insert
@@ -94,19 +96,20 @@ class MCFunction(McdpVar):
                 continue
 
             if i == 0:
-                await Context.enter(self.__name__)
+                name = self.__name__
             else:
-                await Context.enter(self.__name__ + str(i))
-            sig = signature(f).parameters
-            args, kwds = _get_arguments(self.__name__, sig)
+                name = self.__name__ + str(i)
+                
+            async with Context(name):
+                sig = signature(f).parameters
+                args, kwds = _get_arguments(self.__name__, sig)
 
-            ans = f(*args, **kwds)
-            if isinstance(ans, Score):
-                if ans.name != "dpc_return":
-                    dp_score("dpc_return", ans, stack_offset=1,
-                             display={"text": "Mcdp function return cache", "coloe": "dark_blue"})
-            Context.dynamic_pop()
-            await Context.exit()
+                ans = f(*args, **kwds)
+                if isinstance(ans, Score):
+                    if ans.name != "dpc_return":
+                        dp_score("dpc_return", ans, stack_offset=1,
+                                display={"text": "Mcdp function return cache", "coloe": "dark_blue"})
+                Context.enter()
 
     @classmethod
     async def apply_all(cls) -> None:
@@ -184,31 +187,27 @@ def mcfunc_main(*args, **kw) -> Callable[[Callable], NoReturn]:
     ...
 
 
-def mcfunc_main(func: Optional[Union[Callable]] = None, *args, **kw):
+def mcfunc_main(func: Optional[Union[Callable, str]], *args, **kw):
     async def md_main(func: Callable[[], Optional[Coroutine]]) -> NoReturn:
         config = get_config()
         await build_dirs_from_config()
-        context = init_context(config.namespace)
-        async with context:
+        async with Context:
             add_tag('load', namespace='minecraft')
 
-            await context.enter("__main__")
-            if iscoroutinefunction(func):
-                await func()
-            else:
-                func()
-            await context.exit()
+            async with Context("__main__"):
+                if iscoroutinefunction(func):
+                    await func()
+                else:
+                    func()
 
-            await context.enter('__init_score__')
-            Scoreboard.apply_all()
-            await context.exit()
+            async with Context('__init_score__'):
+                Scoreboard.apply_all()
 
             TagManager.apply_all()
             await MCFunction.apply_all()
 
-        await gather(*[t for t in all_tasks() if t != current_task()])
+        await get_running_loop().shutdown_asyncgens()
         get_counter().print_out()
-        quit()
 
     if callable(func):
         run(md_main(func))

@@ -10,60 +10,6 @@ from .aio_stream import Stream, T_Path, wraps
 from .counter import get_counter
 
 
-class ContextManager(McdpVar):
-    
-    __slots__ = ["name", ]
-    __accessible__ = ["name", ]
-
-    collection = {}
-
-    def __init__(self, name: str) -> None:
-        self.name = name
-
-    @classmethod
-    def _collect(cls, instance: "ContextManager") -> None:
-        cls.collection[instance.name] = instance
-
-    @classmethod
-    def _remove_from_collection(cls, instance: "ContextManager") -> None:
-        cls.collection.pop(instance.name)
-
-    def collect(self) -> None:
-        self._collect(self)
-
-    def remove_from_collection(self) -> None:
-        self._remove_from_collection(self)
-
-    @staticmethod
-    def get_namespace() -> str:
-        return get_config().namespace
-
-
-class Environment(ContextManager):
-
-    __slots__ = ["name", "var_dict", "stream"]
-    __accessible__ = ["name", "stream"]
-
-    def __init__(self, name: str, *, root_path: Optional[Union[str, Path]] = None):
-        self.name = name
-        self.stream: Stream = Stream(name + ".mcfunction", root=root_path)
-
-    def write(self, content: str) -> None:
-        self.stream.write(content)
-
-    def writable(self) -> bool:
-        return self.stream.writable()
-
-    async def activate(self) -> None:
-        await self.stream.open()
-
-    async def deactivate(self) -> None:
-        await self.stream.close()
-
-    def __str__(self) -> str:
-        return f"<env {self.name} in the context {get_context().name}>"
-
-
 class StackCache(UserList):
 
     __slots__ = "_capacity",
@@ -76,7 +22,7 @@ class StackCache(UserList):
         self._capacity = capacity
         super().__init__()
 
-    async def append(self, env: Environment) -> None:
+    async def append(self, env: "Context") -> None:
         super().append(env)
         await env.activate()
         overflow = len(self) - self._capacity
@@ -84,8 +30,8 @@ class StackCache(UserList):
             for e in self[:overflow]:
                 await e.deactivate()
 
-    async def pop(self) -> Environment:
-        ans: Environment = super().pop()
+    async def pop(self) -> "Context":
+        ans: "Context" = super().pop()
         await ans.deactivate()
         if self:
             if not self[-1].writable():
@@ -94,15 +40,15 @@ class StackCache(UserList):
 
     async def clear(self) -> None:
         for e in self:
-            e: Environment
+            e: "Context"
             await e.deactivate()
         super().clear()
 
 
-class CCmethod:
+class EnvMethod:
     """
     Use the class as a decorator to
-    announce a current context method.
+    announce a environment method.
     
     When called from the instance, the method works 
     as a normal method. And when it is called from the 
@@ -116,9 +62,9 @@ class CCmethod:
         self.__func__ = func
         self.use_async = asyncio.iscoroutinefunction(func)
 
-    def __get__(self, instance: Any, owner: Type) -> Callable:
+    def __get__(self, instance: Any, owner: "Context") -> Callable:
         if instance is None:
-            instance = owner.current
+            instance = owner.top
             if not instance:
                 raise McdpContextError("invalid current context")
 
@@ -134,113 +80,96 @@ class CCmethod:
         return wrapper
 
 
-class Context(ContextManager):
-
-    __slots__ = ["name", "_lock", "stack", "path", "dynamic_stack_num"]
-    __accessible__ = ["name", "stack", "@item"]
+class ContextMeta(type):
+    """
+    Metaclass of Context. 
+    Support for the sentence of 'with' and the initialization
+    of Context.
+    """
 
     MAX_OPENED: int = 8
 
-    current: Optional["Context"] = None
-    collection = {}
+    stack: list
+    environments: StackCache
+    get_stack_id: EnvMethod
 
-    def __init__(
-            self,
-            name: str,
-            path: Union[Path, str],
-    ) -> None:
-        self.name = name
-        self._lock = asyncio.Lock()
-
-        self.collect()
-
-        self.stack: StackCache \
-            = StackCache(self.__class__.MAX_OPENED)
-        self.dynamic_stack_num = 0
-
-        self.path = Path(path).resolve()
-
-    @CCmethod
-    async def enter(self, env: Union[Environment, str], dir: T_Path = '.') -> None:
-        if not isinstance(env, Environment):
-            env = Environment(env, root_path=self.path / dir)
-
-        await self.stack.append(env)
-
-    @CCmethod
-    async def exit(self, env: Optional[Union[Environment, str]] = None) -> None:
-        if env:
-            if isinstance(env, Environment):
-                if env in self.stack:
-                    if not env.name == self.top.name:
-                        await self.exit()
-                        await self.exit(env)
-                else:
-                    raise McdpContextError(f"cannot find environment {env} in stack.")
-            else:
-                if self.top.name != env:
-                    raise McdpContextError(f"cannot exit from the environment {env}.")
-
-        if self.stack:
-            await self.stack.pop()
+    def init(self, path: T_Path) -> None:
+        self.path = Path(path, "functions").resolve()
 
     @property
-    def top(self) -> Environment:
-        if not self.stack:
-            raise RuntimeError("no environment in the stack.")
-        return self.stack[-1]
+    def top(self) -> "Context":
+        return self.environments[-1]
 
-    async def shutdown(self) -> None:
-        await self.stack.clear()
-        del self.stack
-
-        del self.path
-
-        self.remove_from_collection()
-        if get_context() is self:
-            self.__class__.current = None
-
-    async def __aenter__(self) -> "Context":
+    async def __aenter__(self) -> "ContextMeta":
         """
-        init the datapack.
+        Init the datapack.
         """
-        await self._lock.acquire()
-        self.__class__.current = self
-
-        default = Environment("__init__", root_path=self.path)
-        await self.stack.append(default)
-        self.insert(
-                "function {0}:__init_score__".format(self.get_namespace()),
-                "summon armor_stand ~ ~ ~ {0}".format(
-                        ujson.dumps({
-                            "Invulnerable": True, "Invisible": True, "Marker": True,
-                            "NoGravity":    True,
-                            "Tags":         ["mcdp_obj", "mcdp_stack_obj", "stack_top", "mcdp_home"]
-                        })
-                ),
-                "scoreboard players set @e[tag=stack_top,limit=1] mcdpStackID 0"
-        )
-        self.dynamic_stack_num += 1
+        default_env = self("__init__", root_path=self.path)
+        await self.environments.append(default_env)
+        TagManager("functions", namespace="minecraft")
+        TagManager("functions", namespace=get_namespace())
         return self
+    
+    async def __aexit__(self, exc_type, exc_ins, traceback) -> None:
+        await self.environments.clear()
+        del self.path
+    
+    def __str__(self) -> str:
+        return f"<{self.__name__} with env {self.top.name} in stack {self.get_stack_id()}"
 
-    async def __aexit__(self, *args) -> None:
-        await self.stack.clear()
-        self._lock.release()
+class Context(McdpVar, metaclass=ContextMeta):
+    """
+    Set for async file IO.
+    """
 
-    @CCmethod
+    __slots__ = ["name", "stream"]
+
+    stack = []
+    environments = StackCache(ContextMeta.MAX_OPENED)
+
+    path: Path
+    top: "Context"
+    enter: EnvMethod
+    leave: EnvMethod
+
+    def __init__(self, name: str, *, root_path: Optional[T_Path] = None):
+        self.name = name
+        self.stream: Stream = Stream(name + ".mcfunction", root=root_path)
+
+    def write(self, content: str) -> None:
+        self.stream.write(content)
+
+    def writable(self) -> bool:
+        return self.stream.writable()
+
+    async def activate(self) -> None:
+        await self.stream.open()
+
+    async def deactivate(self) -> None:
+        await self.stream.close()
+
+    async def __aenter__(self) -> ContextMeta:
+        await self.__class__.environments.append(self)
+        return self.__class__
+    
+    async def __aexit__(self, exc_type, exc_ins, traceback) -> None:
+        if (await self.__class__.environments.pop()).name == "__init__":
+            raise McdpContextError("Cannot leave the static stack '__init__'.")
+
+    @EnvMethod
     def insert(self, *content: str) -> None:
-        if not self.stack[-1].writable():
+        if not self.writable():
             raise McdpContextError("fail to insert command.")
         counter = get_counter().commands
         for command in content:
             +counter
             if not command.endswith("\n"):
                 command += "\n"
-            self.stack[-1].write(command)
+            self.write(command)
 
-    @CCmethod
+    @EnvMethod
     def comment(self, *content: str) -> None:
-        if not self.stack[-1].writable():
+        if not self.writable():
             raise McdpContextError("fail to add comments.")
         com = []
         for c in content:
@@ -250,51 +179,32 @@ class Context(ContextManager):
             else:
                 com.append(c)
 
-        self.stack[-1].write("#" + "\n#".join(com) + "\n")
+        self.write("#" + "\n#".join(com) + "\n")
 
-    @CCmethod
-    def dynamic_pull(self) -> None:
-        self.insert(
-                "tag @s remove stack_top",
-                "summon armor_stand ~ ~ ~ {0}".format(
-                        ujson.dumps({
-                            "Invulnerable": True, "Invisible": True, "Marker": True,
-                            "NoGravity":    True, "Tags": ["mcdp_obj", "mcdp_stack_obj", "stack_top"]
-                        })
-                ),
-                "scoreboard players set @e[tag=stack_top,limit=1] mcdpStackID {0}".format(self.dynamic_stack_num)
-        )
-        self.dynamic_stack_num += 1
-
-    @CCmethod
-    def dynamic_pop(self) -> None:
-        self.dynamic_stack_num -= 1
-        self.insert(
-                "tag @e[tag=mcdp_stack_obj,scores={mcdpStackID=%i}] add stack_top" % (self.dynamic_stack_num - 1),
-                "kill @s"
-        )
-
-    @CCmethod
-    def enter_space(self, name: str) -> None:
-        self.path = self.path / name
-
-    @CCmethod
-    def exit_space(self) -> None:
-        self.path = self.path.parent
-
-    @CCmethod
-    def get_relative_path(self) -> Path:
-        return self.path.relative_to(Path(f'{self.get_namespace()}/functions').resolve())
-
-    @CCmethod
+    @EnvMethod
     def get_stack_id(self) -> int:
-        return self.dynamic_stack_num - 1
+        return self.stack.index(self)
+
+    @classmethod
+    def enter_space(cls, name: str) -> None:
+        cls.path = cls.path / name
+
+    @classmethod
+    def exit_space(cls) -> None:
+        cls.path = cls.path.parent
+
+    @classmethod
+    def get_relative_path(cls) -> Path:
+        return cls.path.relative_to(Path(get_namespace(), "functions").resolve())
+
+    def __str__(self) -> str:
+        return f"<env {self.name} in the context>"
 
 
 _tagType = Literal["blocks", "entity_types", "items", "fluids", "functions"]
 
 
-class TagManager(ContextManager):
+class TagManager(McdpVar):
     __slots__ = ["name", "type", "replace", "root_path", "cache"]
     __accessible__ = ["type", "replace", "@item"]
 
@@ -304,7 +214,7 @@ class TagManager(ContextManager):
         self.type = type
         self.replace = replace
         if not namespace:
-            namespace = self.get_namespace()
+            namespace = get_namespace()
         self.root_path = Path(namespace, "tags", type).resolve()
         self.cache = defaultdict(set)
 
@@ -314,7 +224,7 @@ class TagManager(ContextManager):
     def add(self, tag: str, item: str, *, namaspace: Optional[str] = None) -> None:
         if not ":" in item:
             if not namaspace:
-                namaspace = self.get_namespace()
+                namaspace = get_namespace()
             item = f"{namaspace}:{item}"
 
         self.cache[tag].add(item)
@@ -346,6 +256,9 @@ class TagManager(ContextManager):
     def apply(self) -> None:
         for tag in self.cache:
             asyncio.ensure_future(self.apply_tag(tag))
+    
+    def collect(self) -> None:
+        self.collection[self.name] = self
 
     @classmethod
     def apply_all(cls) -> None:
@@ -362,14 +275,8 @@ class McdpContextError(McdpError):
     __slots__ = ["context", ]
 
     def __init__(self, *arg: str) -> None:
-        self.context = Context.current
+        self.context = Context
         super(McdpError, self).__init__(*arg)
-
-
-def get_context() -> "Context":
-    if not Context.current:
-        raise McdpContextError("no context activated.")
-    return Context.current
 
 
 def insert(*content: str) -> None:
@@ -380,26 +287,32 @@ def comment(*content: str) -> None:
     return Context.comment(*content)
 
 
-def pull_stack(func: Callable) -> None:
-    Context.dynamic_pull = CCmethod(func)
-
-
-def pop_stack(func: Callable) -> None:
-    Context.dynamic_pop = CCmethod(func)
-
-
 def get_stack_id() -> int:
-    return Context.get_stack_id()
+    return len(Context.stack) - 1
 
 
 def add_tag(tag: str, value: Optional[str] = None, *, namespace: Optional[str] = None, type: _tagType = "functions") -> None:
     if not namespace:
-        namespace = TagManager.get_namespace()
+        namespace = get_namespace()
     if not value:
         if type == "functions":
-            c = Context.current
-            value = str(c.get_relative_path() / c.top.name)
+            c = Context.top
+            value = str(c.get_relative_path() / c.name)
         else:
-            raise ValueError("no value input.")
+            raise McdpError("no value input.")
     m_tag: TagManager = TagManager.collection[f"{namespace}:{type}"]
     m_tag.add(tag, value)
+
+
+def get_namespace() -> str:
+    return get_config().namespace
+
+
+def enter_stack_ops(func: Callable[[Context, bool],None]) -> Callable:
+    Context.enter = EnvMethod(func)
+    return func
+
+
+def leave_stack_ops(func: Callable[[Context], None]) -> Callable:
+    Context.leave = EnvMethod(func)
+    return func

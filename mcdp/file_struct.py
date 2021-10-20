@@ -4,12 +4,13 @@ Prepare basic datapack dirs for Mcdp lancher.
 
 import os
 import asyncio
+import ujson
 from shutil import copyfile
 from functools import partial
 from pathlib import Path, PurePath
 from typing import Any, Callable, Dict, Optional, Set, Union
 
-from .context import get_context, Context, TagManager
+from .context import Context, Context, TagManager
 from .config import get_version, get_config, T_version
 from .aio_stream import Stream, mkdir, makedirs
 
@@ -82,12 +83,6 @@ def analyse_file_struct(
     return ans
 
 
-def init_context(namespace: str) -> Context:
-    TagManager("functions", namespace="minecraft")
-    TagManager("functions", namespace=namespace)
-    return Context(namespace, Path(namespace, "functions"))
-
-
 async def build_dirs(
         name: str,
         version: T_version,
@@ -134,6 +129,7 @@ async def build_dirs(
     await mkdir(namespace)
 
     await mcd_task
+    Context.init(namespace)
 
 
 async def build_dirs_from_config() -> None:
