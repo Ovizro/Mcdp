@@ -109,7 +109,7 @@ class MCFunction(McdpVar):
                     if ans.name != "dpc_return":
                         dp_score("dpc_return", ans, stack_offset=1,
                                 display={"text": "Mcdp function return cache", "coloe": "dark_blue"})
-                Context.enter()
+                Context.leave()
 
     @classmethod
     async def apply_all(cls) -> None:
@@ -141,7 +141,7 @@ class MCFunction(McdpVar):
                          display={"text": f"Mcdp function {self.__name__} arguments", "color": "dark_blue"})
 
         path = Context.get_relative_path() / self.__name__
-        Context.dynamic_pull()
+        Context.enter()
         self.namespace = self.namespace or get_config().namespace
         file = f"{self.namespace}:{path}"
         if ind != 0:
@@ -189,7 +189,7 @@ def mcfunc_main(*args, **kw) -> Callable[[Callable], NoReturn]:
 
 def mcfunc_main(func: Optional[Union[Callable, str]], *args, **kw):
     async def md_main(func: Callable[[], Optional[Coroutine]]) -> NoReturn:
-        config = get_config()
+        #config = get_config()
         await build_dirs_from_config()
         async with Context:
             add_tag('load', namespace='minecraft')

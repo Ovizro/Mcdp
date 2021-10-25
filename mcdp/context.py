@@ -92,6 +92,8 @@ class ContextMeta(type):
     stack: list
     environments: StackCache
     get_stack_id: EnvMethod
+    enter: EnvMethod
+    leave: EnvMethod
 
     def init(self, path: T_Path) -> None:
         self.path = Path(path, "functions").resolve()
@@ -108,6 +110,7 @@ class ContextMeta(type):
         await self.environments.append(default_env)
         TagManager("functions", namespace="minecraft")
         TagManager("functions", namespace=get_namespace())
+        self.enter(home=True)
         return self
     
     async def __aexit__(self, exc_type, exc_ins, traceback) -> None:
@@ -134,7 +137,7 @@ class Context(McdpVar, metaclass=ContextMeta):
 
     def __init__(self, name: str, *, root_path: Optional[T_Path] = None):
         self.name = name
-        self.stream: Stream = Stream(name + ".mcfunction", root=root_path)
+        self.stream: Stream = Stream(name + ".mcfunction", root=root_path or self.path)
 
     def write(self, content: str) -> None:
         self.stream.write(content)

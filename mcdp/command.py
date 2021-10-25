@@ -118,7 +118,9 @@ class Selector(McdpBaseModel):
             return name_or_entity.__selector__()
         return McdpBaseModel.__new__(cls)
 
-    def __init__(self, name: str, *args, **kwds) -> None:
+    def __init__(self, name: Union[str, Any], *args, **kwds) -> None:
+        if not isinstance(name, str):
+            return
         if name in ["@p", "@a", "@r", "@e", "@s"]:
             l = list(args)
             l.extend(KeywordArg(kwds))
