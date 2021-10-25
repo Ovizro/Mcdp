@@ -106,7 +106,7 @@ def _get_selector(score: Union[int, "Score"]) -> str:
     if stack_id == get_stack_id():
         return "@s"
     else:
-        return "@e[tag=mcdp_stack_obj,scores={mcdpStackID=%i}]" % stack_id
+        return "@e[tag=Mcdp_stack,scores={mcdpStackID=%i}]" % stack_id
 
 
 class Score(Variable):
@@ -217,8 +217,8 @@ class Score(Variable):
             self.scoreboard.set_value(_get_selector(self), value)
         else:
             insert(
-                    "scoreboard players operation @s {0} = {1} {2}".format(
-                            self.name, _get_selector(value), value.name
+                    "scoreboard players operation {0} {1} = {2} {3}".format(
+                            _get_selector(self), self.name, _get_selector(value), value.name
                     ))
 
     def apply(self) -> None:

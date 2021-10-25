@@ -110,7 +110,8 @@ class ContextMeta(type):
         await self.environments.append(default_env)
         TagManager("functions", namespace="minecraft")
         TagManager("functions", namespace=get_namespace())
-        self.enter(home=True)
+        insert(f"function {get_namespace()}:__init_score__")
+        self.enter()
         return self
     
     async def __aexit__(self, exc_type, exc_ins, traceback) -> None:
@@ -311,7 +312,7 @@ def get_namespace() -> str:
     return get_config().namespace
 
 
-def enter_stack_ops(func: Callable[[Context, bool],None]) -> Callable:
+def enter_stack_ops(func: Callable[[Context],None]) -> Callable:
     Context.enter = EnvMethod(func)
     return func
 

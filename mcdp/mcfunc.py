@@ -10,7 +10,7 @@ from .counter import Counter, get_counter
 from .file_struct import build_dirs_from_config
 from .typings import McdpVar, Variable
 from .config import get_config, MCFuncConfig
-from .context import Context, TagManager, add_tag, insert
+from .context import Context, TagManager, add_tag, get_namespace, insert
 from .variable import Score, Scoreboard, dp_int, dp_score
 
 
@@ -108,7 +108,7 @@ class MCFunction(McdpVar):
                 if isinstance(ans, Score):
                     if ans.name != "dpc_return":
                         dp_score("dpc_return", ans, stack_offset=1,
-                                display={"text": "Mcdp function return cache", "coloe": "dark_blue"})
+                                display={"text": "Mcdp function return cache", "color": "dark_blue"})
                 Context.leave()
 
     @classmethod

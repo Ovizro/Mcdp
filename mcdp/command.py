@@ -131,6 +131,17 @@ class Selector(McdpBaseModel):
             _args.extend(args)
 
             super().__init__(name=_name, args=_args)
+    
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, val: Any):
+        if isinstance(val, cls):
+            return val
+        else:
+            return val.__selector__()
 
     def __mcstr__(self) -> MCString:
         return MCString(selector=str(self))
@@ -434,11 +445,11 @@ class ScoreCase(_Case, type="score"):
 
     def __str__(self) -> str:
         if self.ops == "matches":
-            return f"score {self.target} {self.target_obj} \
-                {self.ops} {self.range}"
+            return f"score {self.target} {self.target_obj} " +\
+                f"{self.ops} {self.range}"
         else:
-            return f"score {self.target} {self.target_obj} \
-                {self.ops} {self.source} {self.source_obj}"
+            return f"score {self.target} {self.target_obj} " +\
+                f"{self.ops} {self.source} {self.source_obj}"
 
 
 class ConditionInstruction(Instruction):
