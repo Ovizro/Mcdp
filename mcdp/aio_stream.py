@@ -73,11 +73,11 @@ class Stream:
         self.opened = False
         self.closed = False
 
-    async def open(self) -> None:
+    async def open(self, mod: str = "w") -> None:
         if self.opened:
             return
         await makedirs(self.path.parent)
-        self.__file = await aio_open(self.path, "w", encoding="utf-8")
+        self.__file = await aio_open(self.path, mod, encoding="utf-8")
         +counter.files
 
         self.write_tasks: List[asyncio.Task] = []

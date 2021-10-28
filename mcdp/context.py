@@ -35,7 +35,7 @@ class StackCache(UserList):
         await ans.deactivate()
         if self:
             if not self[-1].writable():
-                await self[-1].activate()
+                await self[-1].activate(True)
         return ans
 
     async def clear(self) -> None:
@@ -146,8 +146,11 @@ class Context(McdpVar, metaclass=ContextMeta):
     def writable(self) -> bool:
         return self.stream.writable()
 
-    async def activate(self) -> None:
-        await self.stream.open()
+    async def activate(self, append: bool = False) -> None:
+        if not append:
+            await self.stream.open()
+        else:
+            await self.stream.open("a")
 
     async def deactivate(self) -> None:
         await self.stream.close()
@@ -275,14 +278,6 @@ class TagManager(McdpVar):
             self.apply()
 
 
-class McdpContextError(McdpError):
-    __slots__ = ["context", ]
-
-    def __init__(self, *arg: str) -> None:
-        self.context = Context
-        super(McdpError, self).__init__(*arg)
-
-
 def insert(*content: str) -> None:
     return Context.insert(*content)
 
@@ -320,3 +315,11 @@ def enter_stack_ops(func: Callable[[Context],None]) -> Callable:
 def leave_stack_ops(func: Callable[[Context], None]) -> Callable:
     Context.leave = EnvMethod(func)
     return func
+
+
+class McdpContextError(McdpError):
+    __slots__ = ["context", ]
+
+    def __init__(self, *arg: str) -> None:
+        self.context = Context
+        super(McdpError, self).__init__(*arg)
