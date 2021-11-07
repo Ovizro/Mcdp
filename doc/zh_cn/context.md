@@ -31,7 +31,9 @@ Context类的元类，为Context类提供上下文管理器
 处理所有mcfunction有关的文件IO。
 由于元类的存在，Context的行为特殊。
 其实例是一个静态栈。
-通常来说，我们只需要关心Context本身，而不用
+通常来说，我们只需要使用Context本身，而不用关心其实例。
+
+### \_\_init\_\_()
 
 ## `insert(*args)`
 等价于Context.insert。向当前文件中插入一或多条命令
@@ -39,3 +41,6 @@ Context类的元类，为Context类提供上下文管理器
 - return (None): 无返回值
 
 ## `comment(*args)`
+等价于Context.comment。向当前文件插入一条或多条注释
+- param *args(str): 注释内容
+- return (None): 无返回值
