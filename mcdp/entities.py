@@ -3,7 +3,7 @@ from io import StringIO
 from itertools import count
 from functools import lru_cache
 from itertools import count
-from typing import Generator, Literal, Optional, Union, Dict
+from typing import Any, Generator, Literal, Optional, Union, Dict
 
 from .config import get_config
 from .context import Context, insert, enter_stack_ops, leave_stack_ops
@@ -129,6 +129,9 @@ class McdpStack(Entity):
         )
         exc("tag @s add stack_top")
         super().remove()
+    
+    def __getitem__(self, key: str) -> Any:
+        ...
 
 
 @enter_stack_ops
