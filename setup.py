@@ -10,6 +10,6 @@ setup(
     license="Apache 2.0",
 
     url="https:https://github.com/Ovizro/Mcdp",
-    packages=["mcdp"]
-
+    packages=["mcdp"],
+    install_requires=["ujson", "pydantic", "aiofiles"]
 )
