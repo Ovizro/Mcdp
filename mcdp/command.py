@@ -2,6 +2,7 @@ from warnings import warn
 from io import StringIO
 from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Type, Union
 
+
 from .typings import McdpBaseModel, McdpVar, McdpError
 from .mcstring import MCString
 from .context import insert
@@ -15,7 +16,7 @@ class PosComponent(McdpVar):
             self,
             value: str,
             type: Optional[Literal["absolute", "relative", "local"]] = None
-    ) -> None:
+        ) -> None:
         self.value = value
         if '^' in value:
             if len(value) > 1:
@@ -620,13 +621,13 @@ class IOStreamObject(McdpVar):
         self.data = data
         self.base = base
 
-    def __getitem__(self, value: Any) -> "IOStreamObject":
+    def __getitem__(self, value: Any):
         if self.base:
             self = self.copy()
 
         self.data.append(value)
         return self
-
+    
     def copy(self):
         return self.__class__(self.data.copy())
 
@@ -636,7 +637,6 @@ class Printer(IOStreamObject):
     __slots__ = []
 
     input: List[MCString]
-    cmd: str = "tellraw {targets} {input}"
 
     def __init__(self, data: Optional[List[str]] = None, *, base: bool = False):
         super().__init__(data, base=base)
@@ -653,8 +653,19 @@ class Printer(IOStreamObject):
                 input = self.input[0]
             else:
                 input = "[{0}]".format(','.join((str(i) for i in self.input)))
-            other.__apply_printer__(self.cmd, input=input)
+
+            if not self.data:
+                other.__apply_printer__("tellraw {targets} {input}", input=input)
+            elif len(self.data) == 1:
+                other.__apply_printer__("title {targets} {subcmd} {input}", input=input, subcmd=self.data[0])
+            else:
+                raise McdpCommandError(
+                    "tellraw/title", ValueError(
+                            "Invalid printer data."
+                    ))
+
             self.input.clear()
+            self.data.clear()
             return self
 
         if not isinstance(other, MCString):
@@ -662,11 +673,6 @@ class Printer(IOStreamObject):
 
         self.input.append(other)
         return self
-
-
-class TitlePrinter(Printer):
-
-    __slots__ = []
 
 
 class PrinterEOF(IOStreamObject):

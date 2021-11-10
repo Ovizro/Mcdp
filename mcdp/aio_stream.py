@@ -7,18 +7,18 @@ import asyncio
 from pathlib import Path
 from functools import partial, wraps
 from aiofiles import open as aio_open
-from typing import List, Optional, TypeVar
+from typing import List, Optional, Union
 
 from .counter import get_counter
 
 counter = get_counter()
 
-T_Path = TypeVar("T_Path", str, os.PathLike, Path)
+T_Path = Union[str, os.PathLike, Path]
 
 
 def aio_future(func):
     @wraps(func)
-    async def run(*args, loop=None, executor=None, **kwargs):
+    async def run(*args, loop=None, executor=None, **kwargs) -> asyncio.Future:
         if loop is None:
             loop = asyncio.get_event_loop()
         pfunc = partial(func, *args, **kwargs)
@@ -55,13 +55,14 @@ class Stream:
     __slots__ = ["opened", "closed", "write_tasks", "__file", "path"]
 
     pathtools = os.path
+    tasks: List[List[asyncio.Task]] = []
 
     def __init__(
             self,
             path: T_Path,
             *,
             root: Optional[T_Path] = None
-    ) -> None:
+        ) -> None:
         p = Path(path)
         if not p.is_absolute():
             if not root:

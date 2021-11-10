@@ -1,6 +1,5 @@
 from os import PathLike
-from functools import partial
-from typing import Literal, Union, Optional
+from typing import Literal, Union, Optional, List
 
 from .typings import McdpBaseModel, McdpError, McdpVersionError
 from .version import (Version, T_version, __version__, version_check, AioCompatVersionChecker)
@@ -13,12 +12,12 @@ class PydpConfig(McdpBaseModel):
 class VmclConfig(McdpBaseModel):
     enabled: bool = True
     enable_pywheel: bool = True
+    add_function_comments: bool = True
 
 
 class MCFuncConfig(McdpBaseModel):
     type: Literal["sfunction", "normal"] = "normal"
-    add_comments: bool = True
-    allow_overload: bool = True
+    tag: List[str] = []
 
 
 def get_version(mc_version: T_version) -> int:

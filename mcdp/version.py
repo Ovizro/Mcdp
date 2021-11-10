@@ -1,9 +1,9 @@
 from functools import wraps
 from asyncio import iscoroutinefunction
-from typing import Any, Dict, List, NoReturn, Tuple, Callable, Union, Optional, TypeVar
+from typing import Any, Dict, List, NoReturn, Tuple, Callable, Union, Optional, TypeVar, overload
 
-T_version = TypeVar("T_version", Tuple[int], str, "Version")
-TS_version = TypeVar("TS_version", Tuple[str, int], str, "PhaseVersion")
+T_version = Union[Tuple[int, ...], str, "Version"]
+TS_version = Union[Tuple[str, int], str, "PhaseVersion"]
 
 
 class Version:
@@ -16,7 +16,7 @@ class Version:
 
     def __init__(self, version: T_version) -> None:
         if isinstance(version, tuple):
-            self.__num_list = version
+            self.__num_list: Tuple[int, ...] = version
         elif isinstance(version, self.__class__):
             self.__num_list = version.get_number()
         else:
@@ -33,7 +33,13 @@ class Version:
                 pass
             raise ValueError("Incorrect version form.")
 
-    def __getitem__(self, key: Union[int, slice]) -> Union[int, Tuple[int]]:
+    @overload
+    def __getitem__(self, key: int) -> int:
+        ...
+    @overload
+    def __getitem__(self, key: slice) -> Tuple[int, ...]:
+        ...
+    def __getitem__(self, key: Union[int, slice]) -> Union[int, Tuple[int, ...]]:
         try:
             return self.__num_list[key]
         except IndexError:
@@ -42,7 +48,7 @@ class Version:
             else:
                 return 0
 
-    def __iter__(self) -> Tuple[int]:
+    def __iter__(self) -> Tuple[int, ...]:
         return self.__num_list
 
     def _compare(self, ops: Callable[[int, int], bool], other: T_version) -> bool:
@@ -138,7 +144,13 @@ class Version:
             elif i > 32:
                 raise RuntimeError
 
-    def get_number(self, index: Optional[int] = None, *, extend: Optional[int] = None) -> Union[Tuple[int], int]:
+    @overload
+    def get_number(self, *, extend: Optional[int] = None) -> Tuple[int, ...]:
+        ...
+    @overload
+    def get_number(self, index: int , *, extend: Optional[int] = None) -> int:
+        ...
+    def get_number(self, index: Optional[int] = None, *, extend: Optional[int] = None) -> Union[Tuple[int, ...], int]:
         if index:
             try:
                 return self.__num_list[index]

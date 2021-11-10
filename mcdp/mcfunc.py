@@ -1,5 +1,4 @@
 import asyncio
-from asyncio.events import get_running_loop
 import warnings
 from asyncio import iscoroutinefunction, run, all_tasks, current_task, gather
 from inspect import signature, Parameter
@@ -36,7 +35,11 @@ def _get_arguments(name: str, param: Mapping[str, Parameter]) -> Tuple[list, dic
     return args, kwds
 
 
+
+
+
 class MCFunction(McdpVar):
+
     __slots__ = ["__name__", "overload", "namespace", "overload_counter", "config"]
     __accessible__ = ["__name__"]
 
@@ -158,13 +161,9 @@ class MCFunction(McdpVar):
 @overload
 def mcfunc(func: Callable) -> MCFunction:
     ...
-
-
 @overload
 def mcfunc(*args, **kw) -> Callable[[Callable], MCFunction]:
     ...
-
-
 def mcfunc(func: Optional[Callable] = None, *args, **kw):
     def wrapper(_func: Callable) -> MCFunction:
         m = MCFunction(func.__qualname__, **kw)
@@ -178,17 +177,13 @@ def mcfunc(func: Optional[Callable] = None, *args, **kw):
 
 
 @overload
-def mcfunc_main(func: Callable) -> NoReturn:
+def mcfunc_main(func: Callable) -> None:
     ...
-
-
 @overload
-def mcfunc_main(*args, **kw) -> Callable[[Callable], NoReturn]:
+def mcfunc_main(*args: str, **kw: Any) -> Callable[[Callable], None]:
     ...
-
-
-def mcfunc_main(func: Optional[Union[Callable, str]], *args, **kw):
-    async def md_main(func: Callable[[], Optional[Coroutine]]) -> NoReturn:
+def mcfunc_main(func: Optional[Union[Callable, str]] = None, *args, **kw):
+    async def mf_main(func: Callable[[], Any]) -> None:
         #config = get_config()
         await build_dirs_from_config()
         async with Context:
@@ -203,16 +198,15 @@ def mcfunc_main(func: Optional[Union[Callable, str]], *args, **kw):
             async with Context('__init_score__'):
                 Scoreboard.apply_all()
 
-            TagManager.apply_all()
             await MCFunction.apply_all()
-
-        await get_running_loop().shutdown_asyncgens()
+            await TagManager.apply_all()
+            
         get_counter().print_out()
 
     if callable(func):
-        run(md_main(func))
+        run(mf_main(func))
     else:
-        def get_func(func: Callable[[], Optional[Coroutine]]) -> NoReturn:
-            run(md_main(func))
+        def get_func(func: Callable[[], Coroutine]) -> None:
+            run(mf_main(func))
 
         return get_func

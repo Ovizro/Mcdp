@@ -1,5 +1,5 @@
 import asyncio
-import ujson
+import warnings
 from pathlib import Path
 from collections import ChainMap, UserList, defaultdict
 from typing import Any, Dict, List, Literal, Optional, Callable, Union, Type
@@ -226,7 +226,7 @@ class TagManager(McdpVar):
         if not namespace:
             namespace = get_namespace()
         self.root_path = Path(namespace, "tags", type).resolve()
-        self.cache = defaultdict(set)
+        self.cache = defaultdict(list)
 
         self.name = f"{namespace}:{type}"
         self.collect()
@@ -237,9 +237,12 @@ class TagManager(McdpVar):
                 namaspace = get_namespace()
             item = f"{namaspace}:{item}"
 
-        self.cache[tag].add(item)
+        if item in self.cache[tag]:
+            warnings.warn(f"Try to add the tag '{tag}' twice.")
+        else:
+            self.cache[tag].append(item)
 
-    def __getitem__(self, key: str) -> set:
+    def __getitem__(self, key: str) -> List[str]:
         return self.cache[key]
 
     def __setitem__(self, key: str, item: str) -> None:
@@ -247,9 +250,9 @@ class TagManager(McdpVar):
 
     def get_tag_data(self, tag: str, replace: bool = False) -> dict:
         if not tag in self.cache:
-            raise McdpContextError
+            raise McdpContextError(f"Cannot find tag {tag} in the cache.")
 
-        values = list(self.cache[tag])
+        values = self.cache[tag]
         if not replace:
             replace = self.replace
         return {"replace": replace, "values": values}
@@ -263,18 +266,22 @@ class TagManager(McdpVar):
 
         del self.cache[tag]
 
-    def apply(self) -> None:
+    def apply(self) -> List[asyncio.Task]:
+        tl = []
         for tag in self.cache:
-            asyncio.ensure_future(self.apply_tag(tag))
+            tl.append(asyncio.ensure_future(self.apply_tag(tag)))
+        return tl
     
     def collect(self) -> None:
         self.collection[self.name] = self
 
     @classmethod
-    def apply_all(cls) -> None:
+    def apply_all(cls) -> asyncio.Future:
+        tl = []
         for i in cls.collection.values():
             i: TagManager
-            i.apply()
+            tl.extend(i.apply())
+        return asyncio.gather(*tl)
 
     def __del__(self) -> None:
         if self.cache:
@@ -294,8 +301,13 @@ def get_stack_id() -> int:
 
 
 def add_tag(tag: str, value: Optional[str] = None, *, namespace: Optional[str] = None, type: _tagType = "functions") -> None:
-    if not namespace:
+    if ':' in tag:
+        nt = tag.split(':', 2)
+        namespace = nt[0]
+        tag = nt[1]
+    elif not namespace:
         namespace = get_namespace()
+
     if not value:
         if type == "functions":
             c = Context.top
