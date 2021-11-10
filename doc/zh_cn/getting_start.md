@@ -40,4 +40,5 @@ def main():
 
 如果你已经成功的完成了安装步骤，在运行过后，test_mcdp.py所在的文件夹中就会多出一个名为MyFirstDatapack的文件夹，这个就是一个完整的数据包啦。
 然后，把这个文件夹复制到世界存档的datapacks文件夹中，进入游戏。输入`/reload`命令进行一下重载。如果你能看到聊天框中的"Hello world!"，就说明你成功了。
-![HelloWorld](https://github.com/Ovizro/Mcdp/blob/master/doc/pictures/hello_world_reload.png)
+
+## 
