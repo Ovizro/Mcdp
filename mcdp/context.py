@@ -100,6 +100,8 @@ class ContextMeta(type):
 
     @property
     def top(self) -> "Context":
+        if len(self.environments) < 1:
+            raise McdpContextError("Class 'Context' should be inited before used.")
         return self.environments[-1]
 
     async def __aenter__(self) -> "ContextMeta":
@@ -130,6 +132,7 @@ class Context(McdpVar, metaclass=ContextMeta):
 
     stack = []
     environments = StackCache(ContextMeta.MAX_OPENED)
+    file_suffix = ".mcfunction"
 
     path: Path
     top: "Context"
@@ -138,7 +141,7 @@ class Context(McdpVar, metaclass=ContextMeta):
 
     def __init__(self, name: str, *, root_path: Optional[T_Path] = None):
         self.name = name
-        self.stream: Stream = Stream(name + ".mcfunction", root=root_path or self.path)
+        self.stream: Stream = Stream(name + self.file_suffix, root=root_path or self.path)
 
     def write(self, content: str) -> None:
         self.stream.write(content)
