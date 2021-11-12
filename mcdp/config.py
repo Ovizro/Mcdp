@@ -1,23 +1,24 @@
 from os import PathLike
-from typing import Literal, Union, Optional, List
+from typing import Literal, Union, Optional, List, Set
 
-from .typings import McdpBaseModel, McdpError, McdpVersionError
-from .version import (Version, T_version, __version__, version_check, AioCompatVersionChecker)
-
+from .typings import McdpBaseModel
+from .version import Version, T_version, __version__, AioCompatVersionChecker
+from .exceptions import *
 
 class PydpConfig(McdpBaseModel):
     use_ast: bool = False
+    add_function_comments: bool = True
 
 
 class VmclConfig(McdpBaseModel):
     enabled: bool = True
     enable_pywheel: bool = True
-    add_function_comments: bool = True
 
 
 class MCFuncConfig(McdpBaseModel):
     type: Literal["sfunction", "normal"] = "normal"
-    tag: List[str] = []
+    allow_overload: bool = True
+    tag: Set[str] = set()
 
 
 def get_version(mc_version: T_version) -> int:

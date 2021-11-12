@@ -3,7 +3,7 @@ from asyncio import iscoroutinefunction
 from typing import Any, Dict, List, NoReturn, Tuple, Callable, Union, Optional, TypeVar, overload
 
 T_version = Union[Tuple[int, ...], str, "Version"]
-TS_version = Union[Tuple[str, int], str, "PhaseVersion"]
+TS_version = Union[Tuple[Union[str, int], ...], str, "PhaseVersion"]
 
 
 class Version:

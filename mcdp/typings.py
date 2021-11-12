@@ -94,6 +94,9 @@ class Variable(McdpVar, metaclass=VariableMeta):
 
     def used(self) -> bool:
         return bool(self.counter)
+    
+    def __repr__(self) -> str:
+        return self.__str__()
 
 
 """
@@ -113,13 +116,6 @@ class McdpBaseModel(McdpVar, BaseModel):
         json_dumps = ujson.dumps
 
 
-"""
-==============================
-Mcdp Exceptions
-==============================
-"""
-
-
 class McdpError(Exception, McdpVar):
     
     __slots__ = ["version", "python_version"]
@@ -128,13 +124,3 @@ class McdpError(Exception, McdpVar):
         self.python_version = sys.version
         self.version = __version__
         super().__init__(*arg)
-
-
-class McdpVersionError(McdpError):
-
-    def __init__(self, msg: Optional[str] = None, type=None) -> None:
-        if msg:
-            super().__init__(
-                    msg.format(mcdp_version=__version__))
-        else:
-            super().__init__()

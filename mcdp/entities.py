@@ -3,7 +3,7 @@ from io import StringIO
 from itertools import count
 from functools import lru_cache
 from itertools import count
-from typing import Any, Generator, Literal, Optional, Union, Dict
+from typing import Any, List, Union, Dict
 
 from .config import get_config
 from .context import Context, insert, enter_stack_ops, leave_stack_ops
@@ -55,10 +55,10 @@ class Entity(Variable):
 
         if not nbt.get("Tags", None):
             self.tags = [get_tag()]
-        elif not get_tag() in nbt["Tags"]:
+            nbt["Tags"] = self.tags
+        elif isinstance(nbt["Tags"], list) and not get_tag() in nbt["Tags"]:
             nbt["Tags"].append(get_tag())
             self.tags = nbt["Tags"]
-        nbt["Tags"] = self.tags
 
         nbt_string = ujson.dumps(nbt)
         cmd.write(' ')

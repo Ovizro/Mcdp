@@ -1,6 +1,5 @@
-import asyncio
 import warnings
-from asyncio import iscoroutinefunction, run, all_tasks, current_task, gather
+from asyncio import iscoroutinefunction, run
 from inspect import signature, Parameter
 from typing import (Callable, Coroutine, Dict, List, Mapping, NoReturn,
                     Union, Optional, Any, Tuple, Type, overload)
@@ -8,15 +7,16 @@ from typing import (Callable, Coroutine, Dict, List, Mapping, NoReturn,
 from .counter import Counter, get_counter
 from .file_struct import build_dirs_from_config
 from .typings import McdpVar, Variable
-from .config import get_config, MCFuncConfig
-from .context import Context, TagManager, add_tag, get_namespace, insert
+from .config import get_config, get_version, MCFuncConfig
+from .context import Context, TagManager, add_tag, insert, comment, newline, get_namespace
 from .variable import Score, Scoreboard, dp_int, dp_score
+from .exceptions import *
 
 
 def _toMcdpVar(c: Type) -> Type[Variable]:
     if c == int:
         return dp_int
-    raise ValueError("Unsupported function argument type.")
+    raise McdpValueError("Unsupported function argument type.")
 
 
 def _get_arguments(name: str, param: Mapping[str, Parameter]) -> Tuple[list, dict]:
@@ -35,7 +35,12 @@ def _get_arguments(name: str, param: Mapping[str, Parameter]) -> Tuple[list, dic
     return args, kwds
 
 
-
+def add_comment(func: Callable) -> None:
+    sig = signature(func)
+    comment(f"Function '{func.__name__}'", f"\nSignature:\n{sig}")
+    if func.__doc__:
+        comment("\nDoc:", func.__doc__)
+    newline(2)
 
 
 class MCFunction(McdpVar):
@@ -45,22 +50,20 @@ class MCFunction(McdpVar):
 
     collection: Dict[str, "MCFunction"] = {}
 
-    def __new__(cls, name: str, **kw) -> Any:
+    def __new__(cls, name: str, **kwds) -> Any:
         if name in cls.collection:
             ins = cls.collection[name]
-            if kw:
-                ins.set_config(**kw)
             return ins
         else:
             return McdpVar.__new__(cls)
 
-    def __init__(self, name: str, *, namespace: Optional[str] = None, **kw) -> None:
+    def __init__(self, name: str, *, namespace: Optional[str] = None, config: MCFuncConfig = MCFuncConfig()) -> None:
         if '.' in name:
             self.__name__ = name.split('.')[-1]
         else:
             self.__name__ = name
         self.namespace = namespace
-        self.config = MCFuncConfig(**kw)
+        self.config = config
         self.overload: List = []
         self.overload_counter: List[Counter] = []
         self.__class__.collection[name] = self
@@ -104,6 +107,12 @@ class MCFunction(McdpVar):
                 name = self.__name__ + str(i)
                 
             async with Context(name):
+                for t in self.config.tag:
+                    add_tag(t)
+
+                if get_config().pydp.add_function_comments:
+                    add_comment(f)
+
                 sig = signature(f).parameters
                 args, kwds = _get_arguments(self.__name__, sig)
 
@@ -162,11 +171,16 @@ class MCFunction(McdpVar):
 def mcfunc(func: Callable) -> MCFunction:
     ...
 @overload
-def mcfunc(*args, **kw) -> Callable[[Callable], MCFunction]:
+def mcfunc(*flags: str, **config: Any) -> Callable[[Callable], MCFunction]:
     ...
-def mcfunc(func: Optional[Callable] = None, *args, **kw):
+def mcfunc(func: Optional[Union[Callable, str]] = None, *flags: str, **config: Any):
+    if isinstance(func, str):
+        flags += (func,)
+
     def wrapper(_func: Callable) -> MCFunction:
-        m = MCFunction(func.__qualname__, **kw)
+        cfg = MCFuncConfig(**config)
+        handle_flag(_func, cfg, *flags)
+        m = MCFunction(_func.__qualname__, config=cfg)
         m.register(_func)
         return m
 
@@ -180,16 +194,26 @@ def mcfunc(func: Optional[Callable] = None, *args, **kw):
 def mcfunc_main(func: Callable) -> None:
     ...
 @overload
-def mcfunc_main(*args: str, **kw: Any) -> Callable[[Callable], None]:
+def mcfunc_main(*flags: str, **kw: Any) -> Callable[[Callable], None]:
     ...
-def mcfunc_main(func: Optional[Union[Callable, str]] = None, *args, **kw):
-    async def mf_main(func: Callable[[], Any]) -> None:
-        #config = get_config()
+def mcfunc_main(func: Optional[Union[Callable, str]] = None, *flags, **kw):
+    async def mf_main(func: Callable[[], Any], cfg: MCFuncConfig) -> None:
+        config = get_config()
         await build_dirs_from_config()
         async with Context:
-            add_tag('load', namespace='minecraft')
+            add_tag("minecraft:load")
+            comment(
+                f"Datapack {config.name} built by Mcdp.",
+                "",
+                f"Supported Minecraft version: {config.version} ({get_version(config.version)})",
+                "",
+                "This is the initize function."
+            )
+            newline(2)
 
             async with Context("__main__"):
+                for t in cfg.tag:
+                    add_tag(t)
                 if iscoroutinefunction(func):
                     await func()
                 else:
@@ -203,10 +227,45 @@ def mcfunc_main(func: Optional[Union[Callable, str]] = None, *args, **kw):
             
         get_counter().print_out()
 
+    cfg = MCFuncConfig(**kw)
+
+    if isinstance(func, str):
+        flags += (func,)
+    if not 'load' in flags and not 'tick' in flags:
+        flags += ('load',)
+
     if callable(func):
-        run(mf_main(func))
+        handle_flag(func, cfg, *flags)
+        run(mf_main(func, cfg))
     else:
         def get_func(func: Callable[[], Coroutine]) -> None:
-            run(mf_main(func))
-
+            handle_flag(func, cfg, *flags)
+            run(mf_main(func, cfg))
+        
         return get_func
+
+T_FlagHandler = Callable[[Callable, MCFuncConfig], None]
+_func_flag_handlers: Dict[str, T_FlagHandler] = {}
+
+def mcfunc_frag(flag: str) -> Callable[[T_FlagHandler], T_FlagHandler]:
+    def get_flag_handler(func: T_FlagHandler) -> T_FlagHandler:
+        _func_flag_handlers[flag] = func
+        return func
+    return get_flag_handler
+
+def handle_flag(func: Callable, cfg: MCFuncConfig, *flag: str) -> None:
+    for f in flag:
+        if not f in _func_flag_handlers:
+            raise McdpFunctionError(f"Invalid function flag {f}")
+        _func_flag_handlers[f](func, cfg)
+
+@mcfunc_frag("load")
+def _flag_load(func: Callable, cfg: MCFuncConfig) -> None:
+    cfg.tag.add("minecraft:load")
+
+@mcfunc_frag("tick")
+def _flag_tick(func: Callable, cfg: MCFuncConfig) -> None:
+    cfg.tag.add("minecraft:tick")
+
+class McdpFunctionError(McdpError):
+    ...

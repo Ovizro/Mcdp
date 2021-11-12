@@ -2,12 +2,13 @@ import asyncio
 import warnings
 from pathlib import Path
 from collections import ChainMap, UserList, defaultdict
-from typing import Any, Dict, List, Literal, Optional, Callable, Union, Type
+from typing import Any, ClassVar, Dict, List, Literal, Optional, Callable, Union, Type
 
-from .typings import McdpVar, Variable, McdpError
+from .typings import McdpVar, Variable
 from .config import get_config
 from .aio_stream import Stream, T_Path, wraps
 from .counter import get_counter
+from .exceptions import McdpError
 
 
 class StackCache(UserList):
@@ -136,8 +137,8 @@ class Context(McdpVar, metaclass=ContextMeta):
 
     path: Path
     top: "Context"
-    enter: EnvMethod
-    leave: EnvMethod
+    enter: ClassVar[EnvMethod]
+    leave: ClassVar[EnvMethod]
 
     def __init__(self, name: str, *, root_path: Optional[T_Path] = None):
         self.name = name
@@ -189,7 +190,11 @@ class Context(McdpVar, metaclass=ContextMeta):
             else:
                 com.append(c)
 
-        self.write("#" + "\n#".join(com) + "\n")
+        self.write("# " + "\n# ".join(com) + "\n")
+    
+    @EnvMethod
+    def newline(self, line: int = 1) -> None:
+        self.write("\n" * line)
 
     @EnvMethod
     def get_stack_id(self) -> int:
@@ -259,7 +264,7 @@ class TagManager(McdpVar):
 
     async def apply_tag(self, tag: str, *, replace: bool = False) -> None:
         if not tag in self.cache:
-            raise McdpContextError
+            raise McdpContextError(f"Tag {tag} did not defined.")
 
         async with Stream(tag + ".json", root=self.root_path) as stream:
             await stream.adump(self.get_tag_data(tag, replace))
@@ -289,11 +294,14 @@ class TagManager(McdpVar):
 
 
 def insert(*content: str) -> None:
-    return Context.insert(*content)
+    Context.insert(*content)
 
 
 def comment(*content: str) -> None:
-    return Context.comment(*content)
+    Context.comment(*content)
+
+def newline(line: int = 1) -> None:
+    Context.newline(line)
 
 
 def get_stack_id() -> int:

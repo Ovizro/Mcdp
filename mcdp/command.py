@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Type, Union
 from .typings import McdpBaseModel, McdpVar, McdpError
 from .mcstring import MCString
 from .context import insert
+from .exceptions import *
 
 
 class PosComponent(McdpVar):
@@ -30,7 +31,7 @@ class PosComponent(McdpVar):
             int(value)
             self.type = "absolute"
         if type and (type != self.type):
-            raise ValueError("unsuit position value.")
+            raise McdpValueError("unsuit position value.")
 
     def __str__(self) -> str:
         return self.value
@@ -45,21 +46,21 @@ class Position(McdpVar):
     def __init__(self, pos: str) -> None:
         l = [PosComponent(i) for i in pos.split()]
         if len(l) != 3:
-            raise ValueError("incorrect position length.")
+            raise McdpValueError("Incorrect position length.")
 
         tid = 0
         for i in l:
             if i.type == "absolute":
                 if tid == 3:
-                    raise TypeError
+                    raise McdpTypeError("Invalid position.")
                 tid = 1
             elif i.type == "relative":
                 if tid == 3:
-                    raise TypeError
+                    raise McdpTypeError("Invalid position.")
                 tid = 2
             else:
                 if tid < 3 and tid != 0:
-                    raise TypeError
+                    raise McdpTypeError("Invalid position.")
                 tid = 3
 
         self._posXYZ = tuple(l)
@@ -207,7 +208,7 @@ class AlignInstruction(Instruction):
         y = axes.count('y')
         z = axes.count('z')
         if x > 1 or y > 1 or z > 1 or x + y + z != len(axes):
-            raise ValueError(
+            raise McdpValueError(
                     "Axes should be any non-repeating combination of the characters 'x', 'y', and 'z'.")
         McdpBaseModel.__init__(self, axes=axes)
 
@@ -260,12 +261,12 @@ class FacingInstruction(Instruction):
     ) -> None:
         if entity:
             if not anchor:
-                raise ValueError("Miss a argument 'anchor'.'")
+                raise McdpValueError("Miss a argument 'anchor'.'")
             McdpBaseModel.__init__(
                     self, targets=pos_or_targets, anchor=anchor, entity=True)
         else:
             if anchor:
-                raise ValueError("Invalid argument 'anchor'.")
+                raise McdpValueError("Invalid argument 'anchor'.")
             McdpBaseModel.__init__(self, pos=pos_or_targets, entity=entity)
 
     def __str__(self) -> str:
@@ -428,7 +429,7 @@ class ScoreCase(_Case, type="score"):
     ) -> None:
         if ops == "matches":
             if source_obj:
-                raise ValueError("Invalid source objective.")
+                raise McdpValueError("Invalid source objective.")
             super().__init__(
                     target=target,
                     target_obj=target_obj,
@@ -644,40 +645,43 @@ class Printer(IOStreamObject):
 
     def __lshift__(self, other: Any) -> "Printer":
         if isinstance(other, PrinterEOF):
-            if len(self.input) < 1:
-                raise McdpCommandError(
-                        "tellraw", ValueError(
-                                "No string griven."
-                        ))
-            elif len(self.input) == 1:
-                input = self.input[0]
-            else:
-                input = "[{0}]".format(','.join((str(i) for i in self.input)))
+            other(self)
+        else:
+            if not isinstance(other, MCString):
+                other = MCString.validate(other)
 
-            if not self.data:
-                other.__apply_printer__("tellraw {targets} {input}", input=input)
-            elif len(self.data) == 1:
-                other.__apply_printer__("title {targets} {subcmd} {input}", input=input, subcmd=self.data[0])
-            else:
-                raise McdpCommandError(
-                    "tellraw/title", ValueError(
-                            "Invalid printer data."
-                    ))
-
-            self.input.clear()
-            self.data.clear()
-            return self
-
-        if not isinstance(other, MCString):
-            other = MCString.validate(other)
-
-        self.input.append(other)
+            self.input.append(other)
         return self
 
 
 class PrinterEOF(IOStreamObject):
 
     __slots__ = []
+
+    def __call__(self, stream: Printer) -> None:
+        if len(stream.input) < 1:
+            raise McdpCommandError(
+                    "tellraw", ValueError(
+                            "No string griven."
+                    ))
+        elif len(stream.input) == 1:
+            input = stream.input[0]
+        else:
+            input = "[{0}]".format(','.join((str(i) for i in stream.input)))
+
+        if not stream.data:
+            self.__apply_printer__("tellraw {targets} {input}", input=input)
+        elif len(stream.data) == 1:
+            self.__apply_printer__("title {targets} {subcmd} {input}", input=input, subcmd=stream.data[0])
+        else:
+            raise McdpCommandError(
+                "tellraw/title", ValueError(
+                        "Invalid printer data."
+                ))
+
+        stream.input.clear()
+        stream.data.clear()
+
 
     def __apply_printer__(self, cmd: str, **kw) -> None:
         if len(self.data) == 0:

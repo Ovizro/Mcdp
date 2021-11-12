@@ -170,7 +170,7 @@ class MCString(MCSS):
             data["text"] = string
         super().__init__(**data)
 
-    def __mod__(self, _with: Union[str, "MCString", Tuple[Any]]) -> "MCString":
+    def __mod__(self, _with: Union[str, "MCString", Tuple[Any, ...]]) -> "MCString":
         self = self.copy()
 
         if not self.translate:

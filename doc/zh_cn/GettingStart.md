@@ -24,21 +24,29 @@ Minecraft自然不用多说，只要是>=1.14的JE版就没有问题。
 
 ## 开始使用
 
-那么，按照惯例，我们先来一个"Hello world"。
-新建一个test_mcdp.py，然后输入以下内容。
+那么，按照惯例，我们先来一个"Hello world"。  
+在你常用的IDE中新建一个test_mcdp.py，然后输入以下内容。
 
 ```py
 from mcdp import *
 
-Config("MyFirstDatapack", "1.16.5", "Hello world!")
+Config("mydatapack", "1.16.5", "Hello world!")
 
 @mcfunc_main
 def main():
-    add_tag("minecraft:load")
     cout << "Hello world!" << endl
 ```
 
-如果你已经成功的完成了安装步骤，在运行过后，test_mcdp.py所在的文件夹中就会多出一个名为MyFirstDatapack的文件夹，这个就是一个完整的数据包啦。
+如果你已经成功的完成了安装步骤，在运行过后，test_mcdp.py所在的文件夹中就会多出一个名为mydatapack的文件夹，这个就是一个完整的数据包啦。
 然后，把这个文件夹复制到世界存档的datapacks文件夹中，进入游戏。输入`/reload`命令进行一下重载。如果你能看到聊天框中的"Hello world!"，就说明你成功了。
 
-## 
+## 解释与说明
+
+让我们来看一下这几句代码的作用。 
+
+首先，我们从mcdp中导入了我们需要的类及函数。为了方便起见，这里的导入内容使用了`*`，也就是里面的所有函数和类。  
+然后，我们使用`Config`来设置了整个数据包的配置文件。`Config`中的三个参数依次为数据包的名称、受支持的Minecraft版本，以及数据包的描述内容。  
+接下来，我们定义了main函数。`@mcfunc_main`是Mcdp提供的一个装饰器，用来将main函数标记为整个数据包的主函数。
+里面的`cout`是标准输出流，用来向聊天框中输出文字。(学过C++的小伙伴应该会很熟悉) 这里使用了左移运算符(`<<`)来写入文字"Hello world!"。但只有一个`cout`并不行，还需要一个`endl`来进行配合。`endl`意为"end of line"，用来告诉输出流当前输出结束，可以开始打印了。如果删去`<< endl`，那么程序将不会打出任何东西。
+
+怎么样，是不是非常简单？

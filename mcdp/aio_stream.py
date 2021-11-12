@@ -62,7 +62,7 @@ class Stream:
             path: T_Path,
             *,
             root: Optional[T_Path] = None
-        ) -> None:
+    ) -> None:
         p = Path(path)
         if not p.is_absolute():
             if not root:
