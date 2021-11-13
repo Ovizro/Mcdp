@@ -11,7 +11,7 @@
 
 > 注意！此项目目前尚未完成。
 
-语言: [English](doc/en_us/README.md) / 中文
+语言: [English](/doc/en_us/README.md) / 中文
 
 ## 为什么要使用它
 

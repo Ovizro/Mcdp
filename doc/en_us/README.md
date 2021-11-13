@@ -9,4 +9,4 @@ The name "Mcdp" is short for "Minecraft datapack".
 
 > Pay attention! This wheel is not full developed.
 
-Language: English / [中文](doc/zh_cn/README.md)
+Language: English / [中文](/doc/zh_cn/README.md)
