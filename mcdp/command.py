@@ -680,8 +680,6 @@ class PrinterEOF(IOStreamObject):
                 ))
 
         stream.input.clear()
-        stream.data.clear()
-
 
     def __apply_printer__(self, cmd: str, **kw) -> None:
         if len(self.data) == 0:
