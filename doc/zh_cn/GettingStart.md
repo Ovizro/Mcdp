@@ -13,12 +13,9 @@ Minecraft自然不用多说，只要是>=1.14的JE版就没有问题。
 
 > 嗯，什么是Python？Python是一种计算机程序设计语言。基础的Python安装教程可以参考[这里](https://www.liaoxuefeng.com/wiki/1016959663602400/1016959856222624)
 
-光有一个Python本体还不行，我们还需要到[Github](https://github.com/Ovizro/Mcdp/releases)中下载最新的Mcdp包。
-[![在这里下载](https://github.com/Ovizro/Mcdp/blob/master/doc/pictures/Mcdp_releases.png)](https://github.com/Ovizro/Mcdp/releases)
+光有一个Python本体还不行，我们还需要安装最新的Mcdp包。可以在控制台中通过pip命令来进行安装
 
-最后在你下载下来的包所在的文件夹中打开控制台，输入以下命令来进行安装，以0.1.0版本为例。
-
-    pip install Mcdp-0.1.0.tar.gz
+    pip install Mcdp
 
 > 一个方便的打开控制台的办法是在文件夹中按住shift点右键->在此处打开powershell
 
