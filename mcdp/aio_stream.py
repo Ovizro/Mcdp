@@ -3,6 +3,7 @@ Support async file stream for the Context.
 """
 import os
 import ujson
+import shutil
 import asyncio
 from pathlib import Path
 from functools import partial, wraps
@@ -50,6 +51,9 @@ def makedirs(dir_path: T_Path, *, exist_ok: bool = True) -> None:
                 test_path = test_path_p
     path.mkdir(parents=True, exist_ok=exist_ok)
 
+
+rmtree = aio_future(shutil.rmtree)
+copyfile = aio_future(shutil.copyfile)
 
 class Stream:
     __slots__ = ["opened", "closed", "write_tasks", "__file", "path"]

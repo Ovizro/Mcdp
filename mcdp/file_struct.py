@@ -5,14 +5,13 @@ Prepare basic datapack dirs for Mcdp lancher.
 import os
 import asyncio
 import ujson
-from shutil import copyfile
 from functools import partial
 from pathlib import Path, PurePath
 from typing import Any, Callable, Dict, Optional, Set, Union
 
 from .context import Context, Context, TagManager
 from .config import get_version, get_config, T_version
-from .aio_stream import Stream, mkdir, makedirs
+from .aio_stream import Stream, mkdir, makedirs, rmtree, copyfile
 
 
 async def init_mcmeta(desc: str, version: T_version) -> None:
@@ -89,7 +88,8 @@ async def build_dirs(
         description: str,
         *,
         iron_path: Optional[Union[os.PathLike, str]] = None,
-        namespace: Optional[str] = None
+        namespace: Optional[str] = None,
+        remove_old_pack: bool = True
 ) -> None:
     """
     Build datapack.
@@ -113,22 +113,24 @@ async def build_dirs(
                 |-- predicates
                 |-- ...
     """
-    await mkdir(name)
+    if remove_old_pack and Path(name).is_dir():
+        await rmtree(f'{name}/data')
+    else:
+        await mkdir(name)
     os.chdir(name)
-    asyncio.ensure_future(init_mcmeta(description, version))
+    all_tasks = []
+    all_tasks.append(asyncio.ensure_future(init_mcmeta(description, version)))
 
     if iron_path:
-        copyiron = partial(copyfile, iron_path, "pack.png")
-        loop = asyncio.get_event_loop()
-        loop.run_in_executor(None, copyiron)
+        all_tasks.append(asyncio.ensure_future(copyfile(iron_path, "pack.png")))
 
     await mkdir("data")
     os.chdir("data")
     namespace = namespace or name
-    mcd_task = asyncio.ensure_future(mkdir("minecraft"))
+    all_tasks.append(asyncio.ensure_future(mkdir("minecraft")))
     await mkdir(namespace)
 
-    await mcd_task
+    await asyncio.gather(*all_tasks)
     Context.init(namespace)
 
 
@@ -139,5 +141,6 @@ async def build_dirs_from_config() -> None:
             cfg.version,
             cfg.description,
             iron_path=cfg.iron_path,
-            namespace=cfg.namespace
+            namespace=cfg.namespace,
+            remove_old_pack=cfg.remove_old_pack
     )

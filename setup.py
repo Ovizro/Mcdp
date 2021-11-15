@@ -10,7 +10,7 @@ except OSError:
 
 setup(
     name="Mcdp",
-    version="0.1.2",
+    version="0.1.3",
     description="A python wheel helps to build a Minecraft datapack.\nThe name 'Mcdp' is short for 'Minecraft datapack'.",
     long_description=description,
     long_description_content_type='text/markdown',

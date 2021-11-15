@@ -7,7 +7,7 @@
 [![PyPI](https://img.shields.io/pypi/v/Mcdp.svg)](https://pypi.python.org/pypi/Mcdp)
 ![Python Version](https://img.shields.io/badge/python-3.7+-blue.svg)
 [![QQ 群](https://img.shields.io/badge/QQ%E7%BE%A4-931430660-lightblue.svg)](https://jq.qq.com/?_wv=1027&k=OffuPrxM)
-[![开黑啦](https://img.shields.io/badge/%E5%BC%80%E9%BB%91%E5%95%A6-931430660-blue.svg)](https://kaihei.co/QohOYR)
+[![开黑啦](https://img.shields.io/badge/%E5%BC%80%E9%BB%91%E5%95%A6-25504078-blue.svg)](https://kaihei.co/QohOYR)
 
 > 注意！此项目目前尚未完成。
 

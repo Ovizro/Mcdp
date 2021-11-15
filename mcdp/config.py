@@ -51,6 +51,8 @@ class Config(McdpBaseModel):
     iron_path: Optional[Union[str, PathLike]] = None
     namespace: str
 
+    remove_old_pack: bool = True
+
     pydp: PydpConfig = PydpConfig()
     vmcl: VmclConfig = VmclConfig()
 
