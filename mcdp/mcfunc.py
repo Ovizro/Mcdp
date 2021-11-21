@@ -7,9 +7,11 @@ from typing import (Callable, Coroutine, Dict, List, Mapping, NoReturn,
 from .counter import Counter, get_counter
 from .file_struct import build_dirs_from_config
 from .typings import McdpVar, Variable
-from .config import get_config, get_version, MCFuncConfig
-from .context import Context, TagManager, add_tag, insert, comment, newline, get_namespace
-from .variable import Score, Scoreboard, dp_int, dp_score
+from .config import get_config, MCFuncConfig
+from .context import Context, TagManager, add_tag, insert, comment, newline, leave_stack_ops, enter_stack_ops
+from .command import Function, Selector, lib_func
+from .entities import McdpStack, get_tag
+from .variable import Score, Scoreboard, dp_int, dp_score, global_var, init_global
 from .exceptions import *
 
 
@@ -26,7 +28,7 @@ def _get_arguments(name: str, param: Mapping[str, Parameter]) -> Tuple[list, dic
         ann = v.annotation
         if not issubclass(ann, Variable):
             ann = _toMcdpVar(ann)
-        s = dp_score("mcfarg_{0}_{1}".format(name, k), init=False, simulation=ann, stack_offset=1,
+        s = dp_score("mcfarg_{0}_{1}".format(name, k), init=False, simulation=ann, stack_id=-2,
                      display={"text": f"Mcdp function {name} arguments", "color": "dark_blue"})
         if v.KEYWORD_ONLY:
             kwds[k] = s
@@ -43,12 +45,10 @@ def add_comment(func: Callable) -> None:
     newline(2)
 
 
-class MCFunction(McdpVar):
+class MCFunction(Function):
 
     __slots__ = ["__name__", "overload", "namespace", "overload_counter", "config"]
     __accessible__ = ["__name__"]
-
-    collection: Dict[str, "MCFunction"] = {}
 
     def __new__(cls, name: str, **kwds) -> Any:
         if name in cls.collection:
@@ -110,7 +110,7 @@ class MCFunction(McdpVar):
                 for t in self.config.tag:
                     add_tag(t)
 
-                if get_config().pydp.add_function_comments:
+                if get_config().pydp.add_comments:
                     add_comment(f)
 
                 sig = signature(f).parameters
@@ -119,7 +119,7 @@ class MCFunction(McdpVar):
                 ans = f(*args, **kwds)
                 if isinstance(ans, Score):
                     if ans.name != "dpc_return":
-                        dp_score("dpc_return", ans, stack_offset=1,
+                        dp_score("dpc_return", ans, stack_id=-2,
                                 display={"text": "Mcdp function return cache", "color": "dark_blue"})
                 Context.leave()
 
@@ -198,18 +198,11 @@ def mcfunc_main(*flags: str, **kw: Any) -> Callable[[Callable], None]:
     ...
 def mcfunc_main(func: Optional[Union[Callable, str]] = None, *flags, **kw):
     async def mf_main(func: Callable[[], Any], cfg: MCFuncConfig) -> None:
-        config = get_config()
+        #config = get_config()
         await build_dirs_from_config()
         async with Context:
             add_tag("minecraft:load")
-            comment(
-                f"Datapack {config.name} built by Mcdp.",
-                "",
-                f"Supported Minecraft version: {config.version} ({get_version(config.version)})",
-                "",
-                "This is the initize function."
-            )
-            newline(2)
+            init_global()
 
             async with Context("__main__"):
                 for t in cfg.tag:
@@ -266,6 +259,46 @@ def _flag_load(func: Callable, cfg: MCFuncConfig) -> None:
 @mcfunc_frag("tick")
 def _flag_tick(func: Callable, cfg: MCFuncConfig) -> None:
     cfg.tag.add("minecraft:tick")
+
+mcdp_stack_id = global_var(dp_score, "mcdpStackID", 0)
+
+@enter_stack_ops
+@lib_func()
+def enter_stack() -> None:
+    global mcdp_stack_id
+
+    top = Selector("@e", "tag=stack_top", tag=get_tag(), limit=1)
+    lower = Selector("@e", "tag=lower_stack", tag=get_tag(), limit=1)
+    
+    lower.remove_tag("lower_stack")
+    top.add_tag("lower_stack")
+    top.remove_tag("stack_top")
+
+    stack = McdpStack()
+
+    with mcdp_stack_id == 0:
+        stack.add_tag("Mcdp_home")
+    mcdp_stack_id += 1
+    
+
+@leave_stack_ops
+@lib_func()
+def leave_stack() -> None:
+    global mcdp_stack_id
+
+    top = Selector("@e", "tag=stack_top", tag=get_tag(), limit=1)
+    lower = Selector("@e", "tag=lower_stack", tag=get_tag(), limit=1)
+
+    top.remove()
+    lower.add_tag("stack_top")
+    lower.remove_tag("lower_stack")
+
+    mcdp_stack_id -= 2
+    s = dp_score("mcdpStackID", selector=Selector(McdpStack))
+    with s == mcdp_stack_id:
+        Selector("@s").add_tag("lower_stack")
+    mcdp_stack_id += 1
+    
 
 class McdpFunctionError(McdpError):
     ...

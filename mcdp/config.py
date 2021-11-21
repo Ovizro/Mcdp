@@ -7,7 +7,7 @@ from .exceptions import *
 
 class PydpConfig(McdpBaseModel):
     use_ast: bool = False
-    add_function_comments: bool = True
+    add_comments: bool = True
 
 
 class VmclConfig(McdpBaseModel):
@@ -77,7 +77,7 @@ class Config(McdpBaseModel):
 
 def get_config() -> Config:
     if not _current_cfg:
-        raise McdpError("fail to get the config.")
+        raise McdpValueError("fail to get the config.")
     return _current_cfg
 
 

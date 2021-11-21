@@ -4,9 +4,8 @@ All base classes of Mcdp variable.
 
 import sys
 import ujson
-from abc import ABCMeta, abstractmethod
 from pydantic import BaseModel, BaseConfig
-from typing import Any, Dict, Union, Optional
+from typing import Any, Dict, Union
 
 from .version import __version__
 from .counter import Counter
@@ -41,9 +40,9 @@ Mcdp Variables
 """
 
 
-class VariableMeta(ABCMeta):
+class VariableMeta(type):
 
-    def __new__(cls, name: str, bases: tuple, attrs: Dict[str, Any]) -> ABCMeta:
+    def __new__(cls, name: str, bases: tuple, attrs: Dict[str, Any]) -> type:
         if not attrs.get('__accessible__', None):
             attrs['__accessible__'] = []
         elif not isinstance(attrs['__accessible__'], list):
@@ -52,7 +51,7 @@ class VariableMeta(ABCMeta):
         for k, v in attrs.items():
             if isinstance(v, BaseMcfunc):
                 attrs['__accessible__'].append(k)
-        return ABCMeta.__new__(cls, name, bases, attrs)
+        return type.__new__(cls, name, bases, attrs)
 
     def __instancecheck__(self, instance: Any) -> bool:
         if instance.__class__ is self:
@@ -67,14 +66,9 @@ class Variable(McdpVar, metaclass=VariableMeta):
 
     counter: Counter
 
-    @abstractmethod
-    def __init__(self) -> None:
+    def __init__(self, init: bool = True) -> None:
         self.applied = False
         self.counter = Counter()
-
-    @abstractmethod
-    def apply(self) -> None:
-        raise NotImplementedError
 
     @classmethod
     def __get_validators__(cls):

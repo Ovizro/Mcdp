@@ -2,13 +2,13 @@ import asyncio
 import warnings
 from pathlib import Path
 from collections import ChainMap, UserList, defaultdict
-from typing import Any, ClassVar, Dict, List, Literal, Optional, Callable, Union, Type
+from typing import Any, ClassVar, DefaultDict, Dict, List, Literal, Optional, Callable, Union, Type
 
-from .typings import McdpVar, Variable
-from .config import get_config
+from .typings import McdpBaseModel, McdpVar
+from .config import get_config, get_version
 from .aio_stream import Stream, T_Path, wraps
 from .counter import get_counter
-from .exceptions import McdpError
+from .exceptions import McdpError, McdpValueError
 
 
 class StackCache(UserList):
@@ -81,6 +81,34 @@ class EnvMethod:
         return wrapper
 
 
+class ContextEnv(McdpVar):
+
+    __slots__ = ["env_type"]
+
+    path: ClassVar[Path]
+    env_counter: DefaultDict[str, int] = defaultdict(lambda:0)
+
+    def __init__(self, env_type: str) -> None:
+        self.env_type = env_type
+    
+    def init(self) -> None:
+        config = get_config()
+        comment(
+            f"Datapack {config.name} built by Mcdp.",
+            f"Supported Minecraft version: {config.version}({get_version(config.version)})",
+
+        )
+        newline()
+    
+    def decorate_command(self, cmd: str) -> str:
+        return cmd
+    
+    def creat_stream(self) -> "Context":
+        file_name = self.env_type + hex(self.env_counter[self.env_type])
+        self.env_counter[self.env_type] += 1
+        return Context(file_name, root_path=self.path, envs=self)
+    
+
 class ContextMeta(type):
     """
     Metaclass of Context. 
@@ -90,27 +118,31 @@ class ContextMeta(type):
 
     MAX_OPENED: int = 8
 
-    stack: list
-    environments: StackCache
-    get_stack_id: EnvMethod
+    stack: StackCache
+    environments: list
     enter: EnvMethod
     leave: EnvMethod
 
     def init(self, path: T_Path) -> None:
         self.path = Path(path, "functions").resolve()
+        ContextEnv.path = self.path / "envs"
 
     @property
     def top(self) -> "Context":
-        if len(self.environments) < 1:
+        if len(self.stack) < 1:
             raise McdpContextError("Class 'Context' should be inited before used.")
-        return self.environments[-1]
+        return self.stack[-1]
 
     async def __aenter__(self) -> "ContextMeta":
         """
         Init the datapack.
         """
         default_env = self("__init__", root_path=self.path)
-        await self.environments.append(default_env)
+        await self.stack.append(default_env)
+        comment(
+            "This is the initize function."
+        )
+        newline(2)
         TagManager("functions", namespace="minecraft")
         TagManager("functions", namespace=get_namespace())
         insert(f"function {get_namespace()}:__init_score__")
@@ -118,31 +150,39 @@ class ContextMeta(type):
         return self
     
     async def __aexit__(self, exc_type, exc_ins, traceback) -> None:
-        await self.environments.clear()
+        await self.stack.clear()
         del self.path
     
     def __str__(self) -> str:
-        return f"<{self.__name__} with env {self.top.name} in stack {self.get_stack_id()}"
+        return f"<{self.__name__} with env {self.top.name}"
 
 class Context(McdpVar, metaclass=ContextMeta):
     """
     Set for async file IO.
     """
 
-    __slots__ = ["name", "stream"]
+    __slots__ = ["name", "stream", "environments"]
 
-    stack = []
-    environments = StackCache(ContextMeta.MAX_OPENED)
+    stack = StackCache(ContextMeta.MAX_OPENED)
     file_suffix = ".mcfunction"
 
     path: Path
     top: "Context"
-    enter: ClassVar[EnvMethod]
-    leave: ClassVar[EnvMethod]
+    enter: ClassVar[staticmethod]
+    leave: ClassVar[staticmethod]
 
-    def __init__(self, name: str, *, root_path: Optional[T_Path] = None):
+    def __init__(
+            self,
+            name: str, 
+            *, 
+            root_path: Optional[T_Path] = None, 
+            envs: Union[ContextEnv, List[ContextEnv]] = []
+    ) -> None:
         self.name = name
         self.stream: Stream = Stream(name + self.file_suffix, root=root_path or self.path)
+        if not isinstance(envs, list):
+            envs = [envs,]
+        self.environments = envs
 
     def write(self, content: str) -> None:
         self.stream.write(content)
@@ -155,16 +195,18 @@ class Context(McdpVar, metaclass=ContextMeta):
             await self.stream.open()
         else:
             await self.stream.open("a")
+        for env in self.environments:
+            env.init()
 
     async def deactivate(self) -> None:
         await self.stream.close()
 
-    async def __aenter__(self) -> ContextMeta:
-        await self.__class__.environments.append(self)
-        return self.__class__
+    async def __aenter__(self) -> "Context":
+        await self.__class__.stack.append(self)
+        return self
     
     async def __aexit__(self, exc_type, exc_ins, traceback) -> None:
-        if (await self.__class__.environments.pop()).name == "__init__":
+        if (await self.__class__.stack.pop()).name == "__init__":
             raise McdpContextError("Cannot leave the static stack '__init__'.")
 
     @EnvMethod
@@ -174,9 +216,20 @@ class Context(McdpVar, metaclass=ContextMeta):
         counter = get_counter().commands
         for command in content:
             +counter
-            if not command.endswith("\n"):
-                command += "\n"
-            self.write(command)
+
+            if not command.endswith('\n'):
+                command += '\n'
+            
+            if command.count('\n') > 1:
+                l_cmd = command.split('\n')[:-1]
+                for c in l_cmd:
+                    for env in self.environments:
+                        c = env.decorate_command(c)
+                    self.write(c + '\n')
+            else:
+                for env in self.environments:
+                    command = env.decorate_command(command)
+                self.write(command)
 
     @EnvMethod
     def comment(self, *content: str) -> None:
@@ -184,21 +237,25 @@ class Context(McdpVar, metaclass=ContextMeta):
             raise McdpContextError("fail to add comments.")
         com = []
         for c in content:
-            if "\n" in c:
-                lc = c.split("\n")
+            if '\n' in c:
+                lc = c.split('\n')
                 com.extend(lc)
             else:
                 com.append(c)
 
-        self.write("# " + "\n# ".join(com) + "\n")
+        self.write("# " + "\n# ".join(com) + '\n')
     
     @EnvMethod
     def newline(self, line: int = 1) -> None:
-        self.write("\n" * line)
-
+        self.write('\n' * line)
+    
     @EnvMethod
-    def get_stack_id(self) -> int:
-        return self.stack.index(self)
+    def add_env(self, env: ContextEnv) -> None:
+        self.environments.append(env)
+    
+    @EnvMethod
+    def pop_env(self) -> ContextEnv:
+        return self.environments.pop()
 
     @classmethod
     def enter_space(cls, name: str) -> None:
@@ -216,16 +273,16 @@ class Context(McdpVar, metaclass=ContextMeta):
         return f"<env {self.name} in the context>"
 
 
-_tagType = Literal["blocks", "entity_types", "items", "fluids", "functions"]
+T_tag = Literal["blocks", "entity_types", "items", "fluids", "functions"]
 
 
 class TagManager(McdpVar):
     __slots__ = ["name", "type", "replace", "root_path", "cache"]
     __accessible__ = ["type", "replace", "@item"]
 
-    collection = {}
+    collection: Dict[str, "TagManager"] = {}
 
-    def __init__(self, type: _tagType, *, namespace: Optional[str] = None, replace: bool = False) -> None:
+    def __init__(self, type: T_tag, *, namespace: Optional[str] = None, replace: bool = False) -> None:
         self.type = type
         self.replace = replace
         if not namespace:
@@ -284,7 +341,6 @@ class TagManager(McdpVar):
     def apply_all(cls) -> asyncio.Future:
         tl = []
         for i in cls.collection.values():
-            i: TagManager
             tl.extend(i.apply())
         return asyncio.gather(*tl)
 
@@ -298,17 +354,20 @@ def insert(*content: str) -> None:
 
 
 def comment(*content: str) -> None:
-    Context.comment(*content)
+    if get_config().pydp.add_comments:
+        Context.comment(*content)
 
 def newline(line: int = 1) -> None:
-    Context.newline(line)
+    if get_config().pydp.add_comments:
+        Context.newline(line)
 
-
-def get_stack_id() -> int:
-    return len(Context.stack) - 1
-
-
-def add_tag(tag: str, value: Optional[str] = None, *, namespace: Optional[str] = None, type: _tagType = "functions") -> None:
+def add_tag(
+        tag: str, 
+        value: Optional[str] = None, 
+        *, 
+        namespace: Optional[str] = None, 
+        type: T_tag = "functions"
+) -> None:
     if ':' in tag:
         nt = tag.split(':', 2)
         namespace = nt[0]
@@ -330,13 +389,13 @@ def get_namespace() -> str:
     return get_config().namespace
 
 
-def enter_stack_ops(func: Callable[[Context],None]) -> Callable:
-    Context.enter = EnvMethod(func)
+def enter_stack_ops(func: Callable[[],None]) -> Callable:
+    Context.enter = staticmethod(func)
     return func
 
 
-def leave_stack_ops(func: Callable[[Context], None]) -> Callable:
-    Context.leave = EnvMethod(func)
+def leave_stack_ops(func: Callable[[], None]) -> Callable:
+    Context.leave = staticmethod(func)
     return func
 
 

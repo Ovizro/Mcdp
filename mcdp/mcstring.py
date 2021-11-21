@@ -1,3 +1,4 @@
+from enum import Enum, EnumMeta, unique
 from pydantic import validator, Field
 from typing import Dict, List, Any, Literal, Tuple, Union, Optional
 
@@ -92,21 +93,43 @@ class HoverEntity(MCStringObj):
     id: Optional[str] = None
 
 
-_stand_color = ("black", "dark_blue", "dark_green", "dark_aqua", "dark_red", "dark_purple",
-                "gold", "gray", "dark_gray", "blue", "green", "aqua", "red", "light_purple",
-                "yellow", "white", "reset")
+class EnumMetaclass(EnumMeta):
+
+    __members__: Dict[str, Any]
+    
+    def __contains__(self, member: str) -> bool:
+        return member in self.__members__.keys()
+
+@unique
+class Color(Enum, metaclass=EnumMetaclass):
+    black       = 0
+    dark_blue   = 1
+    dark_green  = 2
+    dark_aqua   = 3
+    dark_red    = 4
+    dark_purple = 5
+    gold        = 6
+    gray        = 7
+    dark_gray   = 8
+    blue        = 9
+    green       = 10
+    aqua        = 11
+    red         = 12
+    light_purple= 13
+    yellow      = 14
+    white       = 15
 
 
 @check_mc_version('>=1.16')
 def _check_color(color: str) -> None:
-    if not color in _stand_color and color.startswith('#'):
+    if not color in Color and color.startswith('#'):
         try:
             int(color[1:])
         except (TypeError, ValueError):
             pass
         else:
             return
-    elif color in _stand_color:
+    elif color in Color:
         return
 
     raise ValueError("invalid string attrs 'color'.")
@@ -114,7 +137,7 @@ def _check_color(color: str) -> None:
 
 @check_mc_version('<1.16')
 def _check_color(color: str) -> None:
-    if not color in _stand_color:
+    if not color in Color:
         raise ValueError("invalid string attrs 'color'.")
 
 

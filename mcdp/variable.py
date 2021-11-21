@@ -1,12 +1,15 @@
 from abc import abstractmethod
 from collections import defaultdict
-from typing import Any, DefaultDict, Dict, List, Literal, Optional, Type, Union
+from functools import partial
+from os import name
+from typing import Any, DefaultDict, Dict, List, Literal, Optional, Type, TypeVar, Union
 
 from .counter import Counter
-from .context import insert, get_stack_id
+from .context import insert
 from .typings import Variable, VariableMeta, McdpVar
-from .mcstring import MCString, _stand_color
-from .entities import McdpStack, set_stack_scb
+from .mcstring import MCString, Color
+from .entities import McdpStack, get_tag
+from .command import ConditionInstruction, ScoreCase, Selector
 from .exceptions import *
 
 
@@ -14,8 +17,6 @@ class Scoreboard(Variable):
 
     __slots__ = ["name", "criteria", "display_name"]
     __accessible__ = ["name", "criteria", "display_name"]
-
-    builtins: List[str] = ["dpc_const", "mcdpStackID", "entityID"]
 
     applied: List[str] = []
     collection: Dict[str, "Scoreboard"] = {}
@@ -72,9 +73,6 @@ class Scoreboard(Variable):
 
     @classmethod
     def apply_all(cls) -> None:
-        for s in cls.builtins:
-            if not s in cls.collection:
-                cls(s)
         for s in cls.collection.values():
             s.apply()
 
@@ -86,33 +84,39 @@ class Scoreboard(Variable):
         if not pos in ["list", "sidebar", "belowName"]:
             if pos.startswith("sidebar.team."):
                 c = pos[13:]
-                if c in _stand_color:
+                if c in Color:
                     insert(f"scoreboard objectives setdisplay {pos} {self.name}")
+                    return
         else:
             insert(f"scoreboard objectives setdisplay {pos} {self.name}")
+            return
         raise McdpValueError("Invalid scoreboard display position.")
 
-    def set_value(self, selector: str, value: int = 0) -> None:
+    def set_value(self, selector: Union[str, Selector], value: int = 0) -> None:
         insert(f"scoreboard players set {selector} {self.name} {value}")
 
 
 CONST_CACHE_NAME: str = "dpc_const"
 
 
-def _get_selector(score: Union[int, "Score"]) -> str:
+def _get_selector(score: Union[int, "Score"]) -> Selector:
     if isinstance(score, int):
         stack_id = score
     else:
         stack_id = score.stack_id
-    if stack_id == get_stack_id():
-        return "@s"
+    if stack_id == 0:
+        return Selector("@e", "tag=Mcdp_home", tag=get_tag(), limit=1)
+    elif stack_id == -1:
+        return Selector("@e", "tag=stack_top", tag=get_tag(), limit=1)
+    elif stack_id == -2:
+        return Selector("@e", "tag=lower_stack", tag=get_tag(), limit=1)
     else:
-        return "@e[tag=Mcdp_stack,scores={mcdpStackID=%i}]" % stack_id
+        return Selector("@e", "tag=Mcdp_stack", tag=get_tag(), limit=1, scores="{mcdpStackID=%d}" % stack_id)
 
 
 class Score(Variable):
 
-    __slots__ = ["name", "stack_id", "scoreboard", "counter", "linked"]
+    __slots__ = ["name", "stack_id", "scoreboard", "init_func", "selector"]
     __accessible__ = ["scoreboard"]
 
     def __init__(
@@ -121,31 +125,45 @@ class Score(Variable):
             default: Union[int, "Score"] = 0,
             *,
             init: bool = True,
-            stack_offset: int = 0,
+            stack_id: int = -1,
+            selector: Union[Selector, str, None] = None,
             criteria: str = "dummy",
             display: Optional[Union[dict, MCString]] = None
     ) -> None:
         self.name = name
-        self.stack_id = get_stack_id() - stack_offset
+        if selector:
+            self.selector = selector
+        else:
+            self.stack_id = stack_id
+            if init:
+                self.selector = _get_selector(self)
         self.scoreboard = Scoreboard(name, criteria=criteria, display=display)
+
+        self.init_func = partial(self.set_value, default)
         if init:
-            self.set_value(default)
+            self.init_func()
+            del self.init_func
         super().__init__()
         self.scoreboard.link(self)
+    
+    def __getattr__(self, attr: str) -> Any:
+        if attr == "selector":
+            self.selector = _get_selector(self)
+        return self.__getattribute__(attr)
 
     def __iadd__(self, other: Union[int, "Score"]):
         +self.counter
         if isinstance(other, int):
             insert(
                     "scoreboard players add {0} {1} {2}".format(
-                            _get_selector(self), self.name, other
+                            self.selector, self.name, other
                     ))
         else:
             +other.counter
             insert(
                     "scoreboard players operation {0} {1} += {2} {3}".format(
-                            _get_selector(self), self.name,
-                            _get_selector(other), other.name
+                            self.selector, self.name,
+                            other.selector, other.name
                     ))
         return self
 
@@ -154,80 +172,103 @@ class Score(Variable):
         if isinstance(other, int):
             insert(
                     "scoreboard players remove {0} {1} {2}".format(
-                            _get_selector(self), self.name, other
+                            self.selector, self.name, other
                     ))
         else:
             +other.counter
             insert(
                     "scoreboard players operation {0} {1} -= {2} {3}".format(
-                            _get_selector(self), self.name,
-                            _get_selector(other), other.name
+                            self.selector, self.name,
+                            other.selector, other.name
                     ))
         return self
 
     def __imul__(self, other: Union[int, "Score"]):
         +self.counter
         if isinstance(other, int):
-            name = CONST_CACHE_NAME
-            self.scoreboard.set_value(name, other)
-            scbd = self.name
-        else:
-            +other.counter
-            name = _get_selector(other)
-            scbd = other.name
+            dpc_const.set_value(other)
+            other = dpc_const
+        +other.counter
         insert(
                 "scoreboard players operation {0} {1} *= {2} {3}".format(
-                        _get_selector(self), self.name, name, scbd
+                        self.selector, self.name, other.selector, other.name
                 ))
         return self
 
     def __itruediv__(self, other: Union[int, "Score"]):
         +self.counter
         if isinstance(other, int):
-            name = CONST_CACHE_NAME
-            self.scoreboard.set_value(name, other)
-            scbd = self.name
-        else:
-            +other.counter
-            name = _get_selector(other)
-            scbd = other.name
+            dpc_const.set_value(other)
+            other = dpc_const
+        +other.counter
         insert(
                 "scoreboard players operation {0} {1} /= {2} {3}".format(
-                        _get_selector(self), self.name, name, scbd
+                        self.selector, self.name, other.selector, other.name
                 ))
         return self
 
     def __imod__(self, other: Union[int, "Score"]):
         +self.counter
         if isinstance(other, int):
-            name = CONST_CACHE_NAME
-            self.scoreboard.set_value(name, other)
-            scbd = self.name
-        else:
-            +other.counter
-            name = _get_selector(other)
-            scbd = other.name
+            dpc_const.set_value(other)
+            other = dpc_const
+        +other.counter
         insert(
                 "scoreboard players operation {0} {1} %= {2} {3}".format(
-                        _get_selector(self), self.name, name, scbd
+                        self.selector, self.name, other.selector, other.name
                 ))
         return self
+    
+    def __eq__(self, other: Union["Score", int]) -> ConditionInstruction:
+        if isinstance(other, int):
+            return self.match(other)
+        instr = ConditionInstruction(
+            ScoreCase(
+                self.selector, self.name,
+                '=',
+                other.selector, other.name
+            )
+        )
+        return instr
+    
+    def __ne__(self, other: Union["Score", int]) -> ConditionInstruction:
+        if isinstance(other, int):
+            return self.match(other)
+        instr = ConditionInstruction(
+            ScoreCase(
+                self.selector, self.name,
+                '=',
+                other.selector, other.name
+            )
+            , unless=True
+        )
+        return instr
 
     def set_value(self, value: Union[int, "Score"] = 0) -> None:
         if isinstance(value, int):
-            self.scoreboard.set_value(_get_selector(self), value)
+            self.scoreboard.set_value(self.selector, value)
         else:
             insert(
                     "scoreboard players operation {0} {1} = {2} {3}".format(
-                            _get_selector(self), self.name, _get_selector(value), value.name
+                            self.selector, self.name, value.selector, value.name
                     ))
+    
+    def match(self, range: Union[str, int], *, inverse: bool = False) -> ConditionInstruction:
+        instr = ConditionInstruction(
+            ScoreCase(
+                self.selector, self.name,
+                "matches", str(range)
+            )
+            , unless=inverse
+        )
+        return instr
 
     def apply(self) -> None:
         if not self.name in Scoreboard.applied:
             self.scoreboard.apply()
 
     def __mcstr__(self) -> MCString:
-        return MCString(score={"name": _get_selector(self), "objective": self.name})
+        return MCString(score={"name": str(self.selector), "objective": self.name})
 
     def __str__(self) -> str:
         return f"<{self.__class__.__name__} objection {self.name} in stack {self.stack_id}>"
@@ -279,11 +320,12 @@ class ScoreCache(Score, metaclass=ScoreMeta):
 
     cache = _Cache()
 
-    def __init__(self, default: Union[int, Score] = 0) -> None:
-        stack_id = get_stack_id()
+    def __init__(self, default: Union[int, Score] = 0, *, init: bool = True, stack_id: int = -1) -> None:
         self.freed = False
+        if stack_id != 0 and stack_id != -1:
+            raise McdpValueError(f"Cannot use dp cahce object in the stack ID {stack_id}.")
         name = self.cache.get(stack_id)
-        super().__init__(name, default, display={"text": "Mcdp Cache", "color": "dark_blue"})
+        super().__init__(name, default, display={"text": "Mcdp Cache", "color": "dark_blue"}, init=init, stack_id=stack_id)
 
     def __add__(self, other: Union[int, Score]):
         if self.freed:
@@ -375,19 +417,20 @@ class dp_score(Score):
             default: Union[int, "Score"] = 0,
             *,
             init: bool = True,
-            stack_offset: int = 0,
+            stack_id: int = -1,
+            selector: Union[Selector, str, None] = None,
             criteria: str = "dummy",
             display: Optional[dict] = None,
             simulation: Optional[Type[ScoreCache]] = None
     ) -> None:
-        if name.startswith("dpc_") and name != 'dpc_return':
+        if name.startswith("dpc_") and name != 'dpc_return' and name != "dpc_const":
             raise McdpVarError("The name of dp_score cannot start with 'dpc_'.")
         if simulation is self.__class__:
             simulation = None
         self.simulation = simulation
         super().__init__(
                 name, default,
-                init=init, stack_offset=stack_offset,
+                init=init, stack_id=stack_id, selector=selector,
                 criteria=criteria, display=display
         )
 
@@ -464,17 +507,13 @@ class dp_int(ScoreCache):
         return f"<dp_int objection in stack {self.stack_id}>"
 
 
-
-# stack_scb = Score("mcdpStackID")
-# set_stack_scb(stack_scb)
-
 class StorageType(Variable):
 
     __slots__ = ["name"]
     cache = _Cache()
 
     def __init__(self) -> None:
-        self.name = self.cache.get(get_stack_id())
+        #self.name = self.cache.get(get_stack_id())
         super().__init__()
 
     @abstractmethod
@@ -493,3 +532,21 @@ class McdpVarError(McdpValueError):
     def __init__(self, *arg: str, var: Optional[McdpVar] = None, **kw) -> None:
         self.var = var
         super().__init__(*arg, **kw)
+
+
+T_Global = TypeVar("T_Global", dp_int, dp_score)
+_global_var: List[Score] = []
+
+
+def global_var(t_var: Type[T_Global], *args, **kwds) -> T_Global:
+    var = t_var(*args, init=False, stack_id=0, **kwds)
+    _global_var.append(var)
+    return var
+
+def init_global() -> None:
+    for v in _global_var:
+        v.init_func()
+        del v.init_func
+
+dpc_const = global_var(dp_score, CONST_CACHE_NAME)
+entity_id = global_var(dp_score, "entityID")
