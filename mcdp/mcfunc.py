@@ -1,3 +1,4 @@
+import time
 import warnings
 from asyncio import iscoroutinefunction, run
 from inspect import signature, Parameter
@@ -8,8 +9,8 @@ from .counter import Counter, get_counter
 from .file_struct import build_dirs_from_config
 from .typings import McdpVar, Variable
 from .config import get_config, MCFuncConfig
-from .context import Context, TagManager, add_tag, insert, comment, newline, leave_stack_ops, enter_stack_ops
-from .command import Function, Selector, lib_func
+from .context import Context, ContextEnv, TagManager, add_tag, insert, comment, newline, leave_stack_ops, enter_stack_ops
+from .command import AsInstruction, Function, Selector, lib_func
 from .entities import McdpStack, get_tag
 from .variable import Score, Scoreboard, dp_int, dp_score, global_var, init_global
 from .exceptions import *
@@ -37,13 +38,25 @@ def _get_arguments(name: str, param: Mapping[str, Parameter]) -> Tuple[list, dic
     return args, kwds
 
 
-def add_comment(func: Callable) -> None:
-    sig = signature(func)
-    comment(f"Function '{func.__name__}'", f"\nSignature:\n{sig}")
-    if func.__doc__:
-        comment("\nDoc:", func.__doc__)
-    newline(2)
+class ContextFunctionEnv(ContextEnv):
 
+    __slots__ = ["func"]
+
+    def __init__(self, func: Callable) -> None:
+        self.func = func
+        super().__init__("mcfunction")
+    
+    def init(self) -> None:
+        sig = signature(self.func)
+
+        comment(f"Function '{self.func.__name__}'")
+        newline()
+        comment(f"Signature:\n{sig}")
+        if self.func.__doc__:
+            newline()
+            comment("Doc:", self.func.__doc__)
+        newline(2)
+        
 
 class MCFunction(Function):
 
@@ -64,7 +77,7 @@ class MCFunction(Function):
             self.__name__ = name
         self.namespace = namespace
         self.config = config
-        self.overload: List = []
+        self.overload: List[Callable] = []
         self.overload_counter: List[Counter] = []
         self.__class__.collection[name] = self
 
@@ -84,6 +97,8 @@ class MCFunction(Function):
         if not func.__name__ == self.__name__:
             warnings.warn(
                     f"unsuit function name. Maybe you are deliberate?", RuntimeWarning)
+        if self.overload:
+            func.__name__ += str(len(self.overload))
         self.overload.append(func)
 
         if len(self.overload) > 1 and not self.config.allow_overload:
@@ -98,25 +113,19 @@ class MCFunction(Function):
             f = self.overload[i]
 
             if not (len(self.overload) == 1 or self.overload_counter[i]):
-                print(Context.get_relative_path())
                 continue
-
-            if i == 0:
-                name = self.__name__
-            else:
-                name = self.__name__ + str(i)
                 
-            async with Context(name):
+            async with Context(f.__name__, envs=ContextFunctionEnv(f)):
                 for t in self.config.tag:
                     add_tag(t)
-
-                if get_config().pydp.add_comments:
-                    add_comment(f)
 
                 sig = signature(f).parameters
                 args, kwds = _get_arguments(self.__name__, sig)
 
-                ans = f(*args, **kwds)
+                if iscoroutinefunction(f):
+                    ans = await f(*args, **kwds)
+                else:
+                    ans = f(*args, **kwds)
                 if isinstance(ans, Score):
                     if ans.name != "dpc_return":
                         dp_score("dpc_return", ans, stack_id=-2,
@@ -141,7 +150,6 @@ class MCFunction(Function):
             except:
                 continue
             else:
-                ind = i
                 +self.overload_counter[i]
                 break
         else:
@@ -152,15 +160,12 @@ class MCFunction(Function):
                 dp_score("mcfarg_{0}_{1}".format(self.__name__, k), v,
                          display={"text": f"Mcdp function {self.__name__} arguments", "color": "dark_blue"})
 
-        path = Context.get_relative_path() / self.__name__
-        Context.enter()
-        self.namespace = self.namespace or get_config().namespace
-        file = f"{self.namespace}:{path}"
-        if ind != 0:
-            insert(f"execute as @e[tag=stack_top] run function {file}{ind}")
-        else:
-            insert(f"execute as @e[tag=stack_top] run function {file}")
+        self.space = str(Context.get_relative_path())
+        self.func = self.overload[i]
 
+        Context.enter()
+        with AsInstruction(Selector("@e", "tag=stack_top", tag=get_tag())):
+            super().__call__()
         T_ret = sig.return_annotation
         if not T_ret is None:
             return dp_score("dpc_return", init=False, simulation=T_ret,
@@ -199,25 +204,38 @@ def mcfunc_main(*flags: str, **kw: Any) -> Callable[[Callable], None]:
 def mcfunc_main(func: Optional[Union[Callable, str]] = None, *flags, **kw):
     async def mf_main(func: Callable[[], Any], cfg: MCFuncConfig) -> None:
         #config = get_config()
+        start = time.process_time_ns()
         await build_dirs_from_config()
         async with Context:
             add_tag("minecraft:load")
             init_global()
 
-            async with Context("__main__"):
+            async with Context("__main__", envs=ContextEnv("__main__")):
+                comment("This is the main function of the datapack.")
+                newline(2)
+
                 for t in cfg.tag:
                     add_tag(t)
+                Context.enter()
                 if iscoroutinefunction(func):
                     await func()
                 else:
                     func()
+                Context.leave()
 
-            async with Context('__init_score__'):
+            async with Context('__init_score__', envs=ContextEnv("__init_score__")):
+                comment("Init the scoreborad.")
+                newline(2)
+
                 Scoreboard.apply_all()
 
             await MCFunction.apply_all()
             await TagManager.apply_all()
-            
+        
+        end = time.process_time_ns()
+        process = end - start
+        process *= 1e-8
+        print(f"Complite completed in {process} ms")
         get_counter().print_out()
 
     cfg = MCFuncConfig(**kw)
@@ -275,9 +293,6 @@ def enter_stack() -> None:
     top.remove_tag("stack_top")
 
     stack = McdpStack()
-
-    with mcdp_stack_id == 0:
-        stack.add_tag("Mcdp_home")
     mcdp_stack_id += 1
     
 

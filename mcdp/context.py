@@ -120,8 +120,8 @@ class ContextMeta(type):
 
     stack: StackCache
     environments: list
-    enter: EnvMethod
-    leave: EnvMethod
+    enter: staticmethod
+    leave: staticmethod
 
     def init(self, path: T_Path) -> None:
         self.path = Path(path, "functions").resolve()
@@ -137,16 +137,16 @@ class ContextMeta(type):
         """
         Init the datapack.
         """
-        default_env = self("__init__", root_path=self.path)
+        default_env = self("__init__", root_path=self.path, envs=ContextEnv("__init__"))
         await self.stack.append(default_env)
-        comment(
-            "This is the initize function."
-        )
+        comment("This is the initize function.")
         newline(2)
+
+        self.enter()
+        insert("tag @e[tag=Mcdp_stack] add Mcdp_home")
         TagManager("functions", namespace="minecraft")
         TagManager("functions", namespace=get_namespace())
         insert(f"function {get_namespace()}:__init_score__")
-        self.enter()
         return self
     
     async def __aexit__(self, exc_type, exc_ins, traceback) -> None:

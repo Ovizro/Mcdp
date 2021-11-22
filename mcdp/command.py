@@ -7,7 +7,7 @@ from typing import Any, Callable, Coroutine, Dict, List, Literal, Optional, Set,
 from .config import get_config
 from .typings import McdpBaseModel, McdpVar, McdpError
 from .mcstring import MCString
-from .context import Context, comment, insert, ContextEnv, newline
+from .context import Context, McdpContextError, comment, insert, ContextEnv, newline
 from .exceptions import *
 
 
@@ -196,25 +196,28 @@ class NBTPath(McdpVar):
 
 class ContextInstructionEnv(ContextEnv):
 
-    __slots__ = ["instruction"]
+    __slots__ = ["instruction", "decorate"]
 
-    def __init__(self, instruction: "Instruction") -> None:
+    def __init__(self, instruction: "Instruction", *, decorate: bool = True) -> None:
         self.instruction = instruction
+        self.decorate = decorate
         super().__init__(instruction.__class__.__name__)
     
     def init(self) -> None:
         super().init()
-        comment(f"{repr(self.instruction)} file.")
+        comment(f"{repr(self.instruction.__class__.__name__)} file.")
         newline(2)
     
     def decorate_command(self, cmd: str) -> str:
+        if not self.decorate:
+            return cmd
         exec = Execute(self.instruction)
         return exec.command_prefix() + cmd
 
 
 class Instruction(McdpBaseModel):
 
-    __slots__ = ["stream"]
+    stream: Optional[Context] = None
 
     def __init__(self) -> None:
         raise NotImplementedError
@@ -231,19 +234,21 @@ class Instruction(McdpBaseModel):
         Context.pop_env()
     
     async def __aenter__(self) -> "Instruction":
-        env = ContextInstructionEnv(self)
+        env = ContextInstructionEnv(self, decorate=False)
         self.stream = env.creat_stream()
         await self.stream.__aenter__()
         return self
     
     async def __aexit__(self, exc_type, exc_ins, traceback) -> None:
+        if not self.stream:
+            raise McdpContextError("No context provide.")
         await self.stream.__aexit__(exc_type, exc_ins, traceback)
 
     def __str__(self) -> str:
         raise NotImplementedError
 
     def __repr__(self) -> str:
-        return f"Instruction({self})"
+        return f"{self.__class__.__name__}({self})"
 
 
 class AlignInstruction(Instruction):
@@ -696,6 +701,22 @@ class Execute(McdpVar):
 def case(type: str, *args, **kwds) -> _Case:
     return _case_register[type](*args, **kwds)
 
+
+class ContextLibEnv(ContextEnv):
+
+    __slots__ = ["func"]
+
+    def __init__(self, func: Callable[[], Optional[Coroutine]]) -> None:
+        self.func = func
+        super().__init__("Library")
+
+    def init(self) -> None:
+        comment(
+            f"Library function {self.func.__name__} of Mcdp.",
+        )
+        newline()
+
+
 class Function(McdpVar):
     """
     This class is only used to create library.
@@ -716,7 +737,7 @@ class Function(McdpVar):
         namespace = namespace or get_config().namespace
 
         name = self.func.__name__
-        if not self.space:
+        if not self.space or self.space == '.':
             insert(f"function {namespace}:{name}")
         else:
             insert(f"function {namespace}:{self.space}/{name}")
@@ -724,7 +745,7 @@ class Function(McdpVar):
     async def apply(self) -> None:
         if self.space:
             Context.enter_space(self.space)
-        async with Context(self.func.__name__):
+        async with Context(self.func.__name__, envs=[ContextLibEnv(self.func)]):
             if iscoroutinefunction(self.func):
                 await self.func()
             else:
