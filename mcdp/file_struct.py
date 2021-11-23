@@ -123,7 +123,7 @@ async def build_dirs(
                 |-- predicates
                 |-- ...
     """
-    if remove_old_pack and Path(name).is_dir():
+    if remove_old_pack and Path(f'{name}/data').is_dir():
         await rmtree(f'{name}/data')
     else:
         await mkdir(name)

@@ -8,7 +8,7 @@ import asyncio
 from pathlib import Path
 from functools import partial, wraps
 from aiofiles import open as aio_open
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from .counter import get_counter
 
@@ -78,7 +78,7 @@ class Stream:
         self.opened = False
         self.closed = False
 
-    async def open(self, mod: str = "w") -> None:
+    async def open(self, mod: Literal["w", "a"] = "w") -> None:
         if self.opened:
             return
         await makedirs(self.path.parent)
