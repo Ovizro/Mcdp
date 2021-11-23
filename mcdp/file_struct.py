@@ -26,6 +26,16 @@ async def init_mcmeta(desc: str, version: T_version) -> None:
         }
         await f.adump(contain)
 
+def init_mcmeta_(description: str, pack_version: int) -> None:
+    data = {
+        'pack': {
+            'pack_format': pack_version,
+            'description': description
+        }
+    }
+    with open(os.path.abspath('pack.mcmeta'), mode='w', encoding='utf-8') as metafile:
+        ujson.dump(data, metafile)
+
 
 def init_name_space(name: str, *, used: Optional[Set[str]] = None) -> None:
     dirs = {
