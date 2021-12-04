@@ -1,6 +1,3 @@
-# 测试文件
-file_test/
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -140,6 +137,8 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+# 测试文件
+file_test/
 /testdatapack
 /test
 /testdatapack.py
