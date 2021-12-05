@@ -1,98 +1,91 @@
+from cpython cimport Py_LT, Py_LE, Py_GT, Py_GE, Py_EQ, Py_NE
+
 from functools import wraps
 from asyncio import iscoroutinefunction
-from typing import Any, Dict, List, NoReturn, Tuple, Callable, Union, Optional, TypeVar, overload
+from typing import Union, Tuple
+
 
 T_version = Union[Tuple[int, ...], str, "Version"]
-TS_version = Union[Tuple[Union[str, int], ...], str, "PhaseVersion"]
 
+cdef bint _version_cmp(Version v0, Version v1, int op) except -1:
+    if op == Py_EQ:
+        return v0.vs_num == v1.vs_num
+    elif op == Py_NE:
+        return v0.vs_num != v1.vs_num
+    
+    cdef bint eq_ok = op == Py_LE | op == Py_GE
+    cdef int m = max(len(v0), len(v1))
 
-class Version:
-    """
-    The base class in model 'version'.
-    Support boolean operations between version numbers like '1.0.2'.
-    """
-
-    __slots__ = ["__num_list", ]
-
-    def __init__(self, version: T_version) -> None:
-        if isinstance(version, tuple):
-            self.__num_list: Tuple[int, ...] = version
-        elif isinstance(version, self.__class__):
-            self.__num_list = version.get_number()
+    cdef:
+        int i
+        int j
+    cdef tuple vln0 = v0._extend(m)
+    cdef tuple vln1 = v1._extend(m)
+    for k in range(m):
+        i = vln0[k]
+        j = vln1[k]
+        if i == j:
+            continue
         else:
+            if op == Py_LT or op == Py_LE:
+                return i < j
+            else:
+                return i > j
+    else:
+        return eq_ok
+
+
+cdef class Version:
+
+    def __init__(self, version: T_version):
+        cdef:
+            list num
+            int n
+        if isinstance(version, tuple):
+            self.vs_num = version
+        elif isinstance(version, str):
             try:
-                num = [int(i) for i in version.split('.')]
+                num = version.split('.')
+                for i in range(len(num)):
+                    num[i] = int(num[i])
                 if len(num) <= 1:
                     raise ValueError
-                elif any([i < 0 for i in num]):
-                    raise ValueError
-                self.__num_list = tuple(num)
+                for n in num:
+                    if n < 0:
+                        raise ValueError
+                self.vs_num = tuple(num)
                 return
 
             except Exception:
                 pass
             raise ValueError("Incorrect version form.")
+        else:
+            self.vs_num = (<Version?>version).vs_num
 
-    @overload
-    def __getitem__(self, key: int) -> int:
-        ...
-    @overload
-    def __getitem__(self, key: slice) -> Tuple[int, ...]:
-        ...
-    def __getitem__(self, key: Union[int, slice]) -> Union[int, Tuple[int, ...]]:
+    def __getitem__(self, key: T_version):
         try:
-            return self.__num_list[key]
+            return self.vs_num[key]
         except IndexError:
             if isinstance(key, slice):
-                raise
+                raise IndexError("Index out of range.")
             else:
                 return 0
 
-    def __iter__(self) -> Tuple[int, ...]:
-        return self.__num_list
-
-    def _compare(self, ops: Callable[[int, int], bool], other: T_version) -> bool:
-        if not isinstance(other, self.__class__):
+    def __iter__(self):
+        return self.vs_num
+    
+    def __richcmp__(self, _other, int op):
+        cdef Version other
+        if not isinstance(_other, Version):
             try:
-                other = self.__class__(other)
+                other = Version(_other)
             except ValueError:
                 return NotImplemented
-
-        m = max(len(self), len(other))
-        e = ops(1, 1)
-        for i, j in zip(self._generator(m), other.get_number(extend=m)):
-            if i == j:
-                continue
-            else:
-                return ops(i, j)
         else:
-            return e
+            other = _other
 
-    @staticmethod
-    def compare_decorator(ops: Callable[[int, int], bool]) -> Callable[["Version", T_version], bool]:
-        """
-        Be used to create a operator to compare two Version instance. 
-        The argument 'ops' will be used to compare every number of
-        the version list.
-        
-        Use as: 
-            ```
-            @Version.compare_decorator
-            def around(v1: int, v2: int) -> bool:
-                if abs(v1 - v2) < 5:
-                    return True
-                else:
-                    return False
-            print(around(Version("1.12"), Version("1.13")))
-            # output: True
-            ```
-        """
-
-        def __compare__(self, other: T_version) -> bool:
-            return self._compare(ops, other)
-
-        return __compare__
-
+        return _version_cmp(self, other, op)
+    
     @classmethod
     def __get_validators__(cls):
         yield cls.validate
@@ -103,37 +96,23 @@ class Version:
             return val
         else:
             return cls(val)
-
-    def __eq__(self, other: T_version) -> bool:
-        if not isinstance(other, self.__class__):
-            try:
-                other = self.__class__(other)
-            except ValueError:
-                return NotImplemented
-        return self.__num_list == other.get_number()
-
-    def __ne__(self, other: T_version) -> bool:
-        if not isinstance(other, self.__class__):
-            try:
-                other = self.__class__(other)
-            except ValueError:
-                return NotImplemented
-        return self.__num_list != other.get_number()
-
-    __gt__ = compare_decorator.__func__(lambda x, y: x > y)
-    __ge__ = compare_decorator.__func__(lambda x, y: x >= y)
-    __lt__ = compare_decorator.__func__(lambda x, y: x < y)
-    __le__ = compare_decorator.__func__(lambda x, y: x <= y)
-
+    
     def __len__(self) -> int:
-        return len(self.__num_list)
+        return len(self.vs_num)
+
+    cdef tuple _extend(self, int max):
+        cdef int l = len(self.vs_num)
+        if max <= l:
+            return self.vs_num[:max]
+        else:
+            return self.vs_num + (0,) * (max - l)
 
     def _generator(self, max: Optional[int] = None):
-        l = len(self)
-        i = 0
+        cdef int l = len(self.vs_num)
+        cdef int i = 0
         while True:
             if i < l:
-                yield self.__num_list[i]
+                yield self.vs_num[i]
             else:
                 yield 0
 
@@ -143,51 +122,30 @@ class Version:
                     return
             elif i > 32:
                 raise RuntimeError
-
-    @overload
-    def get_number(self, *, extend: Optional[int] = None) -> Tuple[int, ...]:
-        ...
-    @overload
-    def get_number(self, index: int , *, extend: Optional[int] = None) -> int:
-        ...
+    
     def get_number(self, index: Optional[int] = None, *, extend: Optional[int] = None) -> Union[Tuple[int, ...], int]:
         if index:
             try:
-                return self.__num_list[index]
+                return self.vs_num[index]
             except IndexError:
                 return 0
         else:
             if not extend:
-                return self.__num_list
+                return self.vs_num
             else:
-                return tuple(self._generator(extend))
-
-    def check(self, *args, **kw):
+                return self._extend(extend)
+    
+    def check(self, *args: str, **kw: Union[Tuple[int, ...], str, "Version"]):
         return version_check(self, *args, **kw)
 
     def __repr__(self) -> str:
-        return f"Version{self.__num_list}"
+        return f"Version{self.vs_num}"
 
     def __str__(self) -> str:
-        return '.'.join([str(i) for i in self.__num_list])
+        return '.'.join([str(i) for i in self.vs_num])
 
 
-class PhaseVersion(Version):
-    """
-    Just add a version phase like 'Alpha' or 'Beta'. 
-    (In fact, 'Python 3.8.3' is valid, too.)
-    
-    The phase mark only used in '==' and '!=' when both sides have a phase mark.
-    That is to say:
-        ```
-        v = PhaseVersion('Beta 1.5.2')
-        v == '1.5.2'        #True
-        v == 'Alpha 1.5.2'  #False
-        v >= 'Alpha 1.4'    #True
-        ```
-    """
-
-    __slots__ = ["phase"]
+cdef class PhaseVersion(Version):
 
     def __init__(self, version: T_version, *, phase: Optional[str] = None) -> None:
         if isinstance(version, self.__class__):
@@ -213,32 +171,29 @@ class PhaseVersion(Version):
                     else:
                         self.phase = phase or l[0]
                         version = l[1]
-                return super().__init__(version)
+                super().__init__(version)
+                return
             except Exception:
                 pass
             raise ValueError("Incorrect version form.")
-
-    def __eq__(self, other: T_version) -> bool:
-        if not isinstance(other, self.__class__):
+    
+    def __richcmp__(self, _other, int op):
+        cdef PhaseVersion other
+        if not isinstance(_other, PhaseVersion):
             try:
-                other = self.__class__(other)
+                other = PhaseVersion(_other)
             except ValueError:
                 return NotImplemented
+        else:
+            other = _other
+        
         if self.phase and other.phase:
-            if self.phase != other.phase:
-                return False
-        return super().__eq__(other)
-
-    def __ne__(self, other: T_version) -> bool:
-        if not isinstance(other, self.__class__):
-            try:
-                other = self.__class__(other)
-            except ValueError:
-                return NotImplemented
-        if self.phase and other.phase:
-            if self.phase == other.phase:
-                return False
-        return super().__ne__(other)
+            if op == Py_EQ:
+                return self.vs_num == other.vs_num and self.phase == other.phase
+            elif op == Py_NE:
+                return self.vs_num != other.vs_num or self.phase != other.phase
+        
+        return _version_cmp(self, other, op)
 
     def __repr__(self) -> str:
         if not self.phase:
@@ -252,9 +207,9 @@ class PhaseVersion(Version):
         return f"{self.phase} {num}"
 
 
-__version__ = PhaseVersion("Alpha 0.1.0")
+__version__ = PhaseVersion("Alpha 0.2.1")
 
-_version_func: Dict[str, Callable] = {}
+cdef dict _version_func = {}
 
 
 def fail_version_check(func: Callable, *, collection: Dict[str, Callable] = _version_func) -> Callable:
@@ -275,7 +230,7 @@ def fail_version_check(func: Callable, *, collection: Dict[str, Callable] = _ver
         return aio_nope
 
 
-def pass_version_check(func: Callable, *, collection: Dict[str, Callable] = _version_func) -> Any:
+def pass_version_check(func: Callable, *, collection: Dict[str, Callable] = _version_func) -> Callable:
     name = func.__qualname__
     if name in collection:
         raise VersionError(f"The function '{name}' has a version conflict.")
@@ -292,16 +247,17 @@ def analyse_check_sentences(
         lt: Optional[T_version] = None,
         le: Optional[T_version] = None
 ) -> Dict[str, Union[List[T_version], T_version, None]]:
-    ans: Dict[str, Union[List[T_version], T_version, None]] = {}
-    if not isinstance(eq, List):
+    cdef dict ans = {}
+    if not isinstance(eq, list):
         ans['eq'] = [eq, ]
     else:
         ans['eq'] = eq
-    if not isinstance(ne, List):
+    if not isinstance(ne, list):
         ans['ne'] = [ne, ]
     else:
         ans['ne'] = ne
 
+    cdef str i
     for i in args:
         if i.startswith('>='):
             ans['ge'] = ge or i[2:]
@@ -321,7 +277,7 @@ def analyse_check_sentences(
 
 
 def version_check(
-        version: Version,
+        Version version,
         *args: str,
         eq: Union[List[T_version], T_version] = [],
         ne: Union[List[T_version], T_version] = [],
@@ -333,10 +289,16 @@ def version_check(
     """
     The core function of the version check.
     """
-    if not isinstance(eq, List):
-        eq = [eq, ]
-    if not isinstance(ne, List):
-        ne = [ne, ]
+    cdef str i
+    cdef list _eq, _ne
+    if not isinstance(eq, list):
+        _eq = [eq, ]
+    else:
+        _eq = eq
+    if not isinstance(ne, list):
+        _ne = [ne, ]
+    else:
+        _ne = ne
     if args:
         for i in args:
             if i.startswith('>='):
@@ -348,12 +310,13 @@ def version_check(
             elif i.startswith('<'):
                 lt = lt or i[1:]
             elif i.startswith('=='):
-                eq.append(i[2:])
+                _eq.append(i[2:])
             elif i.startswith('!='):
-                ne.append(i[2:])
+                _ne.append(i[2:])
             else:
                 raise ValueError(f"Cannot analyze the argument {i}")
-    check = True
+
+    cdef bint check = True
     if gt:
         check = check and (version > gt)
     if ge:
@@ -362,30 +325,23 @@ def version_check(
         check = check and (version < lt)
     if le:
         check = check and (version <= le)
-    if eq:
-        check = check or (version in [Version(i) for i in eq])
-        eq.clear()
-    if ne:
-        check = check and not (version in [Version(i) for i in ne])
-        ne.clear()
+    if _eq:
+        for v in _eq:
+            if version == Version(v):
+                check = True
+        _eq.clear()
+    if _ne:
+        for v in _ne:
+            if version == Version(v):
+                check = False
+        _ne.clear()
 
     if not check:
         return fail_version_check
     else:
         return pass_version_check
 
-
-class VersionChecker:
-    """
-    The helper of version checker.
-    
-    Sometimes the version cannot be fetched when inited, so class VersionChecker is created.
-    The final function will be insure when the function is first called.
-    
-    In the same time, the class supports the multiple version check.
-    """
-
-    __slots__ = ["collection", "version_factory", "checked", "__func__", "sentence", "__qualname__"]
+cdef class VersionChecker:
 
     def __init__(self, version_factory: Callable[[], Version]) -> None:
         self.collection: Dict[str, Callable] = {}
@@ -395,6 +351,7 @@ class VersionChecker:
         self.sentence: List[dict] = []
 
     def register(self, func: Callable, *args: str, **kwds) -> None:
+        cdef Version version
         if not self.checked:
             c = analyse_check_sentences(*args, **kwds)
             self.__func__.append(func)
@@ -428,9 +385,10 @@ class VersionChecker:
 
         return version_check_decorator
 
-    def apply_check(self) -> None:
+    cpdef void apply_check(self):
+        cdef list l
         if not self.checked:
-            l: list = self.__func__
+            l = self.__func__
             for i in range(len(l)):
                 ans = version_check(self.version_factory(), **self.sentence[i])
                 self.__func__ = ans(l[i], collection=self.collection)
@@ -441,13 +399,7 @@ class VersionChecker:
         return self.__func__(*args, **kwds)
 
 
-class AioCompatVersionChecker(VersionChecker):
-    """
-    The async compat version of class VersionCheck.
-    """
-
-    __slots__ = []
-
+cdef class AioCompatVersionChecker(VersionChecker):
     @property
     def decorator(self):
         def version_check_decorator(*args, **kwds):
@@ -487,8 +439,7 @@ class AioCompatVersionChecker(VersionChecker):
         return await self.__func__(*args, **kwds)
 
 
-class VersionError(Exception):
-    __slots__ = ["version"]
+cdef class VersionError(Exception):
 
     def __init__(self, *msg, version: Optional[Version] = None) -> None:
         self.version = version

@@ -4,11 +4,6 @@ import cython
 
 cdef class Counter:
 
-    cdef readonly:
-        int value
-        str name
-    cdef list link
-
     def __init__(self, name = None, init = 0):
         self.value = init
         self.name = name
@@ -113,13 +108,7 @@ cdef class Counter:
         return str(self.value)
 
 cdef class ContextCounter(object):
-
-    cdef public:
-        Counter dirs
-        Counter files
-        Counter commands
-        Counter chars
-
+    
     def __init__(self):
         self.dirs = Counter("__dir__")
         self.files = Counter("__file__")
