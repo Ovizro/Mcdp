@@ -12,5 +12,6 @@ ext = [
 
 setup(
     name="cython_src",
-    ext_modules=cythonize(ext)
+    ext_modules=cythonize(ext),
+    zip_safe=False
 )

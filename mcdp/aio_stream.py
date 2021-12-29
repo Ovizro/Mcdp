@@ -74,7 +74,7 @@ class Stream:
                 p = p.resolve()
             else:
                 p = Path(root).joinpath(path)
-        p.mkdir(parents=True)
+                
         self.path = p
         self.opened = False
         self.closed = False

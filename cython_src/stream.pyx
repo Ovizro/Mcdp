@@ -1,4 +1,4 @@
-from libc.stdio cimport FILE, fopen, fputs, fclose
+from libc.stdio cimport fopen, fputs, fclose
 from .counter cimport ContextCounter, get_counter
 
 import os
@@ -9,10 +9,6 @@ from typing import List, Literal, Optional, Union
 
 from .counter import get_counter
 
-
-cdef fused allstr:
-    str
-    bytes
 
 cdef ContextCounter counter = get_counter()
 
@@ -27,12 +23,6 @@ cpdef void mkdir(str dir_path) except *:
 
 cdef class Stream:
 
-    cdef FILE* _file
-
-    cdef readonly:
-        str path
-        bint closed
-    
     def __init__(self, str path, *, root: Optional[str] = None):
         if not os.path.isabs(path):
             if not root:
@@ -61,14 +51,14 @@ cdef class Stream:
             raise OSError("fail to open %s." % self.path)
         self.closed = False
     
-    cpdef int write(self, allstr data) except -1:
+    cpdef int write(self, AnyStr data) except -1:
         if not self._file == NULL:
             raise OSError("not writable")
 
         if data is None:
             raise ValueError("argument must be a string or bytes, not 'NoneType'")
         cdef int c
-        if allstr is str:
+        if AnyStr is str:
             c = fputs(data.encode(), self._file)
         else:
             c = fputs(data, self._file)
