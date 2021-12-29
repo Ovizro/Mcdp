@@ -67,13 +67,14 @@ class Stream:
             *,
             root: Optional[T_Path] = None
     ) -> None:
+        os.path
         p = Path(path)
         if not p.is_absolute():
             if not root:
                 p = p.resolve()
             else:
                 p = Path(root).joinpath(path)
-
+        p.mkdir(parents=True)
         self.path = p
         self.opened = False
         self.closed = False
@@ -156,5 +157,5 @@ if __name__ == "__main__":
         async with s:
             await s.write("hhh")
 
-
+    bytes
     asyncio.run(main())

@@ -1,7 +1,3 @@
-import cython
-
-# c_api_binop_methods=False
-
 cdef class Counter:
 
     def __init__(self, name = None, init = 0):
@@ -10,16 +6,18 @@ cdef class Counter:
         self.link = []
     
     cpdef void link_to(self, Counter other) except *:
+        if other in self.linked:
+            return
         if self in other.linked or other is self:
             raise ValueError("circular link counters.")
         self.link.append(other)
 
     @property
     def linked(self):
-        l = set(self.link)
-        for c in l:
-            l.update(c.linked)
-        return list(l)
+        cdef list l = self.link.copy()
+        for c in self.link:
+            l.extend(c.linked)
+        return l
 
     def __pos__(self) -> int:
         cdef Counter c
@@ -53,7 +51,7 @@ cdef class Counter:
 
     __radd__ = __add__
 
-    def __iadd__(self, other):
+    def __iadd__(self, other) -> "Counter":
         if isinstance(other, Counter):
             self.value += other.value
             return self
@@ -100,9 +98,9 @@ cdef class Counter:
 
     def __repr__(self) -> str:
         if self.name:
-            return f"<counter {self.name} with value {self.value}>"
+            return "<counter %s with value %d>" % (self.name, self.value)
         else:
-            return f"<counter {self.value}>"
+            return "<counter %s>" % self.value
 
     def __str__(self) -> str:
         return str(self.value)
@@ -126,7 +124,7 @@ cdef class ContextCounter(object):
 
 cdef ContextCounter _current_counter = None
 
-def get_counter():
+cpdef ContextCounter get_counter():
     global _current_counter
     if not _current_counter:
         _current_counter = ContextCounter()

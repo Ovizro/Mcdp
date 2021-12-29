@@ -13,3 +13,5 @@ cdef class ContextCounter(object):
         Counter files
         Counter commands
         Counter chars
+
+cpdef ContextCounter get_counter()

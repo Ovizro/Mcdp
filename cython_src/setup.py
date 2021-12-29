@@ -1,10 +1,16 @@
-from setuptools import setup
+import os
+from setuptools import setup, Extension
 from Cython.Build import cythonize
 
+ext = [
+    Extension("cython_src.counter", ["cython_src/counter.pyx"]),
+    Extension("cython_src.version", ["cython_src/version.pyx"]),
+    Extension("cython_src.stream", ["cython_src/stream.pyx"])
+]
+
+# os.chdir("cython_src")
+
 setup(
-    name="cmcdp",
-    ext_modules=cythonize("cython_src/*.pyx"),
-    package_data={
-        "cmcdp": ["cython_src/**.pxd"]
-    }
+    name="cython_src",
+    ext_modules=cythonize(ext)
 )
