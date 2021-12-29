@@ -31,6 +31,7 @@ cdef class Stream:
 
     cdef readonly:
         str path
+        bint closed
     
     def __init__(self, str path, *, root: Optional[str] = None):
         if not os.path.isabs(path):
@@ -41,6 +42,7 @@ cdef class Stream:
 
         self.path = p
         self._file = NULL
+        self.closed = False
     
     cpdef void open(self, str mod = "w") except *:
         if self._file != NULL:
@@ -57,8 +59,12 @@ cdef class Stream:
         self._file = fopen(self.path.encode(), open_mod)
         if self._file == NULL:
             raise OSError("fail to open %s." % self.path)
+        self.closed = False
     
     cpdef int write(self, allstr data) except -1:
+        if not self._file == NULL:
+            raise OSError("not writable")
+
         if data is None:
             raise ValueError("argument must be a string or bytes, not 'NoneType'")
         cdef int c
@@ -82,7 +88,14 @@ cdef class Stream:
             return
         fclose(self._file)
         self._file = NULL
+        self.closed = True
     
-    @property
-    cpdef bint closed(self):
-        return self._file == NULL
+    cpdef bint writable(self):
+        return self._file != NULL
+
+    def __enter__(self):
+        self.open()
+        return self
+    
+    def __exit__(self, *args):
+        self.close()
