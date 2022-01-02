@@ -1,9 +1,11 @@
 from os import PathLike
-from typing import Literal, Union, Optional, List, Set
+from typing import Dict, Literal, Tuple, Union, Optional, List, Set
 
 from .typings import McdpBaseModel
-from .version import Version, T_version, __version__, AioCompatVersionChecker
+from .version import Version, __version__, AioCompatVersionChecker
 from .exceptions import *
+
+T_version = Union[Version, Tuple[Union[str, int], ...], Dict[str, Union[str, int]], str]
 
 class PydpConfig(McdpBaseModel):
     use_ast: bool = False

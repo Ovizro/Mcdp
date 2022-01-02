@@ -45,10 +45,10 @@ cdef class Stream:
         elif mod == 'a':
             open_mod = 'a'
         else:
-            raise ValueError("invalid open mod")
+            raise ValueError("Invalid open mod.")
         self._file = fopen(self.path.encode(), open_mod)
         if self._file == NULL:
-            raise OSError("fail to open %s." % self.path)
+            raise OSError("fail to open %s" % self.path)
         self.closed = False
     
     cpdef int write(self, AnyStr data) except -1:

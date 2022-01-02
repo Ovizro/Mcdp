@@ -1,27 +1,51 @@
 from cpython cimport Py_LT, Py_LE, Py_GT, Py_GE, Py_EQ, Py_NE
 
+import re
 from functools import wraps
+from collections import OrderedDict
 from asyncio import iscoroutinefunction
 from typing import Union, Tuple
 
 
-T_version = Union[Tuple[int, ...], str, "Version"]
+cdef SEMVER_REGEX = re.compile(
+    r"""
+        ^
+        (0|[1-9]\d*)
+        \.
+        (0|[1-9]\d*)
+        (?:\.
+        (0|[1-9]\d*))?
+        (?:-(
+            (?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)
+            (?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*
+        ))?
+        (?:\+(
+            [0-9a-zA-Z-]+
+            (?:\.[0-9a-zA-Z-]+)*
+        ))?
+        $
+    """,
+    re.VERBOSE,
+)
+
 
 cdef bint _version_cmp(Version v0, Version v1, int op) except -1:
+    cdef:
+        tuple v0_num = v0.to_tuple()
+        tuple v1_num = v1.to_tuple()
     if op == Py_EQ:
-        return v0.vs_num == v1.vs_num
+        return v0_num == v1_num
     elif op == Py_NE:
-        return v0.vs_num != v1.vs_num
+        return v0_num != v1_num
     
     cdef bint eq_ok = op == Py_LE | op == Py_GE
-    cdef int m = max(len(v0), len(v1))
 
     cdef:
         int i
         int j
-    cdef tuple vln0 = v0._extend(m)
-    cdef tuple vln1 = v1._extend(m)
-    for k in range(m):
+    cdef tuple vln0 = v0_num[:3]
+    cdef tuple vln1 = v1_num[:3]
+    for k in range(3):
         i = vln0[k]
         j = vln1[k]
         if i == j:
@@ -35,50 +59,107 @@ cdef bint _version_cmp(Version v0, Version v1, int op) except -1:
         return eq_ok
 
 
+def _init_packed(Version version_self, T_Version version):
+    """
+    Because when I try to use fused type in Version __init__, 
+    the VS cl give me a C2059...
+    So I have to make another function.
+    """
+    cdef:
+        tuple num
+        int n
+    if T_Version is tuple:
+        version_self._init_from_tuple(version)
+        version_self._check_valid()
+    elif T_Version is str:
+        m = SEMVER_REGEX.match(version)
+        if m is None:
+            raise ValueError("Incorrect version form.")
+        version_self._init_from_tuple(m.groups())
+    elif T_Version is dict:
+        try:
+            version_self.major = int(version["major"])
+            version_self.minor = int(version["minor"])
+            version_self.patch = int(version["patch"])
+            if "prerelease" in version and version["prerelease"]:
+                version_self.prerelease = str(version["prerelease"])
+            if "build" in version and version["build"]:
+                version_self.build = str(version["build"])
+            version_self._check_valid()
+        except:
+            pass
+        else:
+            return
+        raise ValueError("Incorrect version form.")
+    else:
+        version_self._init_from_tuple(version.to_tuple())
+
+
 cdef class Version:
 
-    def __init__(self, version: T_version):
-        cdef:
-            list num
-            int n
-        if isinstance(version, tuple):
-            self.vs_num = version
-        elif isinstance(version, str):
-            try:
-                num = version.split('.')
-                for i in range(len(num)):
-                    num[i] = int(num[i])
-                if len(num) <= 1:
-                    raise ValueError
-                for n in num:
-                    if n < 0:
-                        raise ValueError
-                self.vs_num = tuple(num)
-                return
-
-            except Exception:
-                pass
-            raise ValueError("Incorrect version form.")
+    def __init__(self, version):
+        _init_packed(self, version)
+    
+    cdef void _init_from_tuple(self, tuple version) except *:
+        if len(version) != 5:
+            raise ValueError("Incorrect version tuple.")
+        self.major = int(version[0])
+        self.minor = int(version[1])
+        if version[2] is None:
+            self.patch = 0
         else:
-            self.vs_num = (<Version?>version).vs_num
+            self.patch = int(version[2])
+        if version[3]:
+            self.prerelease = str(version[3])
+        if version[4]:
+            self.build = str(version[4])
+    
+    cdef void _check_valid(self) except *:
+        if self.major < 0 or self.minor < 0 or self.patch < 0:
+            raise ValueError("A version can only be positive.")
+    
+    cpdef tuple to_tuple(self):
+        return (self.major, self.minor, self.patch, self.prerelease, self.build)
+    
+    cpdef to_dict(self):
+        return OrderedDict(
+            (
+                ("major", self.major),
+                ("minor", self.minor),
+                ("patch", self.patch),
+                ("prerelease", self.prerelease),
+                ("build", self.build),
+            )
+        )
 
-    def __getitem__(self, key: T_version):
-        try:
-            return self.vs_num[key]
-        except IndexError:
-            if isinstance(key, slice):
-                raise IndexError("Index out of range.")
-            else:
-                return 0
+    def __getitem__(self, T_Key index):
+        if T_Key is int:
+            if (index < 0):
+                raise IndexError("Version index cannot be negative")
+            return self.to_tuple()[index]
+        else:
+            if (
+                (index.start is not None and index.start < 0)
+                or (index.stop is not None and index.stop < 0)
+            ):
+                raise IndexError("Version index cannot be negative")
+
+            part = tuple(i for i in self.to_tuple()[index] if i != None)
+            if not part:
+                raise IndexError("Version part undefined")
+            return part
 
     def __iter__(self):
-        return self.vs_num
+        return self.to_tuple()
+    
+    def __hash__(self):
+        return hash(self.to_tuple[:4])
     
     def __richcmp__(self, _other, int op):
         cdef Version other
         if not isinstance(_other, Version):
             try:
-                other = Version(_other)
+                other = self.__class__(_other)
             except ValueError:
                 return NotImplemented
         else:
@@ -98,116 +179,28 @@ cdef class Version:
             return cls(val)
     
     def __len__(self) -> int:
-        return len(self.vs_num)
-
-    cdef tuple _extend(self, int max):
-        cdef int l = len(self.vs_num)
-        if max <= l:
-            return self.vs_num[:max]
-        else:
-            return self.vs_num + (0,) * (max - l)
-
-    def _generator(self, max: Optional[int] = None):
-        cdef int l = len(self.vs_num)
-        cdef int i = 0
-        while True:
-            if i < l:
-                yield self.vs_num[i]
-            else:
-                yield 0
-
-            i += 1
-            if not max is None:
-                if i >= max:
-                    return
-            elif i > 32:
-                raise RuntimeError
-    
-    def get_number(self, index: Optional[int] = None, *, extend: Optional[int] = None) -> Union[Tuple[int, ...], int]:
-        if index:
-            try:
-                return self.vs_num[index]
-            except IndexError:
-                return 0
-        else:
-            if not extend:
-                return self.vs_num
-            else:
-                return self._extend(extend)
+        cdef int n = 0
+        for i in self.to_tuple():
+            if i != None:
+                n += 1
+        return n
     
     def check(self, *args: str, **kw: Union[Tuple[int, ...], str, "Version"]):
         return version_check(self, *args, **kw)
 
     def __repr__(self) -> str:
-        return f"Version{self.vs_num}"
+        return "Version%s" % (self.to_tuple(),)
 
-    def __str__(self) -> str:
-        return '.'.join([str(i) for i in self.vs_num])
-
-
-cdef class PhaseVersion(Version):
-
-    def __init__(self, version: T_version, *, phase: Optional[str] = None) -> None:
-        if isinstance(version, self.__class__):
-            self.phase = version.phase
-            super().__init__(version)
-        elif isinstance(version, Version):
-            self.phase = phase
-            super().__init__(version)
-        else:
-            try:
-                if isinstance(version, tuple):
-                    if isinstance(version[0], str):
-                        self.phase = phase or version[0]
-                        version = version[1:]
-                    else:
-                        self.phase = phase
-                else:
-                    l = version.split()
-                    if len(l) == 1:
-                        self.phase = phase
-                    elif len(l) > 2 or (not isinstance(l[0], str)):
-                        raise ValueError
-                    else:
-                        self.phase = phase or l[0]
-                        version = l[1]
-                super().__init__(version)
-                return
-            except Exception:
-                pass
-            raise ValueError("Incorrect version form.")
-    
-    def __richcmp__(self, _other, int op):
-        cdef PhaseVersion other
-        if not isinstance(_other, PhaseVersion):
-            try:
-                other = PhaseVersion(_other)
-            except ValueError:
-                return NotImplemented
-        else:
-            other = _other
-        
-        if self.phase and other.phase:
-            if op == Py_EQ:
-                return self.vs_num == other.vs_num and self.phase == other.phase
-            elif op == Py_NE:
-                return self.vs_num != other.vs_num or self.phase != other.phase
-        
-        return _version_cmp(self, other, op)
-
-    def __repr__(self) -> str:
-        if not self.phase:
-            return super().__repr__()
-        return f"PhaseVersion({self.phase}, {self.get_number()})"
-
-    def __str__(self) -> str:
-        num = super().__str__()
-        if not self.phase:
-            return num
-        return f"{self.phase} {num}"
+    def __str__(self):
+        cdef str version = "%d.%d.%d" % (self.major, self.minor, self.patch)
+        if self.prerelease != None:
+            version += "-%s" % self.prerelease
+        if self.build != None:
+            version += "+%s" % self.build
+        return version
 
 
-__version__ = PhaseVersion("Alpha 0.2.1")
+__version__ = Version("0.2.1-Alpha")
 
 cdef dict _version_func = {}
 
@@ -240,13 +233,13 @@ def pass_version_check(func: Callable, *, collection: Dict[str, Callable] = _ver
 
 def analyse_check_sentences(
         *args,
-        eq: Union[List[T_version], T_version] = [],
-        ne: Union[List[T_version], T_version] = [],
-        gt: Optional[T_version] = None,
-        ge: Optional[T_version] = None,
-        lt: Optional[T_version] = None,
-        le: Optional[T_version] = None
-) -> Dict[str, Union[List[T_version], T_version, None]]:
+        eq: Union[List[T_Version], T_Version] = [],
+        ne: Union[List[T_Version], T_Version] = [],
+        gt: Optional[T_Version] = None,
+        ge: Optional[T_Version] = None,
+        lt: Optional[T_Version] = None,
+        le: Optional[T_Version] = None
+) -> Dict[str, Union[List[T_Version], T_Version, None]]:
     cdef dict ans = {}
     if not isinstance(eq, list):
         ans['eq'] = [eq, ]
@@ -279,12 +272,12 @@ def analyse_check_sentences(
 def version_check(
         Version version,
         *args: str,
-        eq: Union[List[T_version], T_version] = [],
-        ne: Union[List[T_version], T_version] = [],
-        gt: Optional[T_version] = None,
-        ge: Optional[T_version] = None,
-        lt: Optional[T_version] = None,
-        le: Optional[T_version] = None
+        eq: Union[List[T_Version], T_Version] = [],
+        ne: Union[List[T_Version], T_Version] = [],
+        gt: Optional[T_Version] = None,
+        ge: Optional[T_Version] = None,
+        lt: Optional[T_Version] = None,
+        le: Optional[T_Version] = None
 ) -> Callable[[Callable], Callable]:
     """
     The core function of the version check.
