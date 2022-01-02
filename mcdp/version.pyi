@@ -1,11 +1,10 @@
 from typing import Any, Dict, List, NoReturn, OrderedDict, Tuple, Callable, Union, Optional, TypeVar, overload
-
+from semver import VersionInfo
 T_version = Union[Tuple[Union[str, int], ...], Dict[str, Union[str, int]], str, "Version"]
 
 
 class Version:
     """
-    The base class in model 'version'.
     Support boolean operations between version numbers like '1.0.2'.
     """
 
@@ -19,7 +18,7 @@ class Version:
     @classmethod
     def __get_validators__(cls):...
     @classmethod
-    def validate(cls, val: Union[str, "Version"]):...
+    def validate(cls, val: T_version):...
     def __eq__(self, other: T_version) -> bool:...
     def __ne__(self, other: T_version) -> bool:...
     def __gt__(self, other: T_version) -> bool:...

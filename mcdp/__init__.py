@@ -12,6 +12,12 @@ from .typings import McdpError
 from .version import __version__
 
 
+__author__ = "Ovizro"
+__author_email__ = "Ovizro@hypercol.com"
+__maintainer__ = ["Tatersic", "ExDragine"]
+
+
+
 class Mcdatapack:
     __slots__ = ["config", ]
 

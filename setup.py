@@ -17,6 +17,8 @@ setup(
 
     author="Ovizro",
     author_email="Ovizro@hypercol.com",
+    maintainer="Tatersic, ExDragine",
+    maintainer_email="Tatersic@qq.com, ExDragine@hypercol.com",
     license="Apache 2.0",
 
     url="https://github.com/Ovizro/Mcdp",
