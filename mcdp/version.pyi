@@ -1,8 +1,6 @@
-from typing import Any, Dict, List, NoReturn, Tuple, Callable, Union, Optional, TypeVar, overload
+from typing import Any, Dict, List, NoReturn, OrderedDict, Tuple, Callable, Union, Optional, TypeVar, overload
 
-
-T_version = Union[Tuple[int, ...], str, "Version"]
-TS_version = Union[Tuple[Union[str, int], ...], str, "PhaseVersion"]
+T_version = Union[Tuple[Union[str, int], ...], Dict[str, Union[str, int]], str, "Version"]
 
 
 class Version:
@@ -13,13 +11,11 @@ class Version:
 
     def __init__(self, version: T_version) -> None:...
     @overload
-    def __getitem__(self, key: int) -> int:
-        ...
+    def __getitem__(self, key: int) -> int:...
     @overload
-    def __getitem__(self, key: slice) -> Tuple[int, ...]:
-        ...
+    def __getitem__(self, key: slice) -> Tuple[int, ...]:...
     def __getitem__(self, key: Union[int, slice]) -> Union[int, Tuple[int, ...]]:...
-    def __iter__(self) -> Tuple[int, ...]:...
+    def __iter__(self) -> Tuple[int, int, int, Optional[str], Optional[str]]:...
     @classmethod
     def __get_validators__(cls):...
     @classmethod
@@ -31,13 +27,8 @@ class Version:
     def __lt__(self, other: T_version) -> bool:...
     def __le__(self, other: T_version) -> bool:...
     def __len__(self) -> int:...
-    @overload
-    def get_number(self, *, extend: Optional[int] = None) -> Tuple[int, ...]:
-        ...
-    @overload
-    def get_number(self, index: int , *, extend: Optional[int] = None) -> int:
-        ...
-    def get_number(self, index: Optional[int] = None, *, extend: Optional[int] = None) -> Union[Tuple[int, ...], int]:...
+    def to_tuple(self) -> Tuple[int, int, int, Optional[str], Optional[str]]:...
+    def to_dict(self) -> OrderedDict[str, Union[int, str]]:...
     def check(self,
         *args: str,
         eq: Union[List[T_version], T_version] = [],
@@ -51,24 +42,7 @@ class Version:
     def __str__(self) -> str:...
 
 
-class PhaseVersion(Version):
-    """
-    Just add a version phase like 'Alpha' or 'Beta'. 
-    (In fact, 'Python 3.8.3' is valid, too.)
-    
-    The phase mark only used in '==' and '!=' when both sides have a phase mark.
-    That is to say:
-        ```
-        v = PhaseVersion('Beta 1.5.2')
-        v == '1.5.2'        #True
-        v == 'Alpha 1.5.2'  #False
-        v >= 'Alpha 1.4'    #True
-        ```
-    """
-
-    def __init__(self, version: T_version, *, phase: Optional[str] = None) -> None:...
-
-__version__: PhaseVersion
+__version__: Version
 
 def fail_version_check(func: Callable, *, collection: Dict[str, Callable] = ...) -> Callable:...
 def pass_version_check(func: Callable, *, collection: Dict[str, Callable] = ...) -> Callable:...

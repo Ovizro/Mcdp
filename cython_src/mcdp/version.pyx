@@ -200,7 +200,7 @@ cdef class Version:
         return version
 
 
-__version__ = Version("0.2.1-Alpha")
+__version__ = Version("0.2.3-Alpha")
 
 cdef dict _version_func = {}
 

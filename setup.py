@@ -5,12 +5,12 @@ try:
     with open("README.md", encoding='utf-8') as f:
         description = f.read()
 except OSError:
-    warnings.warn("Miss file 'README.md', using default description.")
+    warnings.warn("Miss file 'README.md', using default description.", ResourceWarning)
     description = "A python wheel helps to build a Minecraft datapack."
 
 setup(
     name="Mcdp",
-    version="0.2.1",
+    version="0.2.3-Alpha",
     description="A python wheel helps to build a Minecraft datapack.\nThe name 'Mcdp' is short for 'Minecraft datapack'.",
     long_description=description,
     long_description_content_type='text/markdown',
