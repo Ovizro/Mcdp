@@ -1,4 +1,5 @@
 from cpython cimport Py_LT, Py_LE, Py_GT, Py_GE, Py_EQ, Py_NE
+cimport cython
 
 import re
 from functools import wraps
@@ -58,13 +59,8 @@ cdef bint _version_cmp(Version v0, Version v1, int op) except -1:
     else:
         return eq_ok
 
-
+@cython.binding(False)
 def _init_packed(Version version_self, T_Version version):
-    """
-    Because when I try to use fused type in Version __init__, 
-    the VS cl give me a C2059...
-    So I have to make another function.
-    """
     cdef:
         tuple num
         int n
@@ -93,6 +89,24 @@ def _init_packed(Version version_self, T_Version version):
         raise ValueError("Incorrect version form.")
     else:
         version_self._init_from_tuple(version.to_tuple())
+
+@cython.binding(False)
+def _version_getitem(Version version_self, T_Key index):
+    if T_Key is int:
+        if (index < 0):
+            raise IndexError("Version index cannot be negative")
+        return version_self.to_tuple()[index]
+    else:
+        if (
+            (index.start is not None and index.start < 0)
+            or (index.stop is not None and index.stop < 0)
+        ):
+            raise IndexError("Version index cannot be negative")
+
+        part = tuple(i for i in version_self.to_tuple()[index] if i != None)
+        if not part:
+            raise IndexError("Version part undefined")
+        return part
 
 
 cdef class Version:
@@ -132,22 +146,8 @@ cdef class Version:
             )
         )
 
-    def __getitem__(self, T_Key index):
-        if T_Key is int:
-            if (index < 0):
-                raise IndexError("Version index cannot be negative")
-            return self.to_tuple()[index]
-        else:
-            if (
-                (index.start is not None and index.start < 0)
-                or (index.stop is not None and index.stop < 0)
-            ):
-                raise IndexError("Version index cannot be negative")
-
-            part = tuple(i for i in self.to_tuple()[index] if i != None)
-            if not part:
-                raise IndexError("Version part undefined")
-            return part
+    def __getitem__(self, index):
+        return _version_getitem(self, index)
 
     def __iter__(self):
         return self.to_tuple()
