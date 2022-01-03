@@ -1,8 +1,8 @@
-from typing import List, Optional, Union
+from typing import Final, List, Optional, Union
 
 
 class Counter:
-    value: int
+    value: Final[int]
     name: Optional[str]
 
     def __init__(self, name: Optional[str] = None, init: int = 0) -> None: ...

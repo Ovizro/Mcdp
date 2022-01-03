@@ -1,5 +1,6 @@
-from typing import Any, Dict, List, NoReturn, OrderedDict, Tuple, Callable, Union, Optional, TypeVar, overload
-from semver import VersionInfo
+from typing import Any, Dict, Final, List, NoReturn, OrderedDict, Tuple, Callable, Union, Optional, TypeVar, overload
+
+
 T_version = Union[Tuple[Union[str, int], ...], Dict[str, Union[str, int]], str, "Version"]
 
 
@@ -7,6 +8,12 @@ class Version:
     """
     Support boolean operations between version numbers like '1.0.2'.
     """
+
+    major: Final[int]
+    minor: Final[int]
+    patch: Final[int]
+    prerelease: Final[Optional[str]]
+    build: Final[Optional[str]]
 
     def __init__(self, version: T_version) -> None:...
     @overload
