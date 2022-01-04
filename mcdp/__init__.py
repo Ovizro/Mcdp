@@ -10,6 +10,8 @@ from .command import cout, endl
 from .mcfunc import mcfunc, mcfunc_main, MCFunction
 from .typings import McdpError
 from .version import __version__
+from .typing import *
+from .stream import *
 
 
 __author__ = "Ovizro"

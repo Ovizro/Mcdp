@@ -60,6 +60,7 @@ cdef bint _version_cmp(Version v0, Version v1, int op) except -1:
         return eq_ok
 
 @cython.binding(False)
+@cython.unraisable_tracebacks(False)
 def _init_packed(Version version_self, T_Version version):
     cdef:
         tuple num
@@ -91,6 +92,7 @@ def _init_packed(Version version_self, T_Version version):
         version_self._init_from_tuple(version.to_tuple())
 
 @cython.binding(False)
+@cython.unraisable_tracebacks(False)
 def _version_getitem(Version version_self, T_Key index):
     if T_Key is int:
         if (index < 0):

@@ -5,7 +5,8 @@ from Cython.Build import cythonize
 ext = [
     Extension("mcdp.counter", ["mcdp/counter.pyx"]),
     Extension("mcdp.version", ["mcdp/version.pyx"]),
-    Extension("mcdp.stream", ["mcdp/stream.pyx"])
+    Extension("mcdp.stream", ["mcdp/stream.pyx"]),
+    Extension("mcdp.typing", ["mcdp/typing.pyx"])
 ]
 
 path = os.getcwd()

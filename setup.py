@@ -23,6 +23,7 @@ setup(
 
     url="https://github.com/Ovizro/Mcdp",
     packages=["mcdp"],
+    package_data={'':["*.pyi"]},
     install_requires=["ujson", "pydantic", "aiofiles"],
 
     classifiers=[
