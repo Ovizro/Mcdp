@@ -5,31 +5,19 @@ from .version import __version__
 from .counter import Counter
 
 
-cdef int mcdp_env_flag = 0 # 0: pydp, 1: vmcl
-
-cpdef int _get_mcdp_ef():
-    return mcdp_env_flag
-
-cpdef void _set_mcdp_ef(int ef):
-    global mcdp_env_flag
-    mcdp_env_flag  = ef
-
-
 cdef class McdpVar:
 
     __accessible__ = {}
 
-    def __getattribute__(self, str key):
+    cdef v_getattr(self, str key):
         self.check_gsattr(key, 1)
-        return object.__getattribute__(self, key)
-    
-    def __setattr__(self, str key, value):
+        return getattr(self, key)
+
+    cdef void v_setattr(self, str key, value) except*:
         self.check_gsattr(key, 2)
-        object.__setattr__(self, key, value)
+        setattr(self, key, value)
 
     cdef void check_gsattr(self, str key, int i) except *:
-        if mcdp_env_flag == 0:
-            return
         cdef:
             int mod
             dict accessible = type(self).__accessible__

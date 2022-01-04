@@ -34,7 +34,7 @@ class Scoreboard(Variable):
                 raise McdpVarError("Unmatch scoreboard data.", var=instance)
             return instance
         else:
-            return McdpVar.__new__(cls)
+            return Variable.__new__(cls)
 
     def __init__(
             self,

@@ -783,7 +783,7 @@ class IOStreamObject(McdpVar):
 
 class Printer(IOStreamObject):
 
-    __slots__ = []
+    __slots__ = ["input"]
 
     input: List[MCString]
 

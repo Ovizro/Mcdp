@@ -1,6 +1,6 @@
 import os
 from setuptools import setup, Extension
-from Cython.Build import cythonize
+from Cython.Build import cythonize, build_ext
 
 ext = [
     Extension("mcdp.counter", ["mcdp/counter.pyx"]),
@@ -16,5 +16,6 @@ if os.path.split(path)[1] != "cython_src":
 setup(
     name="mcdp",
     ext_modules=cythonize(ext),
-    zip_safe=False
+    zip_safe=False,
+    cmdclass={"build_ext": build_ext}
 )

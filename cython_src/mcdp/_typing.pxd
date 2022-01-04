@@ -1,11 +1,10 @@
 from .version cimport Version
 from .counter cimport Counter
 
-cpdef int _get_mcdp_ef()
-cpdef void _set_mcdp_ef(int ef)
-
 
 cdef class McdpVar:
+    cdef v_getattr(self, str key)
+    cdef void v_setattr(self, str key, value) except*
     cdef void check_gsattr(self, str key, int i) except *
 
 
