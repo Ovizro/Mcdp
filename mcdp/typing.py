@@ -17,7 +17,7 @@ Mcdp BaseModel
 """
 
 
-class McdpBaseModel(McdpVar, BaseModel):
+class McdpBaseModel(BaseModel):
 
     __accessible__: ClassVar[Dict[str, int]] = {"@all.attr": 3}
 

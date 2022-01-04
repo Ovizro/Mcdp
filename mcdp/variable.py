@@ -6,7 +6,7 @@ from typing import Any, DefaultDict, Dict, List, Literal, Optional, Type, TypeVa
 
 from .counter import Counter
 from .context import insert
-from .typing import Variable, VariableMeta, McdpVar
+from .typing import Variable, McdpVar
 from .mcstring import MCString, Color
 from .entities import McdpStack, get_tag
 from .command import ConditionInstruction, ScoreCase, Selector
@@ -16,7 +16,7 @@ from .exceptions import *
 class Scoreboard(Variable):
 
     __slots__ = ["name", "criteria", "display_name"]
-    __accessible__ = ["name", "criteria", "display_name"]
+    __accessible__ = {"name": 1, "criteria": 3, "display_name": 3}
 
     applied: List[str] = []
     collection: Dict[str, "Scoreboard"] = {}
@@ -117,7 +117,7 @@ def _get_selector(score: Union[int, "Score"]) -> Selector:
 class Score(Variable):
 
     __slots__ = ["name", "stack_id", "scoreboard", "init_func", "selector"]
-    __accessible__ = ["scoreboard"]
+    __accessible__ = {"scoreboard": 1}
 
     def __init__(
             self,
@@ -305,7 +305,7 @@ class _Cache:
         return "dpc_" + hex(cache_id)
 
 
-class ScoreMeta(VariableMeta):
+class ScoreMeta(type):
 
     def __instancecheck__(self, instance: Any) -> bool:
         if isinstance(instance, dp_score) and instance.simulation is self:
