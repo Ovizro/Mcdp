@@ -8,9 +8,8 @@ from .variable import Scoreboard, dp_int, dp_score, global_var
 from .mcstring import MCString, MCSS
 from .command import cout, endl
 from .mcfunc import mcfunc, mcfunc_main, MCFunction
-from .typings import McdpError
+from .typing import McdpError
 from .version import __version__
-from .typing import *
 from .stream import *
 
 

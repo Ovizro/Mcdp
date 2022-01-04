@@ -1,9 +1,7 @@
 cimport cython
 import ujson
 
-from .version cimport Version
 from .version import __version__
-from .counter cimport Counter
 from .counter import Counter
 
 
@@ -60,27 +58,46 @@ cdef class McdpVar:
                 % (type(self).__qualname__, key))
 
 
-cdef class McdpBaseModel(McdpVar):
+cdef class _McdpBaseModel(McdpVar):
 
     __accessible__ = {"@all.attr": 3}
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, val: Union[dict, _McdpBaseModel]):
+        if isinstance(val, dict):
+            return cls(**val)
+        elif not isinstance(val, cls):
+            raise TypeError("%s is not a instance of %s." % (val, cls.__qualname__))
+        else:
+            return val
 
     cpdef dict to_dict(self):
         return {}
     
     def json(self, **kwds) -> str:
         return ujson.dumps(self.to_dict(), **kwds)
-    
+
 
 cdef class Variable(McdpVar):
-    cdef readonly:
-        Counter counter
     
     def __init__(self, Counter counter = None):
         if counter:
             self.counter = counter
         else:
             self.counter = Counter()
-    
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, Variable val):
+        return val
+
     cpdef void link(self, Variable var) except *:
         self.counter.link_to(var.counter)
     
@@ -91,8 +108,6 @@ cdef class Variable(McdpVar):
         return str(self)
 
 cdef class McdpError(Exception):
-    cdef readonly:
-        Version version
 
     def __init__(self, *args):
         self.version = __version__

@@ -8,7 +8,7 @@ from typing import Any, ClassVar, List, Union, Dict
 from .config import get_config
 from .context import Context, insert, enter_stack_ops, leave_stack_ops
 from .command import Position, Selector, Execute, ScoreCase, ConditionInstruction, AsInstruction
-from .typings import Variable, McdpVar
+from .typing import Variable, McdpVar
 
 
 @lru_cache(2)

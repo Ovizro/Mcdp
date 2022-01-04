@@ -5,7 +5,7 @@ from io import StringIO
 from typing import Any, Callable, Coroutine, Dict, List, Literal, Optional, Set, Tuple, Type, Union
 
 from .config import get_config
-from .typings import McdpBaseModel, McdpVar, McdpError
+from .typing import McdpBaseModel, McdpVar, McdpError
 from .mcstring import MCString
 from .context import Context, McdpContextError, comment, insert, ContextEnv, newline
 from .exceptions import *

@@ -1,4 +1,5 @@
-from typing import Any, ClassVar, Dict, Final, Optional, Union
+from typing import Any, ClassVar, Dict, Final, Optional
+
 from .version import Version, __version__
 from .counter import Counter
 
@@ -7,7 +8,7 @@ class McdpVar:
     __accessible__: ClassVar[Dict[str, int]]
 
 
-class McdpBaseModel(McdpVar):
+class _McdpBaseModel(McdpVar):
     def to_dict(self) -> Dict[str, Any]: ...
     def json(self) -> str: ...
 

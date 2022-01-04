@@ -6,7 +6,7 @@ from typing import Any, DefaultDict, Dict, List, Literal, Optional, Type, TypeVa
 
 from .counter import Counter
 from .context import insert
-from .typings import Variable, VariableMeta, McdpVar
+from .typing import Variable, VariableMeta, McdpVar
 from .mcstring import MCString, Color
 from .entities import McdpStack, get_tag
 from .command import ConditionInstruction, ScoreCase, Selector

@@ -7,7 +7,7 @@ from typing import (Callable, Coroutine, Dict, List, Mapping, NoReturn,
 
 from .counter import Counter, get_counter
 from .file_struct import build_dirs_from_config
-from .typings import McdpVar, Variable
+from .typing import McdpVar, Variable
 from .config import get_config, MCFuncConfig
 from .context import Context, ContextEnv, TagManager, add_tag, insert, comment, newline, leave_stack_ops, enter_stack_ops
 from .command import AsInstruction, Function, Selector, lib_func

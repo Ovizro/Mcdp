@@ -4,7 +4,7 @@ from pathlib import Path
 from collections import ChainMap, UserList, defaultdict
 from typing import Any, ClassVar, DefaultDict, Dict, List, Literal, Optional, Callable, Union, Type
 
-from .typings import McdpBaseModel, McdpVar
+from .typing import McdpBaseModel, McdpVar
 from .config import get_config, get_version
 from .aio_stream import Stream, T_Path, wraps
 from .counter import get_counter

@@ -1,7 +1,7 @@
 import sys
 from typing import Optional
 
-from .typings import McdpError, __version__
+from .typing import McdpError, __version__
 
 
 class McdpVersionError(McdpError):

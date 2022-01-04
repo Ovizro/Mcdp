@@ -1,7 +1,7 @@
 from os import PathLike
 from typing import Dict, Literal, Tuple, Union, Optional, List, Set
 
-from .typings import McdpBaseModel
+from .typing import McdpBaseModel
 from .version import Version, __version__, AioCompatVersionChecker
 from .exceptions import *
 

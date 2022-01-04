@@ -2,7 +2,7 @@ from enum import Enum, EnumMeta, unique
 from pydantic import validator, Field
 from typing import Dict, List, Any, Literal, Tuple, Union, Optional
 
-from .typings import McdpBaseModel
+from .typing import McdpBaseModel
 from .config import check_mc_version, MinecraftVersionError
 
 
