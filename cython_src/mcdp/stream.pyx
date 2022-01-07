@@ -1,31 +1,61 @@
 from libc.stdio cimport fopen, fputs, fclose
 from .counter cimport ContextCounter, get_counter
 
-import os
 import ujson
 
+from .path cimport (join_path, dirname, cmkdir,
+    isdir, isfile, isabs, abspath, PyMem_Free)
 from .counter import get_counter
 
-cdef _path_tool = os.path
 cdef ContextCounter counter = get_counter()
 
-cpdef void mkdir(str dir_path) except *:
-    +counter.dirs
-    cdef str base = _path_tool.split(dir_path)[0]
-    if _path_tool.isdir(base):
-        os.mkdir(dir_path)
+
+cdef void _mkdir(const char* path, int* counter) nogil except *:
+    counter[0] += 1
+
+    cdef:
+        char* pdir = dirname(path)
+        int _sc
+    if pdir == NULL:
+        raise MemoryError
+    if isdir(pdir) == 1:
+        _sc = cmkdir(path)
+        if _sc != 0:
+            with gil:
+                raise OSError("fail to create dir")
     else:
-        mkdir(base)
+        _mkdir(pdir, counter)
+    PyMem_Free(pdir)
+    
+
+cpdef void mkdir(const char* dir_path) nogil except *:
+    if isdir(dir_path) == 1:
+        return
+
+    cdef int c = 0
+    _mkdir(dir_path, &c)
+    if c:
+        with gil:
+            counter.dirs += c
     
 
 cdef class Stream:
 
     def __init__(self, str path, *, root: Optional[str] = None):
-        if not _path_tool.isabs(path):
+        self.path = path.encode()
+        cdef:
+            bytes _root
+            char* p = <char*>self.path
+            char* r
+        if not isabs(p):
             if not root:
-                p = _path_tool.abspath(path)
+                p = abspath(p)
+                if p == NULL:
+                    raise MemoryError
             else:
-                p = _path_tool.join(root, path)
+                _root = root.encode()
+                r = <char*>_root
+                p = join_path(r, p)
 
         self.path = p
         self._file = NULL
@@ -36,24 +66,24 @@ cdef class Stream:
             return
 
         cdef:
-            tmp_path = self.path.encode()
-            char* _path = <char*>tmp_path
+            char* _path = <char*>self.path
             char* open_mod
-        file_dir = _path_tool.split(self.path)[0]
-        if not _path_tool.isdir(file_dir):
-            mkdir(file_dir)
+            char* file_dir = dirname(self.path)
         if mod == 'w':
             open_mod = 'w'
         elif mod == 'a':
             open_mod = 'a'
         else:
             raise ValueError("Invalid open mod.")
-
+            
         with nogil:
+            if not isdir(file_dir):
+                mkdir(file_dir)
             self._file = fopen(_path, open_mod)
             if self._file != NULL:
                 self.closed = False
                 return
+            PyMem_Free(file_dir)
         raise OSError("fail to open %s" % self.path)
     
     cpdef int _bwrite(self, bytes _s) except -1:

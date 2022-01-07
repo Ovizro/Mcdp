@@ -91,9 +91,7 @@ cdef class Variable(McdpVar):
     
     cpdef bint used(self):
         return bool(self.counter)
-    
-    def __repr__(self):
-        return str(self)
+        
 
 cdef class McdpError(Exception):
 

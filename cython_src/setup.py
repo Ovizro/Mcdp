@@ -1,11 +1,15 @@
 import os
 from setuptools import setup, Extension
-from Cython.Build import cythonize, build_ext
+from Cython.Build import cythonize
 
 ext = [
     Extension("mcdp.counter", ["mcdp/counter.pyx"]),
     Extension("mcdp.version", ["mcdp/version.pyx"]),
-    Extension("mcdp.stream", ["mcdp/stream.pyx"]),
+    Extension(
+        "mcdp.stream", 
+        ["mcdp/stream.pyx"],
+        include_dirs=['.']
+    ),
     Extension("mcdp._typing", ["mcdp/_typing.pyx"])
 ]
 
@@ -17,5 +21,4 @@ setup(
     name="mcdp",
     ext_modules=cythonize(ext),
     zip_safe=False,
-    cmdclass={"build_ext": build_ext}
 )

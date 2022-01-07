@@ -1,7 +1,7 @@
 from typing import Any, Final, Literal, Optional
 
 
-def mkdir(dir_path: str) -> None:...
+def mkdir(dir_path: str) -> None: ...
 
 class Stream:
     path: Final[str]

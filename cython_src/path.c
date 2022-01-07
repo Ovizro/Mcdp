@@ -22,10 +22,9 @@
 typedef struct stat Stat;
 
 PATH_PUBLIC char* _fspath(const char* path) {
-	int len = strlen(path);
+	size_t len = strlen(path);
 	char* tmp_path = MALLOC(len + 1, char);
 	if (tmp_path == NULL) {
-		PyErr_NoMemory();
 		return NULL;
 	}
 	for (int i = 0; i < len; ++i) {
@@ -48,9 +47,9 @@ PATH_PUBLIC char* _fspath(const char* path) {
 }
 
 char* _join_path(const char* base, const char* path) {
-	int len0 = strlen(base);
-	int len1 = strlen(path);
-	int len = len0 + len1 + 1;
+	size_t len0 = strlen(base);
+	size_t len1 = strlen(path);
+	size_t len = len0 + len1 + 1;
 	char* buffer = MALLOC(len + 1, char);
 	if (buffer == NULL) {
 		return NULL;
@@ -78,7 +77,7 @@ PATH_PUBLIC char* join_path(const char* base, const char* path) {
 }
 
 PATH_PUBLIC void split(const char* path, char** base, char** name) {
-	int len = strlen(path);
+	size_t len = strlen(path);
 	int i;
 	for (i = len - 1; i >= 0; --i) {
 		if (path[i] == '\\') {
@@ -161,7 +160,7 @@ PATH_PUBLIC char* basename(const char* path) {
 }
 
 int _isabs(const char* path) {
-	int len = strlen(path);
+	size_t len = strlen(path);
 	if (len > 1) {
 		if (path[1] == ':') {
 			char d = path[0];
@@ -223,9 +222,9 @@ PATH_PUBLIC char* abspath(const char* path) {
 	if (isabs(path)) {
 		return NULL;
 	}
-	char* cwd[PATH_MAX] = { '\0' };
+	char cwd[PATH_MAX] = { '\0' };
 	_getcwd(cwd, sizeof(cwd));
-	return _join_path(cwd, path);
+	return join_path(cwd, path);
 }
 
 int _rmtree(const char* path) {

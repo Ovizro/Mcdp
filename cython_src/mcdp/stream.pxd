@@ -1,13 +1,13 @@
 from libc.stdio cimport FILE
 
 
-cpdef void mkdir(str dir_path) except *
+cpdef void mkdir(const char* dir_path) nogil except *
 
 
 cdef class Stream:
     cdef FILE* _file
     cdef readonly:
-        str path
+        bytes path
         bint closed
 
     cpdef void open(self, str mod = *) except *
