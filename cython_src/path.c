@@ -1,0 +1,282 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <direct.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
+#pragma warning(disable: 4996)
+
+#define MALLOC(size, type) (type*)calloc(size, sizeof(type))
+#ifdef  _MSC_VER
+#define PATH_PUBLIC __declspec(dllexport)
+#else
+#define PATH_PUBLIC
+#endif //  _MSC_VER
+
+
+typedef struct stat Stat;
+
+PATH_PUBLIC char* _fspath(const char* path) {
+	int len = strlen(path);
+	char* tmp_path = MALLOC(len + 1, char);
+	if (tmp_path == NULL) {
+		return NULL;
+	}
+	for (int i = 0; i < len; ++i) {
+		if (path[i] == '/') {
+			tmp_path[i] = '\\';
+		}
+		else
+		{
+			tmp_path[i] = path[i];
+		}
+	}
+	if (tmp_path[len - 1] == '\\') {
+		tmp_path[len - 1] = '\0';
+	}
+	else
+	{
+		tmp_path[len] = '\0';
+	}
+	return tmp_path;
+}
+
+char* _join_path(char* base, char* path) {
+	int len0 = strlen(base);
+	int len1 = strlen(path);
+	int len = len0 + len1 + 1;
+	char* buffer = MALLOC(len + 1, char);
+	if (buffer == NULL) {
+		return NULL;
+	}
+	
+	strcpy(buffer, base);
+	buffer[len0] = '\\';
+	buffer[len0 + 1] = '\0';
+
+	strcat(buffer, path);
+	buffer[len] = '\0';
+	return buffer;
+}
+
+PATH_PUBLIC char* join_path(const char* base, const char* path) {
+	char* _base = _fspath(base);
+	char* _path = _fspath(path);
+	if (_base == NULL || _path == NULL) {
+		return NULL;
+	}
+	char* new_p = _join_path(_base, _path);
+	free(_base);
+	free(_path);
+	return new_p;
+}
+
+PATH_PUBLIC void split(const char* path, char** base, char** name) {
+	int len = strlen(path);
+	int i;
+	for (i = len - 1; i >= 0; --i) {
+		if (path[i] == '\\') {
+			break;
+		}
+	}
+	if (i < 0) {
+		if (name != NULL) {
+			*name = MALLOC(len + 1, char);
+			if (*name == NULL) {
+				return;
+			}
+			strcpy(*name, path);
+		}
+		if (base != NULL) {
+			*base = MALLOC(3, char);
+			if (*base == NULL) {
+				return;
+			}
+			strcpy(*base, ".");
+		}
+	}
+	else if (i == 0)
+	{
+		if (name != NULL) {
+			*name = MALLOC(len, char);
+			if (*name == NULL) {
+				return;
+			}
+			strcpy(*name, path+1);
+		}
+		if (base != NULL) {
+			*base = MALLOC(3, char);
+			if (*base == NULL) {
+				return;
+			}
+			strcpy(*base, "/.");
+		}
+	}
+	else
+	{
+		if (base != NULL) {
+			*base = MALLOC(i+1, char);
+			if (*base == NULL) {
+				return;
+			}
+			strncpy(*base, path, i);
+		}
+		if (name != NULL) {
+			*name = MALLOC(len - i + 1, char);
+			if (*name == NULL) {
+				return;
+			}
+			strcpy(*name, path+i+1);
+
+		}
+	}
+}
+
+PATH_PUBLIC char* dirname(const char* path) {
+	char* dir = NULL;
+	char* tmp_path = _fspath(path);
+	if (tmp_path == NULL) {
+		return NULL;
+	}
+	split(tmp_path, &dir, NULL);
+	free(tmp_path);
+	return dir;
+}
+
+PATH_PUBLIC char* basename(const char* path) {
+	char* name = NULL;
+	char* tmp_path = _fspath(path);
+	if (tmp_path == NULL) {
+		return NULL;
+	}
+	split(tmp_path, NULL, &name);
+	free(tmp_path);
+	return name;
+}
+
+int _isabs(const char* path) {
+	int len = strlen(path);
+	if (len > 1) {
+		if (path[1] == ':') {
+			char d = path[0];
+			if ((d >= 'A' && d <= 'Z') || (d >= 'a' && d <= 'z')) {
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+PATH_PUBLIC int isabs(const char* path) {
+	char* tmp_path = _fspath(path);
+	if (tmp_path == NULL) {
+		return -1;
+	}
+	int b = _isabs(tmp_path);
+	free(tmp_path);
+	return b;
+}
+
+#define S_ISDIR(stat) (stat.st_mode & S_IFDIR)
+#define S_ISREG(stat) (stat.st_mode & S_IFREG)
+
+static int _getstat(const char* path, Stat* st) {
+	if (stat(path, st) != 0) {
+		return NULL;
+	}
+
+}
+
+PATH_PUBLIC int isexist(const char* path) {
+	Stat st;
+	int _sc = stat(path, &st);
+	return (_sc != 0);
+}
+
+PATH_PUBLIC int isdir(const char* path) {
+	Stat st;
+	int _sc = stat(path, &st);
+	if (_sc != 0) {
+		return 0;
+	}
+	if S_ISDIR(st) {
+		return 1;
+	}
+	else
+	{
+		return -1;
+	}
+}
+
+PATH_PUBLIC int isfile(const char* path) {
+	Stat st;
+	int _sc = stat(path, &st);
+	if (_sc != 0) {
+		return 0;
+	}
+	if S_ISREG(st) {
+		return 1;
+	}
+	else
+	{
+		return -1;
+	}
+}
+
+int _rmtree(const char* path) {
+	DIR* dir;
+	int _sc;
+
+	int len = strlen(path);
+	if (path[len - 1] != '/' && path[len - 1] != '\\') {
+		char* tmp_path = MALLOC(len + 2, char);
+		if (tmp_path == NULL) {
+			return -2;
+		}
+		strcpy(tmp_path, path);
+		tmp_path[len] = '\\';
+		tmp_path[len + 1] = '\0';
+		dir = opendir(tmp_path);
+		free(tmp_path);
+	}
+	else
+	{
+		dir = opendir(path);
+	}
+	
+	if (dir == NULL) {
+		return -1;
+	}
+	for (struct dirent* next_file = readdir(dir); next_file != NULL; next_file = readdir(dir)) {
+		if (strcmp(next_file->d_name, ".") == 0 || strcmp(next_file->d_name, "..") == 0) {
+			continue;
+		}
+		char* p = _join_path(path, next_file->d_name);
+		if (next_file->d_type & S_IFREG) {
+			_sc = remove(p);
+		}
+		else
+		{
+			_sc = _rmtree(p);
+		}
+		free(p);
+		if (_sc != 0) {
+			return -3;
+		}
+	}
+	closedir(dir);
+	_sc = _rmdir(path);
+	if (_sc != 0) {
+		return -2;
+	}
+	return 0;
+}
+
+PATH_PUBLIC int rmtree(const char* path) { 
+	char* tmp_path = _fspath(path);
+	int _sc = _rmtree(tmp_path);
+	free(tmp_path);
+	return _sc;
+}

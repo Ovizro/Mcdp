@@ -16,7 +16,7 @@ from .stream import *
 __author__ = "Ovizro"
 __author_email__ = "Ovizro@hypercol.com"
 __maintainer__ = ["Tatersic", "ExDragine"]
-
+__maintainer_email__ = ["Tatersic@qq.com", "ExDragine@hypercol.com"]
 
 
 class Mcdatapack:

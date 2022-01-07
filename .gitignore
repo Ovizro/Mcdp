@@ -136,9 +136,7 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
-cython_src/*.html
 cython_src/*/*.html
-cython_src/*.c
 cython_src/*/*.c
 cython_src/*.py[id]
 
