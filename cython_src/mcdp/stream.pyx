@@ -1,3 +1,4 @@
+cimport cython
 from libc.stdio cimport fopen, fputs, fclose
 from .counter cimport ContextCounter, get_counter
 
@@ -9,18 +10,20 @@ from .counter import get_counter
 
 cdef ContextCounter counter = get_counter()
 
-
-cdef void _mkdir(const char* path, int* counter) nogil except *:
+@cython.unraisable_tracebacks(False)
+cdef void _mkdir(const char* path, int* counter) nogil:
     counter[0] += 1
 
     cdef:
         char* pdir = dirname(path)
         int _sc
     if pdir == NULL:
-        raise MemoryError
+        with gil:
+            raise MemoryError
     if isdir(pdir) == 1:
         _sc = cmkdir(path)
         if _sc != 0:
+            PyMem_Free(pdir)
             with gil:
                 raise OSError("fail to create dir")
     else:
@@ -41,12 +44,11 @@ cpdef void mkdir(const char* dir_path) nogil except *:
 
 cdef class Stream:
 
-    def __init__(self, str path, *, root: Optional[str] = None):
+    def __init__(self, str path, *, root = None):
         self.path = path.encode()
         cdef:
             bytes _root
             char* p = <char*>self.path
-            char* r
         if not isabs(p):
             if not root:
                 p = abspath(p)
@@ -54,10 +56,10 @@ cdef class Stream:
                     raise MemoryError
             else:
                 _root = root.encode()
-                r = <char*>_root
-                p = join_path(r, p)
+                p = join_path(_root, p)
 
-        self.path = p
+            self.path = p
+            PyMem_Free(p)
         self._file = NULL
         self.closed = False
     
@@ -67,7 +69,7 @@ cdef class Stream:
 
         cdef:
             char* _path = <char*>self.path
-            char* open_mod
+            const char* open_mod
             char* file_dir = dirname(self.path)
         if mod == 'w':
             open_mod = 'w'
@@ -79,19 +81,18 @@ cdef class Stream:
         with nogil:
             if not isdir(file_dir):
                 mkdir(file_dir)
+            PyMem_Free(file_dir)
             self._file = fopen(_path, open_mod)
             if self._file != NULL:
                 self.closed = False
                 return
-            PyMem_Free(file_dir)
         raise OSError("fail to open %s" % self.path)
     
+    @cython.nonecheck(False)
     cpdef int _bwrite(self, bytes _s) except -1:
         if self._file == NULL:
             raise OSError("not writable")
 
-        if _s is None:
-            raise ValueError("argument must be a string or bytes, not 'NoneType'")
         cdef:
             int c
             char* string = _s
