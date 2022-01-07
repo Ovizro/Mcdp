@@ -5,10 +5,13 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <Python.h>
 
 #pragma warning(disable: 4996)
 
-#define MALLOC(size, type) (type*)calloc(size, sizeof(type))
+#define MALLOC(size, type) (type*)malloc((size) * sizeof(type))
+#define FREE free
+
 #ifdef  _MSC_VER
 #define PATH_PUBLIC __declspec(dllexport)
 #else
@@ -22,6 +25,7 @@ PATH_PUBLIC char* _fspath(const char* path) {
 	int len = strlen(path);
 	char* tmp_path = MALLOC(len + 1, char);
 	if (tmp_path == NULL) {
+		PyErr_NoMemory();
 		return NULL;
 	}
 	for (int i = 0; i < len; ++i) {
@@ -43,7 +47,7 @@ PATH_PUBLIC char* _fspath(const char* path) {
 	return tmp_path;
 }
 
-char* _join_path(char* base, char* path) {
+char* _join_path(const char* base, const char* path) {
 	int len0 = strlen(base);
 	int len1 = strlen(path);
 	int len = len0 + len1 + 1;
@@ -51,7 +55,7 @@ char* _join_path(char* base, char* path) {
 	if (buffer == NULL) {
 		return NULL;
 	}
-	
+
 	strcpy(buffer, base);
 	buffer[len0] = '\\';
 	buffer[len0 + 1] = '\0';
@@ -68,8 +72,8 @@ PATH_PUBLIC char* join_path(const char* base, const char* path) {
 		return NULL;
 	}
 	char* new_p = _join_path(_base, _path);
-	free(_base);
-	free(_path);
+	FREE(_base);
+	FREE(_path);
 	return new_p;
 }
 
@@ -104,7 +108,7 @@ PATH_PUBLIC void split(const char* path, char** base, char** name) {
 			if (*name == NULL) {
 				return;
 			}
-			strcpy(*name, path+1);
+			strcpy(*name, path + 1);
 		}
 		if (base != NULL) {
 			*base = MALLOC(3, char);
@@ -117,7 +121,7 @@ PATH_PUBLIC void split(const char* path, char** base, char** name) {
 	else
 	{
 		if (base != NULL) {
-			*base = MALLOC(i+1, char);
+			*base = MALLOC(i + 1, char);
 			if (*base == NULL) {
 				return;
 			}
@@ -128,7 +132,7 @@ PATH_PUBLIC void split(const char* path, char** base, char** name) {
 			if (*name == NULL) {
 				return;
 			}
-			strcpy(*name, path+i+1);
+			strcpy(*name, path + i + 1);
 
 		}
 	}
@@ -141,7 +145,7 @@ PATH_PUBLIC char* dirname(const char* path) {
 		return NULL;
 	}
 	split(tmp_path, &dir, NULL);
-	free(tmp_path);
+	FREE(tmp_path);
 	return dir;
 }
 
@@ -152,7 +156,7 @@ PATH_PUBLIC char* basename(const char* path) {
 		return NULL;
 	}
 	split(tmp_path, NULL, &name);
-	free(tmp_path);
+	FREE(tmp_path);
 	return name;
 }
 
@@ -175,18 +179,8 @@ PATH_PUBLIC int isabs(const char* path) {
 		return -1;
 	}
 	int b = _isabs(tmp_path);
-	free(tmp_path);
+	FREE(tmp_path);
 	return b;
-}
-
-#define S_ISDIR(stat) (stat.st_mode & S_IFDIR)
-#define S_ISREG(stat) (stat.st_mode & S_IFREG)
-
-static int _getstat(const char* path, Stat* st) {
-	if (stat(path, st) != 0) {
-		return NULL;
-	}
-
 }
 
 PATH_PUBLIC int isexist(const char* path) {
@@ -201,7 +195,7 @@ PATH_PUBLIC int isdir(const char* path) {
 	if (_sc != 0) {
 		return 0;
 	}
-	if S_ISDIR(st) {
+	if S_ISDIR(st.st_mode) {
 		return 1;
 	}
 	else
@@ -216,13 +210,22 @@ PATH_PUBLIC int isfile(const char* path) {
 	if (_sc != 0) {
 		return 0;
 	}
-	if S_ISREG(st) {
+	if S_ISREG(st.st_mode) {
 		return 1;
 	}
 	else
 	{
 		return -1;
 	}
+}
+
+PATH_PUBLIC char* abspath(const char* path) {
+	if (isabs(path)) {
+		return NULL;
+	}
+	char* cwd[PATH_MAX] = { '\0' };
+	_getcwd(cwd, sizeof(cwd));
+	return _join_path(cwd, path);
 }
 
 int _rmtree(const char* path) {
@@ -239,13 +242,13 @@ int _rmtree(const char* path) {
 		tmp_path[len] = '\\';
 		tmp_path[len + 1] = '\0';
 		dir = opendir(tmp_path);
-		free(tmp_path);
+		FREE(tmp_path);
 	}
 	else
 	{
 		dir = opendir(path);
 	}
-	
+
 	if (dir == NULL) {
 		return -1;
 	}
@@ -261,7 +264,7 @@ int _rmtree(const char* path) {
 		{
 			_sc = _rmtree(p);
 		}
-		free(p);
+		FREE(p);
 		if (_sc != 0) {
 			return -3;
 		}
@@ -274,9 +277,12 @@ int _rmtree(const char* path) {
 	return 0;
 }
 
-PATH_PUBLIC int rmtree(const char* path) { 
+PATH_PUBLIC int rmtree(const char* path) {
 	char* tmp_path = _fspath(path);
+	if (tmp_path == NULL) {
+		return -2;
+	}
 	int _sc = _rmtree(tmp_path);
-	free(tmp_path);
+	FREE(tmp_path);
 	return _sc;
 }
