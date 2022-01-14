@@ -23,26 +23,6 @@ class MCFuncConfig(McdpBaseModel):
     tag: Set[str] = set()
 
 
-def get_version(mc_version: T_version) -> int:
-    if not isinstance(mc_version, Version):
-        mc_version = Version(mc_version)
-
-    if mc_version[0] != 1:
-        raise MinecraftVersionError("Minecraft version must start with '1.'.")
-    elif mc_version[1] < 13:
-        raise MinecraftVersionError("datapack is not enable for Minecraft below 1.13 .")
-    elif mc_version[1] < 15:
-        return 4
-    elif mc_version <= "1.16.1":
-        return 5
-    elif mc_version[1] < 17:
-        return 6
-    elif mc_version[1] == 17:
-        return 7
-    else:
-        raise ValueError(f"unknow Minecraft datapack version {mc_version}.")
-
-
 _current_cfg: Optional["Config"] = None
 
 

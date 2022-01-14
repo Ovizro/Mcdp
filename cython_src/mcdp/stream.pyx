@@ -1,12 +1,10 @@
 cimport cython
 from libc.stdio cimport fopen, fputs, fclose
+from libc.string cimport strlen
 from .counter cimport ContextCounter, get_counter
 
 import ujson
 
-from .path cimport (join_path, dirname, cmkdir,
-    isdir, isfile, isabs, abspath, PyMem_Free)
-from .counter import get_counter
 
 cdef ContextCounter counter = get_counter()
 
@@ -89,20 +87,19 @@ cdef class Stream:
         raise OSError("fail to open %s" % self.path)
     
     @cython.nonecheck(False)
-    cpdef int _bwrite(self, bytes _s) except -1:
+    cpdef int _bwrite(self, const char* _s) except -1:
         if self._file == NULL:
             raise OSError("not writable")
 
         cdef:
             int c
-            char* string = _s
 
         with nogil:
-            c = fputs(string, self._file)
+            c = fputs(_s, self._file)
 
         if c < 0:
             raise OSError("fail to write to file %s" % self.path)
-        c = len(_s)
+        c = strlen(_s)
         counter.chars += c
         return c
     
@@ -110,7 +107,7 @@ cdef class Stream:
         self._bwrite(_s.encode())
 
     cpdef int dump(self, data) except -1:
-        cdef str d = ujson.dumps(data)
+        cdef str d = ujson.dumps(data, indent=4)
         return self.write(d)
     
     cpdef void close(self):

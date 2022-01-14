@@ -3,14 +3,24 @@ from setuptools import setup, Extension
 from Cython.Build import cythonize
 
 ext = [
-    Extension("mcdp.counter", ["mcdp/counter.pyx"]),
-    Extension("mcdp.version", ["mcdp/version.pyx"]),
+    Extension("mcdp.counter", ["mcdp\\counter.pyx"]),
+    Extension("mcdp.version", ["mcdp\\version.pyx"]),
     Extension(
         "mcdp.stream", 
-        ["mcdp/stream.pyx"],
+        ["mcdp\\stream.pyx"],
         include_dirs=['.']
     ),
-    Extension("mcdp._typing", ["mcdp/_typing.pyx"])
+    Extension("mcdp._typing", ["mcdp\\_typing.pyx"]),
+    Extension(
+        "mcdp.context", 
+        ["mcdp\\context.pyx"],
+        include_dirs=['.']
+    ),
+    Extension(
+        "mcdp.compiler", 
+        ["mcdp\\compiler.pyx"],
+        include_dirs=['.']
+    )
 ]
 
 path = os.getcwd()

@@ -285,3 +285,38 @@ PATH_PUBLIC int rmtree(const char* path) {
 	FREE(tmp_path);
 	return _sc;
 }
+
+PATH_PUBLIC int copyfile(const char* src, const char* dst) {
+	char* _src = _fspath(src);
+	char* _dst = _fspath(dst);
+	if (_src == NULL || _dst == NULL) {
+		return -2;
+	}
+
+	FILE* fr = fopen(_src, "rb");
+	FREE(_src);
+	if (fr == NULL) {
+		return -1;
+	}
+	FILE* fw = fopen(_dst, "wb");
+	FREE(_dst);
+	if (fw == NULL) {
+		fclose(fr);
+		return -1;
+	}
+
+	fseek(fr, 0, SEEK_END);
+	int length = ftell(fr);
+	char* buffer = MALLOC(length + 1, char);
+	if (buffer == NULL) {
+		return -2;
+	}
+	rewind(fr);
+	fread(buffer, 1, length, fr);
+	fwrite(buffer, 1, length, fw);
+	FREE(buffer);
+
+	fclose(fr);
+	fclose(fw);
+	return 0;
+}

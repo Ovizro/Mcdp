@@ -34,5 +34,7 @@ cdef class VersionChecker:
 cdef class AioCompatVersionChecker(VersionChecker):
     pass
 
+cpdef int get_version(_version) except -1
+
 cdef class VersionError(Exception):
     cdef readonly version

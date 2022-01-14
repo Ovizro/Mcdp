@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Union, Optional
 
 from .config import Config, get_config
-from .file_struct import build_dirs, build_dirs_from_config, init_mcmeta
 from .context import Context, TagManager, comment, insert, add_tag
 from .variable import Scoreboard, dp_int, dp_score, global_var
 from .mcstring import MCString, MCSS
@@ -35,9 +34,6 @@ __all__ = [
     # config
     "Config",
     "get_config",
-    # file
-    "build_dirs",
-    "build_dirs_from_config",
     # context
     "Context",
     "comment",

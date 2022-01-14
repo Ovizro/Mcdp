@@ -13,9 +13,11 @@ cdef extern from "path.c":
 
     int _rmtree(const char* path) nogil
     int rmtree(const char* path) nogil
+    int copyfile(const char* src, const char* dst) nogil
 
 cdef extern from *:
     int cmkdir "_mkdir" (const char* path) nogil
+    int chdir "_chdir" (const char* path) nogil
     
     void* PyMem_Malloc(Py_ssize_t) nogil
     void PyMem_Free(void* p) nogil
