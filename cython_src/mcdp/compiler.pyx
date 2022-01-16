@@ -42,6 +42,13 @@ cdef void create_iron(str path) except *:
         raise OSError("fail to copy file")
 
 
+cdef str get_func_name(str func_name, str space):
+    if not space or space == '.':
+        return func_name
+    else:
+        return space + '/' + func_name
+
+
 cdef class FunctionHandler(Handler):
     cdef bytes __name__
     cdef readonly:
@@ -63,12 +70,11 @@ cdef class Function(McdpVar):
         __func__
         str __name__
     
+    collections = _func_collections
+    
     def __init__(self, func not None, *, str space = None):
         self.__func__ = func
-        if space or space == '.':
-            self.__name__ = <str>(func.__name__)
-        else:
-            self.__name__ = space + '/' + <str>(func.__name__)
+        self.__name__ = get_func_name(<str>func.__name__, space)
         _func_collections[self.__name__] = self
     
     def __call__(self, str namespace = None):

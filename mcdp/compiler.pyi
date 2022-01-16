@@ -1,4 +1,4 @@
-from typing import Callable, Final, NoReturn, Optional
+from typing import Callable, ClassVar, Dict, Final, NoReturn, Optional
 
 from .typing import McdpVar
 from .config import Config
@@ -13,6 +13,8 @@ class FunctionHandler(Handler):
 
 
 class Function(McdpVar):
+    collections: ClassVar[Dict[str, "Function"]] = ...
+
     __func__: Final[Callable[[], None]]
     __name__: Final[str]
 
