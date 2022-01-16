@@ -61,32 +61,24 @@ cdef class FunctionHandler(Handler):
 cdef class Function(McdpVar):
     cdef readonly:
         __func__
-        str space
+        str __name__
     
     def __init__(self, func not None, *, str space = None):
         self.__func__ = func
-        self.space = space
-        _func_collections[func.__name__] = self
+        if space or space == '.':
+            self.__name__ = <str>(func.__name__)
+        else:
+            self.__name__ = space + '/' + <str>(func.__name__)
+        _func_collections[self.__name__] = self
     
-    def __call__(self, bint create_frame = False, str namespace = None):
+    def __call__(self, str namespace = None):
         namespace = namespace or get_namespace()
 
-        if create_frame:
-            compilter.pull()
-        cdef str name = self.__func__.__name__
-        cdef bytes buffer
-        if not self.space or self.space == '.':
-            buffer = f"function {namespace}:{name}".encode()
-            insert(buffer)
-        else:
-            buffer = f"function {namespace}:{self.space}/{name}".encode()
-            insert(buffer)
-        if create_frame:
-            compilter.push()
+        cdef str name = self.__name__
+        cdef bytes buffer = f"function {namespace}:{name}".encode()
+        insert(buffer)
         
-    cpdef void apply(self) except *:
-        if self.space:
-            Context.enter_space(self.space)
+    cpdef void apply(self, bint create_frame = False) except *:
         cdef Context cnt = Context(
                 self.func.__name__, hdls=FunctionHandler(self.__func__))
 
@@ -95,30 +87,32 @@ cdef class Function(McdpVar):
             bytes buffer
         _stack._append(cnt)
         try:
+            if create_frame:
+                compilter.pull()
             doc = self.__func__.__doc__
             if doc:
                 buffer = doc.encode()
                 comment(buffer)
             self.__func__()
+            if create_frame:
+                compilter.push()
         finally:
             _stack._pop()
-        if self.space:
-            Context.exit_space()
     
     @staticmethod
-    def apply_all():
+    def apply_all(bint create_frame = False):
         cdef Function func
         for func in _func_collections.values():
-            func.apply()
+            func.apply(create_frame)
 
     @staticmethod
-    cdef void _apply_all() except *:
+    cdef void _apply_all(bint create_frame = False) except *:
         cdef Function func
         for func in _func_collections.values():
-            func.apply()
+            func.apply(create_frame)
 
 
-def lib_func(str space = "Libs") -> Callable[[Callable[[], Union[None, Coroutine]]], Function]:
+def lib_func(str space = "Libs") -> Callable[[Callable[[], None ]], Function]:
     return partial(Function, space=space)
 
 
@@ -150,7 +144,7 @@ cdef class BaseCompilter:
         if _sc != 0:
             raise OSError("fail to chdir")
 
-        init_mcmeta(config.description, config.version)
+        init_mcmeta(<str>config.description, <Version>config.version)
         if config.iron_path:
             create_iron(config.iron_path)
         mkdir("data")
@@ -181,6 +175,7 @@ cdef class BaseCompilter:
     
     def __enter__(self):
         self.enter()
+        return self
 
     def __exit__(self, *args):
         self.exit()
