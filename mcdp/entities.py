@@ -6,7 +6,7 @@ from itertools import count
 from typing import Any, ClassVar, List, Union, Dict
 
 from .config import get_config
-from .context import Context, insert, enter_stack_ops, leave_stack_ops
+from .context import Context, insert
 from .command import Position, Selector, Execute, ScoreCase, ConditionInstruction, AsInstruction
 from .typing import Variable, McdpVar
 

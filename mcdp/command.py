@@ -2,12 +2,12 @@ from asyncio.coroutines import iscoroutinefunction
 from functools import partial
 from warnings import warn
 from io import StringIO
-from typing import Any, Callable, Coroutine, Dict, List, Literal, Optional, Set, Tuple, Type, Union
+from typing import Any, Callable, Coroutine, Dict, List, Literal, NoReturn, Optional, Set, Tuple, Type, Union, overload
 
 from .config import get_config
 from .typing import McdpBaseModel, McdpVar, McdpError
 from .mcstring import MCString
-from .context import Context, McdpContextError, comment, insert, ContextEnv, newline
+from .context import Context, McdpContextError, comment, insert, Handler, newline
 from .exceptions import *
 
 
@@ -89,7 +89,15 @@ class KeywordArg(McdpVar):
 
     __slots__ = ["name", "value"]
 
-    def __new__(cls, name: Union[str, Dict[str, Any]], value: Union[str, Set["KeywordArg"], None] = None):
+    @overload
+    def __new__(cls, name: str, value: Union[str, Set["KeywordArg"]]) -> "KeywordArg": ...
+    @overload
+    def __new__(cls, name: Dict[str, Any], value: None = None) -> List["KeywordArg"]: ...
+    def __new__(
+            cls, 
+            name: Union[str, Dict[str, Any]], 
+            value: Union[str, Set["KeywordArg"], None] = None
+    ) -> Union[List["KeywordArg"], "KeywordArg"]:
         if not value:
             ans = []
             for t in name.items():
@@ -194,25 +202,18 @@ class NBTPath(McdpVar):
         return '.'.join(self.path)
 
 
-class ContextInstructionEnv(ContextEnv):
+class InstructionHandler(Handler):
 
-    __slots__ = ["instruction", "decorate"]
+    __slots__ = ["instruction"]
 
-    def __init__(self, instruction: "Instruction", *, decorate: bool = True) -> None:
+    def __init__(self, instruction: "Instruction") -> None:
         self.instruction = instruction
-        self.decorate = decorate
-        super().__init__(instruction.__class__.__name__)
+        super().__init__("instruction")
     
     def init(self) -> None:
         super().init()
         comment(f"{repr(self.instruction.__class__.__name__)} file.")
         newline(2)
-    
-    def decorate_command(self, cmd: str) -> str:
-        if not self.decorate:
-            return cmd
-        exec = Execute(self.instruction)
-        return exec.command_prefix() + cmd
 
 
 class Instruction(McdpBaseModel):
@@ -222,28 +223,22 @@ class Instruction(McdpBaseModel):
     def __init__(self) -> None:
         raise NotImplementedError
 
-    def __bool__(self) -> Any:
-        return NotImplemented
+    def __bool__(self) -> NoReturn:
+        raise NotImplementedError("Maybe you want to use 'if'? Use 'with' instead.")
     
-    def __enter__(self) -> "Instruction":
-        env = ContextInstructionEnv(self)
-        Context.add_env(env)
-        return self
+    def inline(self) -> "Execute":
+        _exec =  Execute(self)
+        return _exec.inline()
+
+    def __enter__(self) -> InstructionHandler:
+        hdl = InstructionHandler(self)
+        self.stream = hdl.stream()
+        self.stream.__enter__()
+        return hdl
     
     def __exit__(self, exc_type, exc_ins, traceback) -> None:
-        Context.pop_env()
+        self.stream.__exit__(exc_type, exc_ins, traceback)
     
-    async def __aenter__(self) -> "Instruction":
-        env = ContextInstructionEnv(self, decorate=False)
-        self.stream = env.creat_stream()
-        await self.stream.__aenter__()
-        return self
-    
-    async def __aexit__(self, exc_type, exc_ins, traceback) -> None:
-        if not self.stream:
-            raise McdpContextError("No context provide.")
-        await self.stream.__aexit__(exc_type, exc_ins, traceback)
-
     def __str__(self) -> str:
         raise NotImplementedError
 
@@ -630,26 +625,35 @@ class StoreInstruction(Instruction):
             return f"store result {self.mode}"
 
 
-class ContextExecEnv(ContextEnv):
+class ExecuteHandler(Handler):
 
-    __slots__ = ["exec"]
+    __slots__ = ["exec", "inline"]
 
-    def __init__(self, exec: "Execute") -> None:
+    def __init__(self, exec: "Execute", *, inline: bool = False) -> None:
         self.exec = exec
+        self.inline = inline
         super().__init__("execute")
     
     def init(self) -> None:
         super().init()
-        comment("This is a extra env file.")
+        comment("This is a extra hdl file.")
         newline(2)
     
-    def decorate_command(self, cmd: str) -> str:
-        return self.exec.command_prefix() + cmd
+    def command(self, cmd: str) -> str:
+        if self.inline:
+            return self.exec.command_prefix() + cmd
+        else:
+            return cmd
+    
+    def stream(self) -> Context:
+        if self.inline:
+            raise McdpContextError("Inline handler cannot create stream.")
+        return super().stream()
 
 
 class Execute(McdpVar):
 
-    __slots__ = ["instructions", "env"]
+    __slots__ = ["instructions", "inline_handler"]
 
     def __init__(self, instruction_or_execobj: Union[Instruction, "Execute"], *instructions: Union[Instruction, "Execute"]) -> None:
         if isinstance(instruction_or_execobj, Instruction):
@@ -661,7 +665,11 @@ class Execute(McdpVar):
                 self.instructions.append(i)
             else:
                 self.instructions.extend(i.instructions)
-        self.env = ContextExecEnv(self)
+        self.inline_handler = False
+    
+    def inline(self) -> "Execute":
+        self.inline_handler = True
+        return self
 
     def __call__(self, command: Optional[str] = None) -> None:
         exc = "execute " + " ".join((str(i) for i in self.instructions))
@@ -678,20 +686,21 @@ class Execute(McdpVar):
     def command_prefix(self) -> str:
         return "execute {0} run ".format(" ".join((str(i) for i in self.instructions)))
 
-    def __enter__(self) -> "Execute":
-        Context.add_env(self.env)
-        return self
+    def __enter__(self) -> "ExecuteHandler":
+        hdl = ExecuteHandler(self, inline=self.inline_handler)
+        if self.inline_handler:
+            Context.add_hdl(hdl)
+        else:
+            context = hdl.stream()
+            context.__enter__()
+        return hdl
     
     def __exit__(self, exc_type, exc_ins, traceback) -> None:
-        Context.pop_env()
+        if self.inline_handler:
+            Context.pop_hdl()
+        else:
+            Context.top.__exit__(exc_type, exc_ins, traceback)
     
-    async def __aenter__(self) -> Context:
-        context = self.env.creat_stream()
-        return await context.__aenter__()
-    
-    async def __aexit__(self, exc_type, exc_ins, traceback) -> None:
-        await Context.top.__aexit__(exc_type, exc_ins, traceback)
-
     def __str__(self) -> str:
         return f"Execute{tuple(self.instructions)}"
 
@@ -702,60 +711,8 @@ def case(type: str, *args, **kwds) -> _Case:
     return _case_register[type](*args, **kwds)
 
 
-class ContextLibEnv(ContextEnv):
-
-    __slots__ = ["func"]
-
-    def __init__(self, func: Callable[[], Optional[Coroutine]]) -> None:
-        self.func = func
-        super().__init__("Library")
-
-    def init(self) -> None:
-        comment(
-            f"Library function {self.func.__name__} of Mcdp.",
-        )
-        newline()
-
-
-class Function(McdpVar):
-    """
-    This class is only used to create library.
-    If you want to define a normal function, use 
-    mcdp.mcfunc.MCFunction or mcdp.mcfunc.mcfunc instead.
-    """
-
-    __slots__ = ["func", "space"]
-
-    collection: Dict[str, "Function"] = {}
-
-    def __init__(self, func: Callable[[], Union[None, Coroutine]], *,  space: Optional[str] = None) -> None:
-        self.func = func
-        self.space = space
-        self.__class__.collection[func.__name__] = self
-    
-    def __call__(self, namespace: Optional[str] = None) -> None:
-        namespace = namespace or get_config().namespace
-
-        name = self.func.__name__
-        if not self.space or self.space == '.':
-            insert(f"function {namespace}:{name}")
-        else:
-            insert(f"function {namespace}:{self.space}/{name}")
-    
-    async def apply(self) -> None:
-        if self.space:
-            Context.enter_space(self.space)
-        async with Context(self.func.__name__, envs=[ContextLibEnv(self.func)]):
-            if iscoroutinefunction(self.func):
-                await self.func()
-            else:
-                self.func()
-        if self.space:
-            Context.exit_space()
-
-
-def lib_func(space: str = "libs") -> Callable[[Callable[[], Union[None, Coroutine]]], Function]:
-    return partial(Function, space=space)
+def inline(instruction: Union[Execute, Instruction]) -> Execute:
+    return instruction.inline()
 
 
 class IOStreamObject(McdpVar):

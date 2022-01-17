@@ -4,7 +4,7 @@ import warnings
 from collections import defaultdict
 from functools import wraps
 
-from .typing import McdpVar
+from .typing import McdpVar, McdpError
 from .config import get_config
 from .exceptions import McdpValueError
 
@@ -113,3 +113,7 @@ def add_tag(
         namespace: Optional[str] = None, 
         type: T_tag = ...
 ) -> None: ...
+
+
+class McdpContextError(McdpError):
+    context: Final[Context]
