@@ -4,14 +4,11 @@ from collections import defaultdict
 from functools import wraps
 
 from libc.stdio cimport fputs
+from libc.stdlib cimport malloc, free
 from libc.string cimport strcpy
 
 from .config import get_config
 from .exceptions import McdpValueError
-
-cdef extern from *:
-    void* PyMem_Malloc(Py_ssize_t size) nogil
-    void PyMem_Free(void* p) nogil
 
 
 cdef:
@@ -391,7 +388,7 @@ cdef api void dp_newline(int line) except *:
     if not top.writable():
         raise McdpContextError("fail to add comments.")
 
-    cdef char* buffer = <char*>PyMem_Malloc((line + 1) * sizeof(char))
+    cdef char* buffer = <char*>malloc((line + 1) * sizeof(char))
     if buffer == NULL:
         raise MemoryError
     cdef int i
@@ -399,7 +396,7 @@ cdef api void dp_newline(int line) except *:
         buffer[i] = ord('\n')
     buffer[i] = ord('\0')
     top.stream._bwrite(buffer)
-    PyMem_Free(buffer)
+    free(buffer)
 
 cdef api void dp_addTag(const char* _tag) except *:
     cdef:

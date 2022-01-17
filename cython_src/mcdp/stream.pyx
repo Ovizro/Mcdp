@@ -1,5 +1,6 @@
 cimport cython
 from libc.stdio cimport fopen, fputs, fclose
+from libc.stdlib cimport malloc, free
 from libc.string cimport strlen
 from .counter cimport ContextCounter, get_counter
 
@@ -21,12 +22,12 @@ cdef void _mkdir(const char* path, int* counter) nogil:
     if isdir(pdir) == 1:
         _sc = cmkdir(path)
         if _sc != 0:
-            PyMem_Free(pdir)
+            free(pdir)
             with gil:
                 raise OSError("fail to create dir")
     else:
         _mkdir(pdir, counter)
-    PyMem_Free(pdir)
+    free(pdir)
     
 
 cpdef void mkdir(const char* dir_path) nogil except *:
@@ -57,7 +58,7 @@ cdef class Stream:
                 p = join_path(_root, p)
 
             self.path = p
-            PyMem_Free(p)
+            free(p)
         self._file = NULL
         self.closed = False
     
@@ -79,7 +80,7 @@ cdef class Stream:
         with nogil:
             if not isdir(file_dir):
                 mkdir(file_dir)
-            PyMem_Free(file_dir)
+            free(file_dir)
             self._file = fopen(_path, open_mod)
             if self._file != NULL:
                 self.closed = False

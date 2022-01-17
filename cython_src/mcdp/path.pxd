@@ -18,6 +18,3 @@ cdef extern from "path.c":
 cdef extern from *:
     int cmkdir "_mkdir" (const char* path) nogil
     int chdir "_chdir" (const char* path) nogil
-    
-    void* PyMem_Malloc(Py_ssize_t) nogil
-    void PyMem_Free(void* p) nogil
