@@ -41,12 +41,17 @@ cdef void create_iron(str path) except *:
     if _sc == -1:
         raise OSError("fail to copy file")
 
-
 cdef str get_func_name(str func_name, str space):
     if not space or space == '.':
         return func_name
     else:
         return space + '/' + func_name
+
+cpdef void pull() except *:
+    compilter.pull()
+
+cpdef void push() except *:
+    compilter.push()
 
 
 cdef class FunctionHandler(Handler):

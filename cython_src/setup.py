@@ -13,8 +13,7 @@ ext = [
     Extension("mcdp._typing", ["mcdp\\_typing.pyx"]),
     Extension(
         "mcdp.context", 
-        ["mcdp\\context.pyx"],
-        include_dirs=['.']
+        ["mcdp\\context.pyx"]
     ),
     Extension(
         "mcdp.compiler", 
@@ -29,6 +28,6 @@ if os.path.split(path)[1] != "cython_src":
 
 setup(
     name="mcdp",
-    ext_modules=cythonize(ext),
+    ext_modules=cythonize(ext, annotate=True, compiler_directives={"language_level": "3str"}),
     zip_safe=False,
 )
