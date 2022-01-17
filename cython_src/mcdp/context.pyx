@@ -236,11 +236,11 @@ cdef class Context(McdpVar):
         self.write('\n' * line)
     
     @EnvMethod
-    def add_env(self, Handler hdl) -> None:
+    def add_hdl(self, Handler hdl) -> None:
         self.handlers.append(hdl)
     
     @EnvMethod
-    def pop_env(self) -> Handler:
+    def pop_hdl(self) -> Handler:
         return self.handlers.pop()
 
     @staticmethod
