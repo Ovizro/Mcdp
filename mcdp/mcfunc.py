@@ -1,16 +1,15 @@
 import time
 import warnings
-from asyncio import iscoroutinefunction, run
 from inspect import signature, Parameter
 from typing import (Callable, Coroutine, Dict, List, Mapping, NoReturn,
                     Union, Optional, Any, Tuple, Type, overload)
 
 from .counter import Counter, get_counter
-from .file_struct import build_dirs_from_config
 from .typing import McdpVar, Variable
-from .config import get_config, MCFuncConfig
-from .context import Context, ContextEnv, TagManager, add_tag, insert, comment, newline, leave_stack_ops, enter_stack_ops
-from .command import AsInstruction, Function, Selector, lib_func
+from .config import Config, get_config, MCFuncConfig
+from .context import Context, Handler, TagManager, add_tag, insert, comment, newline
+from .compiler import BaseCompilter, Function, FunctionHandler, lib_func, pull, push
+from .command import AsInstruction, Selector
 from .entities import McdpStack, get_tag
 from .variable import Score, Scoreboard, dp_int, dp_score, global_var, init_global
 from .exceptions import *
@@ -20,7 +19,6 @@ def _toMcdpVar(c: Type) -> Type[Variable]:
     if c == int:
         return dp_int
     raise McdpValueError("Unsupported function argument type.")
-
 
 def _get_arguments(name: str, param: Mapping[str, Parameter]) -> Tuple[list, dict]:
     args = []
@@ -37,14 +35,17 @@ def _get_arguments(name: str, param: Mapping[str, Parameter]) -> Tuple[list, dic
             args.append(s)
     return args, kwds
 
+def _empty_function() -> NoReturn:
+    raise NotImplementedError
 
-class ContextFunctionEnv(ContextEnv):
+
+class MCFunctionHandler(FunctionHandler):
 
     __slots__ = ["func"]
 
     def __init__(self, func: Callable) -> None:
         self.func = func
-        super().__init__("mcfunction")
+        super().__init__(func)
     
     def init(self) -> None:
         sig = signature(self.func)
@@ -60,26 +61,24 @@ class ContextFunctionEnv(ContextEnv):
 
 class MCFunction(Function):
 
-    __slots__ = ["__name__", "overload", "namespace", "overload_counter", "config"]
-    __accessible__ = ["__name__"]
+    __slots__ = ["overload", "namespace", "overload_counter", "config"]
+    __accessible__ = {"__name__": 1}
 
     def __new__(cls, name: str, **kwds) -> Any:
-        if name in cls.collection:
-            ins = cls.collection[name]
+        if name in cls.collections:
+            ins = cls.collections[name]
             return ins
         else:
             return McdpVar.__new__(cls)
 
-    def __init__(self, name: str, *, namespace: Optional[str] = None, config: MCFuncConfig = MCFuncConfig()) -> None:
+    def __init__(self, name: str, *, space: Optional[str] = None, namespace: Optional[str] = None, config: MCFuncConfig = MCFuncConfig()) -> None:
         if '.' in name:
-            self.__name__ = name.split('.')[-1]
-        else:
-            self.__name__ = name
+            name = name.split('.')[-1]
+        super().__init__(_empty_function, space = space)
         self.namespace = namespace
         self.config = config
         self.overload: List[Callable] = []
         self.overload_counter: List[Counter] = []
-        self.__class__.collection[name] = self
 
     def register(self, func: Callable) -> None:
         s = signature(func)
@@ -108,34 +107,31 @@ class MCFunction(Function):
     def set_config(self, **kwds) -> None:
         self.config = self.config.parse_obj(kwds)
 
-    async def apply(self) -> None:
+    def apply(self) -> None:
         for i in range(len(self.overload)):
             f = self.overload[i]
 
             if not (len(self.overload) == 1 or self.overload_counter[i]):
                 continue
                 
-            async with Context(f.__name__, envs=ContextFunctionEnv(f)):
+            with Context(f.__name__, hdls=MCFunctionHandler(f)):
                 for t in self.config.tag:
                     add_tag(t)
 
                 sig = signature(f).parameters
                 args, kwds = _get_arguments(self.__name__, sig)
 
-                if iscoroutinefunction(f):
-                    ans = await f(*args, **kwds)
-                else:
-                    ans = f(*args, **kwds)
+                ans = f(*args, **kwds)
                 if isinstance(ans, Score):
                     if ans.name != "dpc_return":
                         dp_score("dpc_return", ans, stack_id=-2,
                                 display={"text": "Mcdp function return cache", "color": "dark_blue"})
-                Context.leave()
+                push()
 
     @classmethod
-    async def apply_all(cls) -> None:
-        for i in cls.collection.values():
-            await i.apply()
+    def apply_all(cls) -> None:
+        for i in cls.collections.values():
+            i.apply()
 
     def __call__(self, *args: Any, **kwds: Any) -> Any:
         for i in range(len(self.overload)):
@@ -163,7 +159,7 @@ class MCFunction(Function):
         self.space = str(Context.get_relative_path())
         self.func = self.overload[i]
 
-        Context.enter()
+        pull()
         with AsInstruction(Selector("@e", "tag=stack_top", tag=get_tag())):
             super().__call__()
         T_ret = sig.return_annotation
@@ -195,6 +191,21 @@ def mcfunc(func: Optional[Union[Callable, str]] = None, *flags: str, **config: A
         return wrapper
 
 
+class Compiler(BaseCompilter):
+
+    __slots__ = ["start_time"]
+
+    def __init__(self, config: Optional[Config] = None) -> None:
+        self.start_time = time.process_time_ns()
+        super().__init__(config)
+    
+    @staticmethod
+    def pull() -> None:
+        enter_stack()
+    
+
+
+
 @overload
 def mcfunc_main(func: Callable) -> None:
     ...
@@ -202,35 +213,31 @@ def mcfunc_main(func: Callable) -> None:
 def mcfunc_main(*flags: str, **kw: Any) -> Callable[[Callable], None]:
     ...
 def mcfunc_main(func: Optional[Union[Callable, str]] = None, *flags, **kw):
-    async def mf_main(func: Callable[[], Any], cfg: MCFuncConfig) -> None:
+    def mf_main(func: Callable[[], Any], cfg: MCFuncConfig) -> None:
         #config = get_config()
         start = time.process_time_ns()
-        await build_dirs_from_config()
-        async with Context:
+        with Context:
             add_tag("minecraft:load")
             init_global()
 
-            async with Context("__main__", envs=ContextEnv("__main__")):
+            with Context("__main__", hdls=Handler("__main__")):
                 comment("This is the main function of the datapack.")
                 newline(2)
 
                 for t in cfg.tag:
                     add_tag(t)
-                Context.enter()
-                if iscoroutinefunction(func):
-                    await func()
-                else:
-                    func()
-                Context.leave()
+                pull()
+                func()
+                push()
 
-            async with Context('__init_score__', envs=ContextEnv("__init_score__")):
+            with Context('__init_score__', hdls=Handler("__init_score__")):
                 comment("Init the scoreborad.")
                 newline(2)
 
                 Scoreboard.apply_all()
 
-            await MCFunction.apply_all()
-            await TagManager.apply_all()
+            MCFunction.apply_all()
+            TagManager.apply_all()
         
         end = time.process_time_ns()
         process = end - start
@@ -247,11 +254,11 @@ def mcfunc_main(func: Optional[Union[Callable, str]] = None, *flags, **kw):
 
     if callable(func):
         handle_flag(func, cfg, *flags)
-        run(mf_main(func, cfg))
+        mf_main(func, cfg)
     else:
         def get_func(func: Callable[[], Coroutine]) -> None:
             handle_flag(func, cfg, *flags)
-            run(mf_main(func, cfg))
+            mf_main(func, cfg)
         
         return get_func
 
@@ -280,7 +287,6 @@ def _flag_tick(func: Callable, cfg: MCFuncConfig) -> None:
 
 mcdp_stack_id = global_var(dp_score, "mcdpStackID", 0)
 
-@enter_stack_ops
 @lib_func()
 def enter_stack() -> None:
     global mcdp_stack_id
@@ -296,7 +302,6 @@ def enter_stack() -> None:
     mcdp_stack_id += 1
     
 
-@leave_stack_ops
 @lib_func()
 def leave_stack() -> None:
     global mcdp_stack_id
