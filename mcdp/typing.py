@@ -25,3 +25,6 @@ class McdpBaseModel(BaseModel):
         arbitrary_types_allowed = True
         json_loads = ujson.loads
         json_dumps = ujson.dumps
+
+
+McdpBaseModel.register(McdpVar)

@@ -72,8 +72,7 @@ class MCFunction(Function):
             return McdpVar.__new__(cls)
 
     def __init__(self, name: str, *, space: Optional[str] = None, namespace: Optional[str] = None, config: MCFuncConfig = MCFuncConfig()) -> None:
-        if '.' in name:
-            name = name.split('.')[-1]
+        _empty_function.__name__ = name
         super().__init__(_empty_function, space = space)
         self.namespace = namespace
         self.config = config
