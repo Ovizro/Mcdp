@@ -12,7 +12,7 @@ cdef class Stream:
         bint closed
 
     cpdef void open(self, str mod = *) except *
-    cpdef int _bwrite(self, const char* _s) except -1
+    cpdef int fwrite(self, const char* _s) except -1
     cpdef int write(self, str _s) except -1
     cpdef int dump(self, data) except -1
     cpdef void close(self)

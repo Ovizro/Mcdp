@@ -5,21 +5,10 @@ from Cython.Build import cythonize
 ext = [
     Extension("mcdp.counter", ["mcdp\\counter.pyx"]),
     Extension("mcdp.version", ["mcdp\\version.pyx"]),
-    Extension(
-        "mcdp.stream", 
-        ["mcdp\\stream.pyx"],
-        include_dirs=['.']
-    ),
+    Extension("mcdp.stream", ["mcdp\\stream.pyx"]),
     Extension("mcdp._typing", ["mcdp\\_typing.pyx"]),
-    Extension(
-        "mcdp.context", 
-        ["mcdp\\context.pyx"]
-    ),
-    Extension(
-        "mcdp.compiler", 
-        ["mcdp\\compiler.pyx"],
-        include_dirs=['.']
-    )
+    Extension("mcdp.context", ["mcdp\\context.pyx"]),
+    Extension("mcdp.compiler", ["mcdp\\compiler.pyx"])
 ]
 
 path = os.getcwd()

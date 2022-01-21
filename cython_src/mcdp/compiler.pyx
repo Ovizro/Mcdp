@@ -1,4 +1,5 @@
 from libc.stdio cimport fopen, fclose, fread, FILE
+cimport cython
 
 from functools import partial
 
@@ -7,8 +8,11 @@ from .version cimport Version
 from .stream cimport Stream, mkdir, chdir, rmtree, copyfile, isdir
 from .context cimport set_context_path, get_namespace, get_version
 from .context cimport dp_insert as insert, dp_comment as comment, dp_newline as newline, dp_addTag as add_tag
-from .context cimport StackCache, _stack, Context, Handler
+from .context cimport StackCache, _stack, Context, Handler, TagManager
+
 from .config import get_config
+from .variable import Scoreboard
+from .entities import Entity
 
 
 cdef:
@@ -45,7 +49,7 @@ cdef str get_func_name(str func_name, str space):
     if not space or space == '.':
         return func_name
     else:
-        return space + '/' + func_name
+        return "%s.%s" % (space, func_name)
 
 cpdef void pull() except *:
     compilter.pull()
@@ -71,56 +75,67 @@ cdef class FunctionHandler(Handler):
 
 
 cdef class Function(McdpVar):
+    cdef int start
     cdef readonly:
-        __func__
         str __name__
+        str __qualname__
+        bint create_frame
+        object __func__
     
     collections = _func_collections
     
-    def __init__(self, func not None, *, str space = None):
+    def __init__(self, func not None, *, str space = None, bint create_frame = False):
         self.__func__ = func
-        self.__name__ = get_func_name(<str>func.__name__, space)
-        _func_collections[self.__name__] = self
+        self.__name__ = func.__name__
+        self.__qualname__ = get_func_name(self.__name__, space)
+        self.create_frame = create_frame
+        _func_collections[self.__qualname__] = self
     
-    def __call__(self, str namespace = None):
-        namespace = namespace or get_namespace()
-
-        cdef str name = self.__name__
+    def __call__(self):
+        cdef:
+            str namespace = get_namespace()
+            str name = self.__qualname__
+        if self.create_frame:
+            pull()
         cdef bytes buffer = f"function {namespace}:{name}".encode()
         insert(buffer)
+    
+    cpdef void add_space(self, str space):
+        self.__qualname__ = "%s.%s" % (space, self.__qualname__)
         
-    cpdef void apply(self, bint create_frame = False) except *:
-        cdef Context cnt = Context(
-                self.func.__name__, hdls=FunctionHandler(self.__func__))
-
+    cpdef void apply(self) except *:
         cdef:
+            str path = self.__qualname__
             str doc
             bytes buffer
+
+        path.replace('.', '/')
+        cdef Context cnt = Context(
+                path, hdls=FunctionHandler(self.__func__))
+
         _stack._append(cnt)
         try:
-            if create_frame:
-                compilter.pull()
             doc = self.__func__.__doc__
             if doc:
                 buffer = doc.encode()
                 comment(buffer)
             self.__func__()
-            if create_frame:
+            if self.create_frame:
                 compilter.push()
         finally:
             _stack._pop()
     
-    @staticmethod
-    def apply_all(bint create_frame = False):
+    @classmethod
+    def apply_all(cls):
         cdef Function func
         for func in _func_collections.values():
-            func.apply(create_frame)
+            func.apply()
 
     @staticmethod
-    cdef void _apply_all(bint create_frame = False) except *:
+    cdef void _apply_all() except *:
         cdef Function func
         for func in _func_collections.values():
-            func.apply(create_frame)
+            func.apply()
 
 
 def lib_func(str space = "Libs") -> Callable[[Callable[[], None ]], Function]:
@@ -144,22 +159,31 @@ cdef class BaseCompilter:
             config = self.config
             bytes btmp
             char* tmp
+            int _sc
         btmp = (<str>(config.name)).encode()
         tmp = <char*>btmp
         if isdir(tmp):
             if config.remove_old_pack:
-                rmtree(tmp)
+                _sc = rmtree(tmp)
+                if _sc == -1:
+                    raise OSError("invalid path")
+                elif _sc == -2:
+                    raise MemoryError
+                elif _sc == -3:
+                    raise OSError("fail to remove old package")
         else:
             mkdir(tmp)
-        cdef int _sc = chdir(tmp)
+        _sc = chdir(tmp)
         if _sc != 0:
             raise OSError("fail to chdir")
 
-        init_mcmeta(<str>config.description, <Version>config.version)
+        init_mcmeta(<str>config.description, config.version)
         if config.iron_path:
             create_iron(config.iron_path)
         mkdir("data")
-        chdir("data")
+        _sc = chdir("data")
+        if _sc != 0:
+            raise OSError("fail to chdir")
 
         btmp = (<str>config.namespace).encode()
         mkdir("minecraft")
@@ -172,8 +196,12 @@ cdef class BaseCompilter:
         _stack._append(base)
         comment("This is the initize function.")
         newline(2)
+        add_tag("minecraft:load")
+        __init_score__()
     
     cdef void exit(self):
+        Function.apply_all()
+        TagManager.apply_all()
         _stack._clear()
 
     @staticmethod
@@ -194,4 +222,5 @@ cdef class BaseCompilter:
 
 @lib_func(None)
 def __init_score__():
-    raise NotImplementedError
+    """Init the scoreboard."""
+    Scoreboard.apply_all()

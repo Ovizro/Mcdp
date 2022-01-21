@@ -47,7 +47,7 @@ cdef class TagManager(McdpVar):
         str root_path
         dict cache
     
-    cpdef void add(self, str tag, str item, namespace = *) except *
+    cpdef void add(self, str tag, str item, str namespace = *) except *
     cpdef dict get_tag_data(self, str tag, bint replace = *)
     cpdef void apply_tag(self, str tag, bint replace = *) except *
     cpdef void apply(self)
@@ -57,7 +57,6 @@ cdef api void dp_insert(const char* cmd) except *
 cdef api void dp_comment(const char* cmt) except *
 cdef api void dp_newline(int line) except *
 cdef api void dp_addTag(const char* _tag) except *
-cdef str get_func_path()
 cdef void set_context_path(str path)
 cpdef str get_namespace()
 

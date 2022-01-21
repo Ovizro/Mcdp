@@ -1,5 +1,5 @@
 cimport cython
-from libc.stdio cimport fopen, fputs, fclose
+from libc.stdio cimport fopen, fputs, fclose, printf
 from libc.stdlib cimport malloc, free
 from libc.string cimport strlen
 from .counter cimport ContextCounter, get_counter
@@ -9,10 +9,8 @@ import ujson
 
 cdef ContextCounter counter = get_counter()
 
-@cython.unraisable_tracebacks(False)
-cdef void _mkdir(const char* path, int* counter) nogil:
-    counter[0] += 1
 
+cdef void _mkdir(const char* path, int* counter) nogil except *:
     cdef:
         char* pdir = dirname(path)
         int _sc
@@ -28,6 +26,7 @@ cdef void _mkdir(const char* path, int* counter) nogil:
     else:
         _mkdir(pdir, counter)
     free(pdir)
+    counter[0] += 1
     
 
 cpdef void mkdir(const char* dir_path) nogil except *:
@@ -43,7 +42,7 @@ cpdef void mkdir(const char* dir_path) nogil except *:
 
 cdef class Stream:
 
-    def __init__(self, str path, *, root = None):
+    def __cinit__(self, str path, *, str root = None):
         self.path = path.encode()
         cdef:
             bytes _root
@@ -62,6 +61,11 @@ cdef class Stream:
         self._file = NULL
         self.closed = False
     
+    def __dealloc__(self):
+        if self._file != NULL:
+            fclose(self._file)
+            self._file = NULL
+    
     cpdef void open(self, str mod = "w") except *:
         if self._file != NULL:
             return
@@ -69,7 +73,7 @@ cdef class Stream:
         cdef:
             char* _path = <char*>self.path
             const char* open_mod
-            char* file_dir = dirname(self.path)
+            char* file_dir = dirname(_path)
         if mod == 'w':
             open_mod = 'w'
         elif mod == 'a':
@@ -78,8 +82,7 @@ cdef class Stream:
             raise ValueError("Invalid open mod.")
             
         with nogil:
-            if not isdir(file_dir):
-                mkdir(file_dir)
+            mkdir(file_dir)
             free(file_dir)
             self._file = fopen(_path, open_mod)
             if self._file != NULL:
@@ -88,7 +91,7 @@ cdef class Stream:
         raise OSError("fail to open %s" % self.path)
     
     @cython.nonecheck(False)
-    cpdef int _bwrite(self, const char* _s) except -1:
+    cpdef int fwrite(self, const char* _s) except -1:
         if self._file == NULL:
             raise OSError("not writable")
 
@@ -105,7 +108,7 @@ cdef class Stream:
         return c
     
     cpdef int write(self, str _s) except -1:
-        self._bwrite(_s.encode())
+        self.fwrite(_s.encode())
 
     cpdef int dump(self, data) except -1:
         cdef str d = ujson.dumps(data, indent=4)

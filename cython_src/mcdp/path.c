@@ -124,6 +124,7 @@ PATH_PUBLIC void split(const char* path, char** base, char** name) {
 				return;
 			}
 			strncpy(*base, path, i);
+			(*base)[i] = '\0';
 		}
 		if (name != NULL) {
 			*name = MALLOC(len - i + 1, char);

@@ -13,8 +13,8 @@ from .exceptions import McdpValueError
 
 cdef:
     int MAX_OPEN = 8
-    str CONTEXT_PATH
-    str CONTEXT_ENV_PATH
+    str BASE_MCFUNC_PATH
+    str BASE_ENV_PATH
 
 
 cdef class StackCache(list):
@@ -116,18 +116,11 @@ cdef class Handler(McdpVar):
     cpdef Context stream(self):
         cdef str file_name = self.env_type + hex(self.env_counter[self.env_type])
         self.env_counter[self.env_type] += 1
-        return Context(file_name, root_path=CONTEXT_ENV_PATH, envs=self)
+        return Context(file_name, root_path=BASE_ENV_PATH, envs=self)
 
 
 cdef StackCache _stack = StackCache(MAX_OPEN)
 
-cdef str get_func_path():
-    CONTEXT_PATH.replace('/', '\\')
-    cdef list l = CONTEXT_PATH.split('\\', 2)
-    if len(l) > 2:
-        return l[2]
-    else:
-        return ''
 
 cdef class Context(McdpVar):
     
@@ -137,12 +130,12 @@ cdef class Context(McdpVar):
             self,
             str name not None,
             *,
-            root_path = None,
+            str root_path = None,
             hdls = []
     ):
         self.name = name
-        self.stream = Stream(name + self.file_suffix, root=root_path or CONTEXT_PATH)
-        if not isinstance(hdls, list):
+        self.stream = Stream(name + self.file_suffix, root=root_path or BASE_MCFUNC_PATH)
+        if isinstance(hdls, Handler):
             hdlss = [hdls,]
         self.handlers = hdls
     
@@ -240,20 +233,6 @@ cdef class Context(McdpVar):
     def pop_hdl(self) -> Handler:
         return self.handlers.pop()
 
-    @staticmethod
-    def enter_space(str name) -> None:
-        global CONTEXT_PATH
-        CONTEXT_PATH = os.path.join(CONTEXT_PATH, name)
-
-    @staticmethod
-    def exit_space() -> None:
-        global CONTEXT_PATH
-        CONTEXT_PATH = os.path.dirname(CONTEXT_PATH)
-
-    @staticmethod
-    def get_relative_path():
-        return get_func_path()
-
     def __repr__(self) -> str:
         return "<env %s in the context>" % self.name
 
@@ -272,7 +251,7 @@ cdef class TagManager(McdpVar):
             *, 
             str namespace = None, 
             bint replace = False
-    ):
+    ) -> None:
         if not type in ["blocks", "entity_types", "items", "fluids", "functions"]:
             raise McdpValueError("Invalid tag type '%s'" % type)
         self.type = type
@@ -282,10 +261,10 @@ cdef class TagManager(McdpVar):
         self.root_path = namespace + "\\tags\\" + type
         self.cache = {}
 
-        self.name = "%s:%s" % (namespace, type)
+        self.name = namespace + ":" + type
         self.collect()
     
-    cpdef void add(self, str tag, str item, namespace = None) except *:
+    cpdef void add(self, str tag, str item, str namespace = None) except *:
         if not ":" in item:
             if not namespace:
                 namespace = get_namespace()
@@ -349,7 +328,7 @@ cdef api void dp_insert(const char* cmd) except *:
         raise McdpContextError("fail to insert command.")
     for hdl in top.handlers:
         tmp = hdl.command(tmp)
-    top.stream._bwrite(tmp.encode())
+    top.stream.fwrite(tmp.encode())
 
 cdef api void dp_comment(const char* cmt) except *:
     if not get_config().pydp.add_comments:
@@ -365,21 +344,21 @@ cdef api void dp_comment(const char* cmt) except *:
     while cmt[0]:
         if cmt[0] == ord('\n'):
             if i > 123:
-                top.stream._bwrite(buffer)
+                top.stream.fwrite(buffer)
                 i = 0
             strcpy(buffer+i, "\n# ")
             i += 3
             cmt += 1
         else:
             if i > 126:
-                top.stream._bwrite(buffer)
+                top.stream.fwrite(buffer)
                 i = 0
             buffer[i] = cmt[0]
             i += 1
             cmt += 1
     buffer[i] = ord('\n')
     buffer[i+1] = ord('\0')
-    top.stream._bwrite(buffer)
+    top.stream.fwrite(buffer)
 
 cdef api void dp_newline(int line) except *:
     if not get_config().pydp.add_comments:
@@ -395,15 +374,22 @@ cdef api void dp_newline(int line) except *:
     for i in range(line):
         buffer[i] = ord('\n')
     buffer[i] = ord('\0')
-    top.stream._bwrite(buffer)
+    top.stream.fwrite(buffer)
     free(buffer)
 
 cdef api void dp_addTag(const char* _tag) except *:
     cdef:
+        list nt
         str tag = _tag.decode()
         str namespace = get_namespace()
-        str value = get_func_path()
-        TagManager m_tag = _tag_collections[namespace + ":functions"]
+        Context top = _stack[-1]
+        str value = top.name
+        TagManager m_tag
+    if ':' in tag:
+        nt = tag.split(':', 2)
+        namespace = nt[0]
+        tag = nt[1]
+    m_tag = _tag_collections[namespace + ":functions"]
     m_tag.add(tag, value)
 
 
@@ -439,7 +425,7 @@ def add_tag(
     if not value:
         if type == "functions":
             c = Context.top
-            value = get_func_path() + '\\' + c.name
+            value = c.name
         else:
             raise McdpValueError("no value input.")
     m_tag = _tag_collections[f"{namespace}:{type}"]
@@ -449,9 +435,9 @@ cpdef str get_namespace():
     return get_config().namespace
 
 cdef void set_context_path(str path):
-    global CONTEXT_PATH, CONTEXT_ENV_PATH
-    CONTEXT_PATH = path
-    CONTEXT_ENV_PATH = path + "\\Envs"
+    global BASE_MCFUNC_PATH, BASE_ENV_PATH
+    BASE_MCFUNC_PATH = path
+    BASE_ENV_PATH = path + "\\Envs"
 
 
 cdef class McdpContextError(McdpError):

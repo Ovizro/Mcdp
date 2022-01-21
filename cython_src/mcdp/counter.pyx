@@ -1,6 +1,6 @@
 cdef class Counter:
 
-    def __init__(self, name = None, init = 0):
+    def __init__(self, str name = None, int init = 0):
         self.value = init
         self.name = name
         self.link = []
