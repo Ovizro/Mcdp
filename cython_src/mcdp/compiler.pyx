@@ -3,7 +3,7 @@ cimport cython
 
 from functools import partial
 
-from ._typing cimport McdpVar
+from ._typing cimport McdpVar, McdpError
 from .version cimport Version
 from .stream cimport Stream, mkdir, chdir, rmtree, copyfile, isdir
 from .context cimport set_context_path, get_namespace, get_version
@@ -11,13 +11,14 @@ from .context cimport dp_insert as insert, dp_comment as comment, dp_newline as 
 from .context cimport StackCache, _stack, Context, Handler, TagManager
 
 from .config import get_config
-from .variable import Scoreboard
-from .entities import Entity
+from .variable import Scoreboard, dp_score, global_var, init_global
+from .command import AsInstruction, Selector
+from .entities import McdpStack, get_tag
 
 
 cdef:
     dict _func_collections = {}
-    BaseCompilter compilter
+    Compilter compilter
 
 
 cdef void init_mcmeta(str desc, Version version) except *:
@@ -142,7 +143,7 @@ def lib_func(str space = "Libs") -> Callable[[Callable[[], None ]], Function]:
     return partial(Function, space=space)
 
 
-cdef class BaseCompilter:
+cdef class Compilter:
     cdef readonly:
         config
 
@@ -220,7 +221,46 @@ cdef class BaseCompilter:
         self.exit()
 
 
+mcdp_stack_id = global_var(dp_score, "mcdpStackID", 0)
+
 @lib_func(None)
 def __init_score__():
     """Init the scoreboard."""
     Scoreboard.apply_all()
+
+
+@lib_func()
+def enter_stack() -> None:
+    global mcdp_stack_id
+
+    top = Selector("@e", "tag=stack_top", tag=get_tag(), limit=1)
+    lower = Selector("@e", "tag=lower_stack", tag=get_tag(), limit=1)
+    
+    lower.remove_tag("lower_stack")
+    top.add_tag("lower_stack")
+    top.remove_tag("stack_top")
+
+    stack = McdpStack()
+    mcdp_stack_id += 1
+    
+
+@lib_func()
+def leave_stack() -> None:
+    global mcdp_stack_id
+
+    top = Selector("@e", "tag=stack_top", tag=get_tag(), limit=1)
+    lower = Selector("@e", "tag=lower_stack", tag=get_tag(), limit=1)
+
+    top.remove()
+    lower.add_tag("stack_top")
+    lower.remove_tag("lower_stack")
+
+    mcdp_stack_id -= 2
+    s = dp_score("mcdpStackID", selector=Selector(McdpStack))
+    with s == mcdp_stack_id:
+        Selector("@s").add_tag("lower_stack")
+    mcdp_stack_id += 1
+
+
+cdef class McdpFunctionError(McdpError):
+    ...

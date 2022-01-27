@@ -6,7 +6,7 @@ from functools import wraps
 
 from .typing import McdpVar, McdpError
 from .config import get_config
-from .exceptions import McdpValueError
+from .exception import McdpValueError
 
 
 T_tag = Literal["blocks", "entity_types", "items", "fluids", "functions"]

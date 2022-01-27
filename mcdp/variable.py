@@ -10,7 +10,7 @@ from .typing import Variable, McdpVar
 from .mcstring import MCString, Color
 from .entities import McdpStack, get_tag
 from .command import ConditionInstruction, ScoreCase, Selector
-from .exceptions import *
+from .exception import *
 
 
 class Scoreboard(Variable):

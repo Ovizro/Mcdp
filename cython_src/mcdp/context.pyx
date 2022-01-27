@@ -8,7 +8,6 @@ from libc.stdlib cimport malloc, free
 from libc.string cimport strcpy
 
 from .config import get_config
-from .exceptions import McdpValueError
 
 
 cdef:
@@ -108,7 +107,7 @@ cdef class Handler(McdpVar):
             "Datapack %s built by Mcdp." % config.name,
             "Supported Minecraft version: %s(%s)" % (config.version, get_version(config.version)),
         )
-        newline()
+        dp_newline(1)
     
     cpdef str command(self, str cmd):
         return cmd

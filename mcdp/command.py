@@ -1,4 +1,3 @@
-from asyncio.coroutines import iscoroutinefunction
 from functools import partial
 from warnings import warn
 from io import StringIO
@@ -8,7 +7,7 @@ from .config import get_config
 from .typing import McdpBaseModel, McdpVar, McdpError
 from .mcstring import MCString
 from .context import Context, McdpContextError, comment, insert, Handler, newline
-from .exceptions import *
+from .exception import *
 
 
 class PosComponent(McdpVar):
@@ -169,7 +168,7 @@ class Selector(McdpBaseModel):
 
     def __str__(self) -> str:
         if not self.args:
-            return f"{self.name}"
+            return self.name
         else:
             value = ','.join((str(i) for i in self.args))
             return f"{self.name}[{value}]"

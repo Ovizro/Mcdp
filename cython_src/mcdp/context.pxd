@@ -2,6 +2,7 @@ from ._typing cimport McdpVar, McdpError
 from .stream cimport Stream
 from .counter cimport Counter, get_counter
 from .version cimport get_version
+from .exception cimport McdpValueError
 
 
 cdef StackCache _stack

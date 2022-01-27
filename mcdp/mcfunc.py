@@ -12,7 +12,7 @@ from .compiler import BaseCompilter, Function, FunctionHandler, lib_func, pull, 
 from .command import AsInstruction, Selector
 from .entities import McdpStack, get_tag
 from .variable import Score, Scoreboard, dp_int, dp_score, global_var, init_global
-from .exceptions import *
+from .exception import *
 
 
 def _toMcdpVar(c: Type) -> Type[Variable]:
@@ -318,6 +318,3 @@ def leave_stack() -> None:
         Selector("@s").add_tag("lower_stack")
     mcdp_stack_id += 1
     
-
-class McdpFunctionError(McdpError):
-    ...
