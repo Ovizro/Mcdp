@@ -179,8 +179,8 @@ cdef class Compilter:
             raise OSError("fail to chdir")
 
         init_mcmeta(<str>config.description, config.version)
-        if config.iron_path:
-            create_iron(config.iron_path)
+        if config.icon_path:
+            create_iron(config.icon_path)
         mkdir("data")
         _sc = chdir("data")
         if _sc != 0:

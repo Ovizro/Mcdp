@@ -5,13 +5,13 @@
 ## `class Config`
 Mcdp的总体配置文件类，需要在Mcdp运行之前配置完毕
 
-### \_\_init\_\_(name,version,description,*,namespace,iron_path)：  
+### \_\_init\_\_(name,version,description,*,namespace,icon_path)：  
 初始化配置文件
 - param name(str): 数据包名称
 - param version(T_version): 适配的MC版本，如'1.16.3'
 - param description(str): 数据包的描述文本
 - param namespace(str | None): 命名空间名称，默认使用数据包名
-- param iron_path(str | os.Pathlike | None): 图标路径，可选
+- param icon_path(str | os.Pathlike | None): 图标路径，可选
 - return (None): 无返回值 
 
 ### (str) name:
@@ -23,7 +23,7 @@ Mcdp的总体配置文件类，需要在Mcdp运行之前配置完毕
 ### (str) description:
 数据包的描述
 
-### (str | os.Pathlike | None) iron_path:
+### (str | os.Pathlike | None) icon_path:
 数据包图标的路径
 
 ### (str) namespace:

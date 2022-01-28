@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Union, Optional
+from zipfile import ZipFile
 
 from .config import Config, get_config
 from .context import Context, TagManager, comment, insert, add_tag

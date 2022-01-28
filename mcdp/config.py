@@ -1,11 +1,18 @@
 from os import PathLike
 from typing import Dict, Literal, Tuple, Union, Optional, List, Set
 
+from caio import version
+
 from .typing import McdpBaseModel
-from .version import Version, __version__, AioCompatVersionChecker
+from .version import Version, __version__, VersionChecker
 from .exception import *
 
+
 T_version = Union[Version, Tuple[Union[str, int], ...], Dict[str, Union[str, int]], str]
+
+
+UPWARD_COMPAT   = 1
+DOWNWARD_COMPAT = 2
 
 class PydpConfig(McdpBaseModel):
     use_ast: bool = False
@@ -27,13 +34,21 @@ _current_cfg: Optional["Config"] = None
 
 
 class Config(McdpBaseModel):
+    # base model information
     name: str
-    version: Version
+    support_version: Version
     description: str
-    iron_path: Optional[Union[str, PathLike]] = None
+    icon_path: Optional[str] = None
     namespace: str
 
+    # build option
+    build_zip: bool = False
+    build_dir: List[str] = ["."]
     remove_old_pack: bool = True
+
+    # version option
+    version_flag: int = 0
+    version_check: int = 0
 
     pydp: PydpConfig = PydpConfig()
     vmcl: VmclConfig = VmclConfig()
@@ -45,7 +60,7 @@ class Config(McdpBaseModel):
             description: str,
             *,
             namespace: Optional[str] = None,
-            iron_path: Optional[Union[str, PathLike]] = None,
+            icon_path: Optional[str] = None,
             **kw
     ) -> None:
         global _current_cfg
@@ -53,7 +68,7 @@ class Config(McdpBaseModel):
         version = Version(version)
         super().__init__(
                 name=name, version=version, description=description,
-                namespace=namespace, iron_path=iron_path, **kw)
+                namespace=namespace, icon_path=icon_path, **kw)
         _current_cfg = self
 
 
@@ -64,7 +79,7 @@ def get_config() -> Config:
 
 
 check_mcdp_version = __version__.check
-check_mc_version = AioCompatVersionChecker(lambda: get_config().version).decorator
+check_mc_version = VersionChecker(lambda: get_config().support_version).decorator
 
 
 class MinecraftVersionError(McdpVersionError):
