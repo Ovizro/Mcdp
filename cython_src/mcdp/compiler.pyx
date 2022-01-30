@@ -36,7 +36,7 @@ cdef void init_mcmeta(str desc, Version version) except *:
     finally:
         s.close()
 
-cdef void create_iron(str path) except *:
+cdef void create_icon(str path) except *:
     cdef:
         bytes p = path.encode()
         int _sc
@@ -178,9 +178,9 @@ cdef class Compilter:
         if _sc != 0:
             raise OSError("fail to chdir")
 
-        init_mcmeta(<str>config.description, config.version)
+        init_mcmeta(<str>config.description, config.support_version)
         if config.icon_path:
-            create_iron(config.icon_path)
+            create_icon(config.icon_path)
         mkdir("data")
         _sc = chdir("data")
         if _sc != 0:

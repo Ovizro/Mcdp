@@ -31,8 +31,6 @@ cdef class VersionChecker:
         version_factory
     cpdef void apply_check(self)
 
-cdef class AioCompatVersionChecker(VersionChecker):
-    pass
 
 cpdef int get_version(_version) except -1
 

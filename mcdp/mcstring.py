@@ -119,6 +119,14 @@ class Color(Enum, metaclass=EnumMetaclass):
     yellow      = 14
     white       = 15
 
+    def __int__(self) -> int:
+        return self.value
+    
+    __index__ = __int__
+
+    def __eq__(self, __o: int) -> bool:
+        return self.value == __o
+
 
 @check_mc_version('>=1.16')
 def _check_color(color: str) -> None:
@@ -235,3 +243,8 @@ class MCString(MCSS):
 
     def __str__(self) -> str:
         return self.json()
+
+def t(a: int):
+    return a
+
+t(int(Color.black))

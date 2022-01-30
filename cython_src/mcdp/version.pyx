@@ -416,46 +416,6 @@ cdef class VersionChecker:
         return self.__func__(*args, **kwds)
 
 
-cdef class AioCompatVersionChecker(VersionChecker):
-    @property
-    def decorator(self):
-        def version_check_decorator(*args, **kwds):
-            def get_func(func: Callable) -> Callable:
-                name = func.__qualname__
-                self.register(func, *args, **kwds)
-
-                if not iscoroutinefunction(func):
-                    @wraps(func)
-                    def wrapper(*arg, **kw) -> Any:
-                        self.apply_check()
-                        if name in self.collection:
-                            return self.collection[name](*arg, **kw)
-                        else:
-                            raise VersionError(
-                                    f"The function '{name}' fails to pass the version check.", version=self.version_factory())
-
-                    return wrapper
-                else:
-                    @wraps(func)
-                    async def aio_wrapper(*arg, **kw) -> Any:
-                        self.apply_check()
-                        if name in self.collection:
-                            return await self.collection[name](*arg, **kw)
-                        else:
-                            raise VersionError(
-                                    f"The function '{name}' fails to pass the version check.", version=self.version_factory())
-
-                    return aio_wrapper
-
-            return get_func
-
-        return version_check_decorator
-
-    async def __call__(self, *args: Any, **kwds: Any) -> Any:
-        self.apply_check()
-        return await self.__func__(*args, **kwds)
-
-
 cdef class VersionError(Exception):
 
     def __init__(self, *msg, version: Optional[Version] = None) -> None:

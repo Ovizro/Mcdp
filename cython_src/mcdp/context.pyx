@@ -102,10 +102,12 @@ cdef class Handler(McdpVar):
         self.env_type = env_type
     
     cpdef void init(self):
-        config = get_config()
+        cdef:
+            config = get_config()
+            Version v = config.support_version
         comment(
             "Datapack %s built by Mcdp." % config.name,
-            "Supported Minecraft version: %s(%s)" % (config.version, get_version(config.version)),
+            "Supported Minecraft version: %s(%s)" % (v, get_version(v)),
         )
         dp_newline(1)
     

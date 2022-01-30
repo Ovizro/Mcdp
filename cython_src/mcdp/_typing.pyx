@@ -66,6 +66,9 @@ cdef class _McdpBaseModel(McdpVar):
     cpdef dict to_dict(self):
         return {}
     
+    cdef str _json(self):
+        return ujson.dumps(self.to_dict())
+    
     def json(self, **kwds) -> str:
         return ujson.dumps(self.to_dict(), **kwds)
 
