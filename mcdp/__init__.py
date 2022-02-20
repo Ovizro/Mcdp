@@ -1,8 +1,6 @@
-from pathlib import Path
-from typing import Union, Optional
-from zipfile import ZipFile
+from typing import Optional
 
-from .config import Config, get_config
+from .config import Config, PackageImformation, get_config, T_version, set_config
 from .context import Context, TagManager, comment, insert, add_tag
 from .variable import Scoreboard, dp_int, dp_score, global_var
 from .mcstring import MCString, MCSS
@@ -10,7 +8,7 @@ from .command import cout, endl
 from .mcfunc import mcfunc, mcfunc_main, MCFunction
 from .typing import McdpError
 from .version import __version__
-from .stream import *
+from .stream import Stream
 
 
 __author__ = "Ovizro"
@@ -24,12 +22,19 @@ class Mcdatapack:
 
     def __init__(
             self,
-            path: Union[str, Path],
+            name: str,
+            version: T_version,
+            description: str,
             *,
-            config: Optional[Config] = None
+            namespace: Optional[str] = None,
+            icon_path: Optional[str] = None,
+            **kw
     ) -> None:
-        pass
-
+        namespace = namespace or name
+        pack = PackageImformation(name=name, version=version, description=description,
+                namespace=namespace, icon_path=icon_path)
+        self.config = Config(package = pack, **kw)
+        set_config(self.config)
 
 __all__ = [
     # config
