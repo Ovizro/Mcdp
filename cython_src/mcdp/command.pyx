@@ -2,10 +2,7 @@ cimport cython
 from libc.stdio cimport sprintf
 from libc.stdlib cimport malloc, free
 from libc.string cimport strlen, strcat
-from ._typing cimport McdpVar, McdpError
-from .context cimport Handler, dp_insert, dp_comment, dp_newline
 
-from .exception cimport McdpValueError, McdpTypeError, McdpIndexError
 from .context import insert, comment
 
 
@@ -35,7 +32,7 @@ cdef class PosComponent(McdpVar):
         return self.value
 
 
-cdef void _set_pos(list posXYZ, int index, value, str typecheck) except *:
+cdef inline void _set_pos(list posXYZ, const int index, value, str typecheck) except *:
     cdef PosComponent c_pos
     if not isinstance(value, PosComponent):
         c_pos = PosComponent(value)
@@ -83,6 +80,10 @@ cdef class Position(McdpVar):
         elif tid == 3:
             self.type = "local"
         self._posXYZ = l
+    
+    cpdef void teleport(self, slt) except *:
+        cdef Selector s = selector(slt)
+        insert("tp %s %s" % (self, slt))
     
     @property
     def x(self):
@@ -304,6 +305,15 @@ cdef class Selector(McdpVar):
             return "%s[%s]" % (self.name, buffer)
 
 
+cpdef Selector selector(t_slt):
+    if isinstance(t_slt, Selector):
+        return <Selector>t_slt
+    elif hasattr(type(t_slt), "__selector__"):
+        return t_slt.__selector__()
+    else:
+        raise McdpTypeError("'%s' object is not a selector" % type(t_slt))
+
+
 cdef class NBTPath(McdpVar):
     cdef readonly tuple path
 
@@ -338,14 +348,21 @@ cdef class NBTPath(McdpVar):
         return '.'.join(self.path)
 
 
-cdef class InstructionHandler(Handler):
+cdef int instruction_counter = 0
+
+
+cdef class InstructionEnvironment(Context):
     cdef Instruction instruction
 
     def __init__(self, instruction: Instruction) -> None:
         self.instruction = instruction
-        super().__init__("instruction")
+        super().__init__("instruction" + hex(instruction_counter), root_path=get_extra_path())
     
-    def init(self) -> None:
+    cpdef void init(self):
         super().init()
         dp_comment("File ")
         dp_newline(2)
+
+
+cdef class Instruction(McdpVar):
+    ...

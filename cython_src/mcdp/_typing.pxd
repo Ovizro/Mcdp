@@ -10,6 +10,7 @@ cdef class McdpVar:
 
 cdef class _McdpBaseModel(McdpVar):
     cpdef dict to_dict(self)
+    cpdef _McdpBaseModel copy(self)
     cdef str _json(self)
 
 

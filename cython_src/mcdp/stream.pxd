@@ -1,6 +1,17 @@
 from libc.stdio cimport FILE
+from .exception cimport McdpValueError
 from .path cimport *
 
+
+cdef struct StreamCounter:
+    int dirs
+    int files
+    int commands
+    int chars
+
+
+cdef StreamCounter get_counter() nogil
+cdef void print_counter()
 
 cpdef void mkdir(const char* dir_path) nogil except *
 
@@ -8,7 +19,7 @@ cpdef void mkdir(const char* dir_path) nogil except *
 cdef class Stream:
     cdef FILE* _file
     cdef readonly:
-        bytes path
+        char* path
         bint closed
 
     cpdef void open(self, str mod = *) except *

@@ -1,16 +1,25 @@
 cimport cython
-from libc.stdio cimport fopen, fputs, fclose, printf
+from libc.stdio cimport fopen, fputs, fclose, sprintf
 from libc.stdlib cimport malloc, free
-from libc.string cimport strlen
-from .counter cimport ContextCounter, get_counter
+from libc.string cimport strlen, strcpy
 
 import ujson
 
 
-cdef ContextCounter counter = get_counter()
+cdef StreamCounter counter = StreamCounter(0, 0, 0, 0)
 
 
-cdef void _mkdir(const char* path, int* counter) nogil except *:
+cdef inline StreamCounter get_counter() nogil:
+    return counter
+
+cdef inline void print_counter():
+    cdef char buffer[128]
+    sprintf(buffer, "%d dirs, %d files, %d commands, %d chars in total",
+        counter.dirs, counter.files, counter.commands, counter.chars)
+    print(buffer.decode())
+
+
+cdef void _mkdir(const char* path, int* _c) nogil except *:
     cdef:
         char* pdir = dirname(path)
         int _sc
@@ -24,9 +33,9 @@ cdef void _mkdir(const char* path, int* counter) nogil except *:
             with gil:
                 raise OSError("fail to create dir")
     else:
-        _mkdir(pdir, counter)
+        _mkdir(pdir, _c)
     free(pdir)
-    counter[0] += 1
+    _c[0] += 1
     
 
 cpdef void mkdir(const char* dir_path) nogil except *:
@@ -36,28 +45,31 @@ cpdef void mkdir(const char* dir_path) nogil except *:
     cdef int c = 0
     _mkdir(dir_path, &c)
     if c:
-        with gil:
-            counter.dirs += c
+        counter.dirs += c
     
 
 cdef class Stream:
 
     def __cinit__(self, str path, *, str root = None):
-        self.path = path.encode()
         cdef:
-            bytes _root
-            char* p = <char*>self.path
+            bytes _tmp = path.encode()
+            char* p = _tmp
+            Py_ssize_t l_str
         if not isabs(p):
             if not root:
                 p = abspath(p)
-                if p == NULL:
-                    raise MemoryError
             else:
-                _root = root.encode()
-                p = join_path(_root, p)
-
+                _tmp = root.encode()
+                p = join_path(_tmp, p)
+            if p == NULL:
+                raise MemoryError
             self.path = p
-            free(p)
+        else:
+            l_str = len(_tmp) + 1
+            self.path = <char*>malloc(l_str * sizeof(char))
+            if self.path == NULL:
+                raise MemoryError
+            strcpy(self.path, p)
         self._file = NULL
         self.closed = False
     
@@ -71,9 +83,8 @@ cdef class Stream:
             return
 
         cdef:
-            char* _path = <char*>self.path
             const char* open_mod
-            char* file_dir = dirname(_path)
+            char* file_dir = dirname(self.path)
         if mod == 'w':
             open_mod = 'w'
         elif mod == 'a':
@@ -84,7 +95,7 @@ cdef class Stream:
         with nogil:
             mkdir(file_dir)
             free(file_dir)
-            self._file = fopen(_path, open_mod)
+            self._file = fopen(self.path, open_mod)
             if self._file != NULL:
                 self.closed = False
                 return
@@ -101,10 +112,10 @@ cdef class Stream:
         with nogil:
             c = fputs(_s, self._file)
 
-        if c < 0:
-            raise OSError("fail to write to file %s" % self.path)
-        c = strlen(_s)
-        counter.chars += c
+            if c < 0:
+                raise OSError("fail to write to file %s" % self.path)
+            c = strlen(_s)
+            counter.chars += c
         return c
     
     cpdef int write(self, str _s) except -1:

@@ -37,8 +37,10 @@ class Mcdatapack:
         set_config(self.config)
 
 __all__ = [
+    "Mcdatapack",
     # config
     "Config",
+    "config",
     "get_config",
     # context
     "Context",

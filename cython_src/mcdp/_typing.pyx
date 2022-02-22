@@ -62,9 +62,16 @@ cdef class _McdpBaseModel(McdpVar):
             raise TypeError("%s is not a instance of %s." % (val, cls.__qualname__))
         else:
             return val
+    
+    def __reduce__(self):
+        return self.to_dict()
 
     cpdef dict to_dict(self):
         return {}
+    
+    cpdef _McdpBaseModel copy(self):
+        cdef type cls = type(self)
+        return cls(**self.to_dict())
     
     cdef str _json(self):
         return ujson.dumps(self.to_dict())

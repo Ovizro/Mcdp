@@ -1,13 +1,3 @@
-cdef fused T_Version:
-    dict
-    tuple
-    str
-    Version
-
-cdef fused T_Key:
-    int
-    slice
-
 cdef class Version:
     cdef readonly:
         int major
@@ -20,6 +10,7 @@ cdef class Version:
     cdef void _check_valid(self) except *
     cpdef tuple to_tuple(self)
     cpdef to_dict(self)
+    cpdef int to_int(self)
 
 cdef class VersionChecker:
     cdef readonly:

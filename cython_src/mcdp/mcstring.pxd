@@ -1,36 +1,7 @@
-from cython cimport uint8
+from libc.stdint cimport uint8_t
 from ._typing cimport McdpVar, _McdpBaseModel
 from .version cimport Version, VersionError
-from .exception cimport McdpValueError
-
-
-cdef struct MCStr_Score:
-    str name
-    str objective
-    str value
-
-
-cdef struct MCStr_ClickEvent:
-    str action
-    str value
-
-
-cdef struct MCStr_HoverEvent:
-    str action
-    str value
-    contents
-
-
-cdef struct MCStr_HoverItem:
-    str id
-    int count
-    str tag
-
-
-cdef struct MCStr_HoverEntity:
-    MCString name
-    str type
-    str id
+from .exception cimport McdpValueError, McdpTypeError
 
 
 cdef enum MCStr_Color:
@@ -50,5 +21,3 @@ cdef enum MCStr_Color:
     LIGHT_PURPLE= 13
     YELLOW      = 14
     WHITE       = 15
-
-

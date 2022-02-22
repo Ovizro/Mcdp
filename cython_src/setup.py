@@ -9,6 +9,7 @@ ext = [
     Extension("mcdp._typing", ["mcdp\\_typing.pyx"]),
     Extension("mcdp.exception", ["mcdp\\exception.pyx"]),
     Extension("mcdp.context", ["mcdp\\context.pyx"]),
+    Extension("mcdp.mcstring", ["mcdp\\mcstring.pyx"]),
     Extension("mcdp.command", ["mcdp\\command.pyx"]),
     Extension("mcdp.compiler", ["mcdp\\compiler.pyx"])
 ]

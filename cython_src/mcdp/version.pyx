@@ -52,7 +52,7 @@ cpdef int get_version(_version) except -1:
     else:
         raise ValueError(f"unknow Minecraft datapack version {mc_version}.")
 
-cdef bint _version_cmp(Version v0, Version v1, int op) except -1:
+cdef inline bint _version_cmp(Version v0, Version v1, int op) except -1:
     cdef:
         tuple v0_num = v0.to_tuple()
         tuple v1_num = v1.to_tuple()
@@ -61,7 +61,7 @@ cdef bint _version_cmp(Version v0, Version v1, int op) except -1:
     elif op == Py_NE:
         return v0_num != v1_num
     
-    cdef bint eq_ok = op == Py_LE | op == Py_GE
+    cdef bint eq_ok = op == Py_LE or op == Py_GE
 
     cdef:
         int i
@@ -81,64 +81,43 @@ cdef bint _version_cmp(Version v0, Version v1, int op) except -1:
     else:
         return eq_ok
 
-@cython.binding(False)
-@cython.unraisable_tracebacks(False)
-def _init_packed(Version version_self, T_Version version):
-    cdef:
-        tuple num
-        int n
-    if T_Version is tuple:
-        version_self._init_from_tuple(version)
-        version_self._check_valid()
-    elif T_Version is str:
-        m = SEMVER_REGEX.match(version)
-        if m is None:
-            raise ValueError("Incorrect version form.")
-        version_self._init_from_tuple(m.groups())
-    elif T_Version is dict:
-        try:
-            version_self.major = int(version["major"])
-            version_self.minor = int(version["minor"])
-            version_self.patch = int(version["patch"])
-            if "prerelease" in version and version["prerelease"]:
-                version_self.prerelease = str(version["prerelease"])
-            if "build" in version and version["build"]:
-                version_self.build = str(version["build"])
-            version_self._check_valid()
-        except:
-            pass
-        else:
-            return
-        raise ValueError("Incorrect version form.")
-    else:
-        version_self._init_from_tuple(version.to_tuple())
-
-@cython.binding(False)
-@cython.unraisable_tracebacks(False)
-def _version_getitem(Version version_self, T_Key index):
-    if T_Key is int:
-        if (index < 0):
-            raise IndexError("Version index cannot be negative")
-        return version_self.to_tuple()[index]
-    else:
-        if (
-            (index.start is not None and index.start < 0)
-            or (index.stop is not None and index.stop < 0)
-        ):
-            raise IndexError("Version index cannot be negative")
-
-        part = tuple(i for i in version_self.to_tuple()[index] if i != None)
-        if not part:
-            raise IndexError("Version part undefined")
-        return part
-
 
 cdef class Version:
 
+    @cython.nonecheck(False)
     def __init__(self, version):
-        _init_packed(self, version)
+        cdef:
+            tuple num
+            int n
+        if isinstance(version, tuple):
+            self._init_from_tuple(<tuple>version)
+            self._check_valid()
+        elif isinstance(version, str):
+            m = SEMVER_REGEX.match(version)
+            if m is None:
+                raise ValueError("Incorrect version form.")
+            self._init_from_tuple(m.groups())
+        elif isinstance(version, dict):
+            try:
+                self.major = int(version["major"])
+                self.minor = int(version["minor"])
+                self.patch = int(version["patch"])
+                if "prerelease" in (<dict>version) and version["prerelease"]:
+                    self.prerelease = str(version["prerelease"])
+                if "build" in (<dict>version) and version["build"]:
+                    self.build = str(version["build"])
+                self._check_valid()
+            except:
+                pass
+            else:
+                return
+            raise ValueError("Incorrect version form.")
+        elif isinstance(version, Version):
+            self._init_from_tuple((<Version>version).to_tuple())
+        else:
+            raise TypeError("Invalid version type '%s'" % type(version))
     
-    cdef void _init_from_tuple(self, tuple version) except *:
+    cdef inline void _init_from_tuple(self, tuple version) except *:
         if len(version) != 5:
             raise ValueError("Incorrect version tuple.")
         self.major = int(version[0])
@@ -152,7 +131,7 @@ cdef class Version:
         if version[4]:
             self.build = str(version[4])
     
-    cdef void _check_valid(self) except *:
+    cdef inline void _check_valid(self) except *:
         if self.major < 0 or self.minor < 0 or self.patch < 0:
             raise ValueError("A version can only be positive.")
     
@@ -169,15 +148,45 @@ cdef class Version:
                 ("build", self.build),
             )
         )
+    
+    cpdef int to_int(self):
+        return (self.major * 10 + self.minor) * 10 + self.patch
 
+    @cython.nonecheck(False)
     def __getitem__(self, index):
-        return _version_getitem(self, index)
+        cdef slice _index
+        if isinstance(index, int):
+            if (<int>index < 0):
+                raise IndexError("Version index cannot be negative")
+            return self.to_tuple()[index]
+        else:
+            _index = index
+            if (
+                (_index.start is not None and _index.start < 0)
+                or (_index.stop is not None and _index.stop < 0)
+            ):
+                raise IndexError("Version index cannot be negative")
+
+            part = []
+            for i in <tuple>(self.to_tuple()[_index]):
+                if not i is None:
+                    part.append(i)
+            part = tuple(<list>part)
+            if not part:
+                raise IndexError("Version part undefined")
+            return part
 
     def __iter__(self):
         return self.to_tuple()
     
     def __hash__(self):
         return hash(self.to_tuple[:4])
+    
+    def __int__(self):
+        return self.to_int()
+    
+    def __index__(self):
+        return self.to_int()
     
     def __richcmp__(self, _other, int op):
         cdef Version other

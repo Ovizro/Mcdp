@@ -1,6 +1,6 @@
 import re
 import sys
-from pydantic import validator
+from pydantic import validator, Field
 from typing import Any, Dict, Literal, Tuple, Union, Optional, List, Set
 from types import ModuleType
 
@@ -46,7 +46,7 @@ _current_cfg: Optional["Config"] = None
 
 
 class Config(McdpBaseModel):
-    packaage: PackageImformation
+    package: PackageImformation = Field(alias="pack")
 
     # build option
     build_zip: bool = False

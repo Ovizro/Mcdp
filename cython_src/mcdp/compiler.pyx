@@ -6,19 +6,18 @@ from functools import partial
 from ._typing cimport McdpVar, McdpError
 from .version cimport Version
 from .stream cimport Stream, mkdir, chdir, rmtree, copyfile, isdir
-from .context cimport set_context_path, get_namespace, get_version
-from .context cimport dp_insert as insert, dp_comment as comment, dp_newline as newline, dp_addTag as add_tag
-from .context cimport StackCache, _stack, Context, Handler, TagManager
+from .context cimport (set_context_path, get_version, _envs, Context, TagManager,
+                dp_insert as insert, dp_comment as comment, dp_newline as newline, 
+                dp_fastAddTag as add_tag, dp_fastEnter as enter_context)
 
 from .config import get_config
 from .variable import Scoreboard, dp_score, global_var, init_global
 from .command import AsInstruction, Selector
 from .entities import McdpStack, get_tag
+from .mcfunc import Function, __init_score__
 
 
-cdef:
-    dict _func_collections = {}
-    Compilter compilter
+cdef Compilter compilter
 
 
 cdef void init_mcmeta(str desc, Version version) except *:
@@ -46,102 +45,6 @@ cdef void create_icon(str path) except *:
     if _sc == -1:
         raise OSError("fail to copy file")
 
-cdef str get_func_name(str func_name, str space):
-    if not space or space == '.':
-        return func_name
-    else:
-        return "%s.%s" % (space, func_name)
-
-cpdef void pull() except *:
-    compilter.pull()
-
-cpdef void push() except *:
-    compilter.push()
-
-
-cdef class FunctionHandler(Handler):
-    cdef bytes __name__
-    cdef readonly:
-        __func__
-
-    def __init__(self, func):
-        self.__func__ = func
-        self.__name__ = (<str>(func.__name__)).encode()
-        super().__init__("Function")
-    
-    cpdef void init(self):
-        cdef bytes buffer = b"Library function %S of Mcdp." % self.__name__
-        comment(buffer)
-        newline(1)
-
-
-cdef class Function(McdpVar):
-    cdef int start
-    cdef readonly:
-        str __name__
-        str __qualname__
-        bint create_frame
-        object __func__
-    
-    collections = _func_collections
-    
-    def __init__(self, func not None, *, str space = None, bint create_frame = False):
-        self.__func__ = func
-        self.__name__ = func.__name__
-        self.__qualname__ = get_func_name(self.__name__, space)
-        self.create_frame = create_frame
-        _func_collections[self.__qualname__] = self
-    
-    def __call__(self):
-        cdef:
-            str namespace = get_namespace()
-            str name = self.__qualname__
-        if self.create_frame:
-            pull()
-        cdef bytes buffer = f"function {namespace}:{name}".encode()
-        insert(buffer)
-    
-    cpdef void add_space(self, str space):
-        self.__qualname__ = "%s.%s" % (space, self.__qualname__)
-        
-    cpdef void apply(self) except *:
-        cdef:
-            str path = self.__qualname__
-            str doc
-            bytes buffer
-
-        path.replace('.', '/')
-        cdef Context cnt = Context(
-                path, hdls=FunctionHandler(self.__func__))
-
-        _stack._append(cnt)
-        try:
-            doc = self.__func__.__doc__
-            if doc:
-                buffer = doc.encode()
-                comment(buffer)
-            self.__func__()
-            if self.create_frame:
-                compilter.push()
-        finally:
-            _stack._pop()
-    
-    @classmethod
-    def apply_all(cls):
-        cdef Function func
-        for func in _func_collections.values():
-            func.apply()
-
-    @staticmethod
-    cdef void _apply_all() except *:
-        cdef Function func
-        for func in _func_collections.values():
-            func.apply()
-
-
-def lib_func(str space = "Libs") -> Callable[[Callable[[], None ]], Function]:
-    return partial(Function, space=space)
-
 
 cdef class Compilter:
     cdef readonly:
@@ -157,14 +60,14 @@ cdef class Compilter:
     
     cpdef void build_dirs(self) except *:
         cdef:
-            config = self.config
+            pack = self.config.package
             bytes btmp
             char* tmp
             int _sc
-        btmp = (<str>(config.name)).encode()
+        btmp = (<str>(pack.name)).encode()
         tmp = <char*>btmp
         if isdir(tmp):
-            if config.remove_old_pack:
+            if pack.remove_old_pack:
                 _sc = rmtree(tmp)
                 if _sc == -1:
                     raise OSError("invalid path")
@@ -178,23 +81,23 @@ cdef class Compilter:
         if _sc != 0:
             raise OSError("fail to chdir")
 
-        init_mcmeta(<str>config.description, config.support_version)
-        if config.icon_path:
-            create_icon(config.icon_path)
+        init_mcmeta(<str>pack.description, pack.support_version)
+        if pack.icon_path:
+            create_icon(pack.icon_path)
         mkdir("data")
         _sc = chdir("data")
         if _sc != 0:
             raise OSError("fail to chdir")
 
-        btmp = (<str>config.namespace).encode()
+        btmp = (<str>pack.namespace).encode()
         mkdir("minecraft")
         mkdir(btmp)
     
     cdef void enter(self) except *:
         self.build_dirs()
         
-        cdef Context base = Context("__init__", hdls=Handler("__init__"))
-        _stack._append(base)
+        cdef Context base = Context("__init__")
+        _envs._append(base)
         comment("This is the initize function.")
         newline(2)
         add_tag("minecraft:load")
@@ -203,16 +106,8 @@ cdef class Compilter:
     cdef void exit(self):
         Function.apply_all()
         TagManager.apply_all()
-        _stack._clear()
+        _envs._clear()
 
-    @staticmethod
-    def pull():
-        raise NotImplementedError
-
-    @staticmethod
-    def push():
-        raise NotImplementedError
-    
     def __enter__(self):
         self.enter()
         return self
@@ -222,44 +117,6 @@ cdef class Compilter:
 
 
 mcdp_stack_id = global_var(dp_score, "mcdpStackID", 0)
-
-@lib_func(None)
-def __init_score__():
-    """Init the scoreboard."""
-    Scoreboard.apply_all()
-
-
-@lib_func()
-def enter_stack() -> None:
-    global mcdp_stack_id
-
-    top = Selector("@e", "tag=stack_top", tag=get_tag(), limit=1)
-    lower = Selector("@e", "tag=lower_stack", tag=get_tag(), limit=1)
-    
-    lower.remove_tag("lower_stack")
-    top.add_tag("lower_stack")
-    top.remove_tag("stack_top")
-
-    stack = McdpStack()
-    mcdp_stack_id += 1
-    
-
-@lib_func()
-def leave_stack() -> None:
-    global mcdp_stack_id
-
-    top = Selector("@e", "tag=stack_top", tag=get_tag(), limit=1)
-    lower = Selector("@e", "tag=lower_stack", tag=get_tag(), limit=1)
-
-    top.remove()
-    lower.add_tag("stack_top")
-    lower.remove_tag("lower_stack")
-
-    mcdp_stack_id -= 2
-    s = dp_score("mcdpStackID", selector=Selector(McdpStack))
-    with s == mcdp_stack_id:
-        Selector("@s").add_tag("lower_stack")
-    mcdp_stack_id += 1
 
 
 cdef class McdpFunctionError(McdpError):

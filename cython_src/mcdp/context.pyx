@@ -12,11 +12,12 @@ from .config import get_config
 
 cdef:
     int MAX_OPEN = 8
-    str BASE_MCFUNC_PATH
-    str BASE_ENV_PATH
+    str BASE_MCFUNC_PATH = None
+    str LIBRARY_PATH = None
+    str EXTRA_PATH = None
 
 
-cdef class StackCache(list):
+cdef class EnvCache(list):
 
     def __init__(self, int capacity = 12):
         if not (1 < capacity <= 128):
@@ -92,35 +93,9 @@ cdef class EnvProperty(EnvMethod):
 
     def __get__(self, instance, owner) -> Any:
         return self.__func__(owner)
-
-
-cdef class Handler(McdpVar):
     
-    env_counter = defaultdict(lambda: 0)
 
-    def __init__(self, str env_type):
-        self.env_type = env_type
-    
-    cpdef void init(self):
-        cdef:
-            config = get_config()
-            Version v = config.support_version
-        comment(
-            "Datapack %s built by Mcdp." % config.name,
-            "Supported Minecraft version: %s(%s)" % (v, get_version(v)),
-        )
-        dp_newline(1)
-    
-    cpdef str command(self, str cmd):
-        return cmd
-    
-    cpdef Context stream(self):
-        cdef str file_name = self.env_type + hex(self.env_counter[self.env_type])
-        self.env_counter[self.env_type] += 1
-        return Context(file_name, root_path=BASE_ENV_PATH, envs=self)
-
-
-cdef StackCache _stack = StackCache(MAX_OPEN)
+cdef EnvCache _envs = EnvCache(MAX_OPEN)
 
 
 cdef class Context(McdpVar):
@@ -132,13 +107,26 @@ cdef class Context(McdpVar):
             str name not None,
             *,
             str root_path = None,
-            hdls = []
+            hdls = None
     ):
         self.name = name
         self.stream = Stream(name + self.file_suffix, root=root_path or BASE_MCFUNC_PATH)
-        if isinstance(hdls, Handler):
-            hdlss = [hdls,]
-        self.handlers = hdls
+        if hdls is None:
+            self.handlers = []
+        elif callable(hdls):
+            self.handlers = [hdls,]
+        else:
+            self.handlers = hdls
+    
+    cpdef void mkhead(self) except *:
+        cdef:
+            config = get_config()
+            Version v = config.support_version
+        self.comment(
+            "Datapack %s built by Mcdp." % config.name,
+            "Supported Minecraft version: %s(%s)" % (v, get_version(v)),
+        )
+        self.newline()
     
     cpdef void write(self, str content) except *:
         self.stream.write(content)
@@ -147,11 +135,10 @@ cdef class Context(McdpVar):
         return self.stream.writable()
     
     cpdef void activate(self, bint append = False) except *:
-        cdef Handler hdl
         if not append:
             self.stream.open("w")
-            for hdl in self.handlers:
-                hdl.init()
+            if get_config().pydp.add_comments:
+                self.make_head()
         else:
             self.stream.open("a")
     
@@ -159,22 +146,22 @@ cdef class Context(McdpVar):
         self.stream.close()
     
     def __enter__(self) -> Context:
-        _stack._append(self)
+        _envs._append(self)
         return self
     
     def __exit__(self, *args) -> None:
-        if _stack._pop().name == "__init__":
+        if _envs._pop().name == "__init__":
             raise McdpContextError("Cannot leave the static stack '__init__'.")
     
     @EnvProperty
     def top(cls):
-        if len(_stack) < 1:
+        if len(_envs) < 1:
             raise McdpContextError("Class 'Context' should be inited before used.")
-        return _stack[-1]
+        return _envs[-1]
     
     @EnvProperty
     def stacks(cls):
-        return _stack
+        return _envs
 
     @EnvMethod
     def insert(self, *content: str) -> None:
@@ -185,11 +172,10 @@ cdef class Context(McdpVar):
             str command
             list l_cmd
             str c
-            Handler hdl
-            Counter counter = get_counter().commands
+            int counter = get_counter().commands
             
         for command in content:
-            +counter
+            counter += 1
 
             if not command.endswith('\n'):
                 command += '\n'
@@ -198,12 +184,12 @@ cdef class Context(McdpVar):
                 l_cmd = command.split('\n')[:-1]
                 for c in l_cmd:
                     for hdl in self.handlers:
-                        c = hdl.command(c)
-                    self.write(c + '\n')
+                        c = hdl(c)
+                    self.write(str(c) + '\n')
             else:
                 for hdl in self.handlers:
-                    command = hdl.command(command)
-                self.write(command)
+                    command = hdl(command)
+                self.write(str(command))
 
     @EnvMethod
     def comment(self, *content: str) -> None:
@@ -227,11 +213,13 @@ cdef class Context(McdpVar):
         self.write('\n' * line)
     
     @EnvMethod
-    def add_hdl(self, Handler hdl) -> None:
+    def add_hdl(self, hdl) -> None:
+        if not callable(hdl):
+            raise McdpValueError("Command handler should be a callable object.")
         self.handlers.append(hdl)
     
     @EnvMethod
-    def pop_hdl(self) -> Handler:
+    def pop_hdl(self):
         return self.handlers.pop()
 
     def __repr__(self) -> str:
@@ -322,19 +310,19 @@ cdef class TagManager(McdpVar):
 
 cdef api void dp_insert(const char* cmd) except *:
     cdef:
-        Context top = _stack[-1]
-        Handler hdl
-        str tmp = cmd.decode()
+        Context top = _envs[-1]
+        tmp = cmd.decode()
     if not top.writable():
         raise McdpContextError("fail to insert command.")
+    get_counter().commands += 1
     for hdl in top.handlers:
-        tmp = hdl.command(tmp)
-    top.stream.fwrite(tmp.encode())
+        tmp = hdl(tmp)
+    top.stream.write(tmp)
 
 cdef api void dp_comment(const char* cmt) except *:
     if not get_config().pydp.add_comments:
         return
-    cdef Context top = _stack[-1]
+    cdef Context top = _envs[-1]
     if not top.writable():
         raise McdpContextError("fail to add comments.")
 
@@ -364,7 +352,7 @@ cdef api void dp_comment(const char* cmt) except *:
 cdef api void dp_newline(int line) except *:
     if not get_config().pydp.add_comments:
         return
-    cdef Context top = _stack[-1]
+    cdef Context top = _envs[-1]
     if not top.writable():
         raise McdpContextError("fail to add comments.")
 
@@ -374,24 +362,43 @@ cdef api void dp_newline(int line) except *:
     cdef int i
     for i in range(line):
         buffer[i] = ord('\n')
-    buffer[i] = ord('\0')
+    buffer[i] = 0
     top.stream.fwrite(buffer)
     free(buffer)
 
-cdef api void dp_addTag(const char* _tag) except *:
+cdef api void dp_fastAddTag(const char* tag) except *:
+    cdef Context ctx = _envs[-1]
+    dp_addTag(tag.decode(), ctx.name, None)
+
+cdef api void dp_addTag(str tag, str value, str m_name) except *:
     cdef:
         list nt
-        str tag = _tag.decode()
-        str namespace = get_namespace()
-        Context top = _stack[-1]
-        str value = top.name
+        str namespace
         TagManager m_tag
     if ':' in tag:
         nt = tag.split(':', 2)
         namespace = nt[0]
         tag = nt[1]
-    m_tag = _tag_collections[namespace + ":functions"]
+    else:
+        namespace = get_namespace()
+    if m_name is None:
+        m_name = namespace + ":functions"
+    m_tag = _tag_collections[m_name]
     m_tag.add(tag, value)
+
+cdef api void dp_enter(str name, str root, list hdls) except *:
+    cdef Context ctx = Context(name, root_path=root, hdls=hdls)
+    _envs._append(ctx)
+    
+cdef api void dp_fastEnter(const char* name) except *:
+    dp_enter(name.decode(), None, [])
+
+cdef api void dp_enterExact(type env_type, str name, str root, list hdls) except *:
+    cdef ctx = env_type(name, root_path=root, hdls=hdls)
+    _envs._append(ctx)
+
+cdef api void dp_exit() except *:
+    _envs._pop()
 
 
 def insert(*content: str) -> None:
@@ -432,18 +439,25 @@ def add_tag(
     m_tag = _tag_collections[f"{namespace}:{type}"]
     m_tag.add(tag, value)
 
-cpdef str get_namespace():
-    return get_config().namespace
+cdef str get_namespace():
+    return get_config().pack.namespace
 
-cdef void set_context_path(str path):
-    global BASE_MCFUNC_PATH, BASE_ENV_PATH
+cdef inline str get_library_path():
+    return LIBRARY_PATH
+
+cdef inline str get_extra_path():
+    return EXTRA_PATH
+
+cdef inline void set_context_path(str path):
+    global BASE_MCFUNC_PATH, LIBRARY_PATH, EXTRA_PATH
     BASE_MCFUNC_PATH = path
-    BASE_ENV_PATH = path + "\\Envs"
+    LIBRARY_PATH = path + "\\Library"
+    EXTRA_PATH = path + "\\Extra"
 
 
 cdef class McdpContextError(McdpError):
 
     def __init__(self, *arg: str) -> None:
-        if _stack:
-            self.context = _stack[-1]
+        if _envs:
+            self.context = _envs[-1]
         super(McdpError, self).__init__(*arg)
