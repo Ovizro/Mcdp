@@ -77,7 +77,7 @@ def get_config() -> Config:
 
 
 check_mcdp_version = __version__.check
-check_mc_version = VersionChecker(lambda: get_config().packaage.support_version).decorator
+check_mc_version = VersionChecker(lambda: get_config().package.support_version).decorator
 
 
 class MinecraftVersionError(McdpVersionError):

@@ -138,7 +138,9 @@ dmypy.json
 cython_debug/
 cython_src/*/*.html
 cython_src/*/*.c
+cython_src/*/*/*.c
 !cython_src/mcdp/path.c
+!cython_src/mcdp/lex.yy.c
 cython_src/*.py[id]
 
 # 测试文件

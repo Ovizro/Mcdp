@@ -1,5 +1,5 @@
 from ._typing cimport McdpVar, McdpError
-from .stream cimport Stream, StreamCounter, get_counter
+from .stream cimport Stream, StreamCounter, get_counter, va_list, va_start, va_end
 from .version cimport get_version, Version
 from .exception cimport McdpValueError
 
@@ -28,6 +28,8 @@ cdef class Context(McdpVar):
     cpdef bint writable(self)
     cpdef void activate(self, bint append = *) except *
     cpdef void deactivate(self)
+    cdef void enter(self) except *
+    cdef void exit(self) except *
 
 
 cdef class TagManager(McdpVar):
@@ -46,17 +48,17 @@ cdef class TagManager(McdpVar):
 
 cdef api void dp_insert(const char* cmd) except *
 cdef api void dp_comment(const char* cmt) except *
+cdef api void dp_commentline(const char* cmt, ...) except *
 cdef api void dp_newline(int line) except *
 cdef api void dp_fastAddTag(const char* _tag) except *
 cdef api void dp_addTag(str tag, str value, str m_name) except *
 cdef api void dp_enter(str name, str root, list hdls) except *
 cdef api void dp_fastEnter(const char* name) except *
-cdef api void dp_enterExact(type env_type, str name, str root, list hdls) except *
 cdef api void dp_exit() except *
 cdef str get_namespace()
 cdef str get_library_path()
 cdef str get_extra_path()
-cdef void set_context_path(str path)
+cdef void init_namespace(str nsp)
 
 
 cdef class McdpContextError(McdpError):

@@ -1,19 +1,14 @@
 from libc.stdio cimport fopen, fclose, fread, FILE
 cimport cython
 
-from functools import partial
-
 from ._typing cimport McdpVar, McdpError
 from .version cimport Version
 from .stream cimport Stream, mkdir, chdir, rmtree, copyfile, isdir
-from .context cimport (set_context_path, get_version, _envs, Context, TagManager,
-                dp_insert as insert, dp_comment as comment, dp_newline as newline, 
+from .context cimport (init_namespace, get_version, _envs, Context, TagManager,
+                dp_insert as insert, dp_comment as comment, dp_commentline as commentline, dp_newline as newline, 
                 dp_fastAddTag as add_tag, dp_fastEnter as enter_context)
 
 from .config import get_config
-from .variable import Scoreboard, dp_score, global_var, init_global
-from .command import AsInstruction, Selector
-from .entities import McdpStack, get_tag
 from .mcfunc import Function, __init_score__
 
 
@@ -55,7 +50,7 @@ cdef class Compilter:
         if not config:
             config = get_config()
         self.config = config
-        set_context_path(<str>config.namespace)
+        init_namespace(<str>config.namespace)
         compilter = self
     
     cpdef void build_dirs(self) except *:
@@ -96,8 +91,7 @@ cdef class Compilter:
     cdef void enter(self) except *:
         self.build_dirs()
         
-        cdef Context base = Context("__init__")
-        _envs._append(base)
+        enter_context("__init__")
         comment("This is the initize function.")
         newline(2)
         add_tag("minecraft:load")
@@ -116,8 +110,9 @@ cdef class Compilter:
         self.exit()
 
 
-mcdp_stack_id = global_var(dp_score, "mcdpStackID", 0)
+cdef list _init_list = []
 
 
-cdef class McdpFunctionError(McdpError):
-    ...
+cpdef inline mcdp_init(func):
+    _init_list.append(func)
+    return func

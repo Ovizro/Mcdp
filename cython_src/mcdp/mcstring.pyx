@@ -15,11 +15,6 @@ cdef class MCStringObject(_McdpBaseModel):
 
 
 cdef class Score(MCStringObject):
-    cdef readonly:
-        str name
-        str objective
-        str value
-    
     def __init__(self, str name not None, str objective not None, str value = None):
         self.name = name
         self.objective = objective
@@ -37,10 +32,6 @@ cdef class Score(MCStringObject):
 
 
 cdef class ClickEvent(MCStringObject):
-    cdef readonly:
-        str action
-        str value
-
     def __init__(self, str action not None, str value not None):
         if not action in ["open_url", "run_command", "suggest_command", 
                 "change_page", "copy_to_clipboard"]:
@@ -58,11 +49,6 @@ cdef class ClickEvent(MCStringObject):
 
 
 cdef class HoverEvent(MCStringObject):
-    cdef readonly:
-        str action
-        str value
-        contents
-    
     def __init__(self, str action not None, str value = None, contents = None):
         if not action in ["show_text", "show_item", "show_entity"]:
             raise McdpValueError("Invalid click event action.")
@@ -104,11 +90,6 @@ cdef class HoverEvent(MCStringObject):
     
 
 cdef class HoverItem(MCStringObject):
-    cdef readonly:
-        str id
-        uint8_t count
-        str tag
-    
     def __init__(self, str id not None, count = None, str tag = None):
         self.id = id
         if count is None:
@@ -128,11 +109,6 @@ cdef class HoverItem(MCStringObject):
 
 
 cdef class HoverEntity(MCStringObject):
-    cdef readonly:
-        MCString name
-        str type
-        str id
-    
     def __init__(self, str type not None, name = None, str id = None):
         self.type = type
         if name is None or isinstance(name, MCString):
@@ -179,19 +155,6 @@ cdef str get_color_name(MCStr_Color color_id):
 
 
 cdef class MCSS(MCStringObject):
-    cdef readonly:
-        str color
-        bint bold
-        bint italic
-        bint underlined
-        bint strikethrough
-        bint obfuscated
-        str font
-        separator
-        str insertion
-        ClickEvent clickEvent
-        HoverEvent hoverEvent
-    
     def __init__(
             self,
             *,
@@ -266,20 +229,8 @@ cdef class MCSS(MCStringObject):
             kw["text"] = text
         return MCString(**self.to_dict(), **kw)
 
+
 cdef class MCString(MCSS):
-    cdef readonly:
-        str text
-        str translate
-        list with_
-        Score score
-        str selector
-        str keybind
-        str nbt
-        str block
-        str entity
-        str storage
-        list extra
-    
     @cython.nonecheck(False)
     def __init__(
         self, 
@@ -344,12 +295,45 @@ cdef class MCString(MCSS):
         return data
     
     def __mod__(self, _with):
+        cdef:
+            tuple tmp
+            Py_ssize_t l_with
         self = self.copy()
 
         if not self.translate:
             self.translate = self.text
-            del self.text
+            self.text = None
         
         if isinstance(_with, MCString):
             _with = (_with, )
-        
+        elif isinstance(_with, tuple):
+            l_with = len(_with)
+            tmp = PyTuple_New(l_with)
+            for i in range(l_with):
+                val = (<tuple>_with)[i]
+                val = fsmcstr(val)
+                PyTuple_SetItem(tmp, i, val)
+            _with = tmp
+        else:
+            _with = (fsmcstr(_with),)
+        if not self.with_ is None:
+            self.with_.extend(_with)
+        else:
+            self.with_ = list(_with)
+
+        return self
+    
+    @classmethod
+    def validate(cls, val):
+        return fsmcstr(val)
+
+
+cpdef MCString fsmcstr(object t_mcstring):
+    if isinstance(t_mcstring, str):
+        return MCString(t_mcstring)
+    elif isinstance(t_mcstring, MCString):
+        return <MCString>t_mcstring
+    elif hasattr(type(t_mcstring), "__mcstr__"):
+        return t_mcstring.__mcstr__()
+    else:
+        raise McdpValueError("Invalid mcstring.")

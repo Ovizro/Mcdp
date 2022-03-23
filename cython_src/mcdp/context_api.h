@@ -11,6 +11,8 @@ static void (*__pyx_api_f_4mcdp_7context_dp_insert)(char const *) = 0;
 #define dp_insert __pyx_api_f_4mcdp_7context_dp_insert
 static void (*__pyx_api_f_4mcdp_7context_dp_comment)(char const *) = 0;
 #define dp_comment __pyx_api_f_4mcdp_7context_dp_comment
+static void (*__pyx_api_f_4mcdp_7context_dp_commentline)(char const *, ...) = 0;
+#define dp_commentline __pyx_api_f_4mcdp_7context_dp_commentline
 static void (*__pyx_api_f_4mcdp_7context_dp_newline)(int) = 0;
 #define dp_newline __pyx_api_f_4mcdp_7context_dp_newline
 static void (*__pyx_api_f_4mcdp_7context_dp_fastAddTag)(char const *) = 0;
@@ -21,8 +23,6 @@ static void (*__pyx_api_f_4mcdp_7context_dp_enter)(PyObject *, PyObject *, PyObj
 #define dp_enter __pyx_api_f_4mcdp_7context_dp_enter
 static void (*__pyx_api_f_4mcdp_7context_dp_fastEnter)(char const *) = 0;
 #define dp_fastEnter __pyx_api_f_4mcdp_7context_dp_fastEnter
-static void (*__pyx_api_f_4mcdp_7context_dp_enterExact)(PyTypeObject *, PyObject *, PyObject *, PyObject *) = 0;
-#define dp_enterExact __pyx_api_f_4mcdp_7context_dp_enterExact
 static void (*__pyx_api_f_4mcdp_7context_dp_exit)(void) = 0;
 #define dp_exit __pyx_api_f_4mcdp_7context_dp_exit
 #if !defined(__Pyx_PyIdentifier_FromString)
@@ -77,12 +77,12 @@ static int import_mcdp__context(void) {
   if (!module) goto bad;
   if (__Pyx_ImportFunction(module, "dp_insert", (void (**)(void))&__pyx_api_f_4mcdp_7context_dp_insert, "void (char const *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "dp_comment", (void (**)(void))&__pyx_api_f_4mcdp_7context_dp_comment, "void (char const *)") < 0) goto bad;
+  if (__Pyx_ImportFunction(module, "dp_commentline", (void (**)(void))&__pyx_api_f_4mcdp_7context_dp_commentline, "void (char const *, ...)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "dp_newline", (void (**)(void))&__pyx_api_f_4mcdp_7context_dp_newline, "void (int)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "dp_fastAddTag", (void (**)(void))&__pyx_api_f_4mcdp_7context_dp_fastAddTag, "void (char const *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "dp_addTag", (void (**)(void))&__pyx_api_f_4mcdp_7context_dp_addTag, "void (PyObject *, PyObject *, PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "dp_enter", (void (**)(void))&__pyx_api_f_4mcdp_7context_dp_enter, "void (PyObject *, PyObject *, PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "dp_fastEnter", (void (**)(void))&__pyx_api_f_4mcdp_7context_dp_fastEnter, "void (char const *)") < 0) goto bad;
-  if (__Pyx_ImportFunction(module, "dp_enterExact", (void (**)(void))&__pyx_api_f_4mcdp_7context_dp_enterExact, "void (PyTypeObject *, PyObject *, PyObject *, PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "dp_exit", (void (**)(void))&__pyx_api_f_4mcdp_7context_dp_exit, "void (void)") < 0) goto bad;
   Py_DECREF(module); module = 0;
   return 0;

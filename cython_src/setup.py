@@ -1,6 +1,11 @@
+from glob import glob
 import os
 from setuptools import setup, Extension
 from Cython.Build import cythonize
+
+path = os.getcwd()
+if os.path.split(path)[1] != "cython_src":
+    os.chdir("cython_src")
 
 ext = [
     Extension("mcdp.counter", ["mcdp\\counter.pyx"]),
@@ -13,10 +18,6 @@ ext = [
     Extension("mcdp.command", ["mcdp\\command.pyx"]),
     Extension("mcdp.compiler", ["mcdp\\compiler.pyx"])
 ]
-
-path = os.getcwd()
-if os.path.split(path)[1] != "cython_src":
-    os.chdir("cython_src")
 
 setup(
     name="mcdp",
