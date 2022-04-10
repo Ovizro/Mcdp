@@ -557,7 +557,7 @@ cdef class Instruction(McdpVar):
 
 cdef class AlignInstruction(Instruction):
     def __init__(self, str axes not None) -> None:
-        cdef int x, y, z
+        cdef Py_ssize_t x, y, z
         x = axes.count('x')
         y = axes.count('y')
         z = axes.count('z')
@@ -1018,13 +1018,25 @@ cpdef Execute inline(AnyExecutor instruction):
     return _exec
 
 
+cdef extern from *:
+    ctypedef class __builtins__.BaseException [object PyBaseExceptionObject]:
+        cdef:
+            dict __dict__ "dict"
+            list args
+            PyObject* note
+            PyObject* traceback
+            PyObject* context
+            PyObject* cause
+            char suppress_context
+
+
 cdef class McdpCommandError(McdpError):
-    def __init__(self, str command not None, *args: Exception) -> None:
+    def __init__(self, str command not None, *args: BaseException) -> None:
         self.command = command
 
         cdef:
             str msg
-            Exception err
+            BaseException err
             size_t i = 1
             tuple lm= PyTuple_New(len(args) + 1)
         if not args:

@@ -72,7 +72,7 @@ cdef class InstructionEnvironment(Context):
 cdef class ExecuteEnvironment(Context):
     cdef readonly:
         Execute exec
-        bint inline
+        bint inline "inline_handler"
 
     cpdef void mkhead(self)
 
@@ -163,7 +163,7 @@ cdef class ScoreCase(Case):
 cdef class ConditionInstruction(Instruction):
     cdef readonly:
         bint unless
-        Case case
+        Case case "condition"
 
 
 cdef class StoreMode(McdpVar):

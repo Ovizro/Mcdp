@@ -21,6 +21,6 @@ ext = [
 
 setup(
     name="mcdp",
-    ext_modules=cythonize(ext, annotate=True, compiler_directives={"language_level": "3str"}),
+    ext_modules=cythonize(ext, annotate=True, compiler_directives={"language_level": "3"}),
     zip_safe=False,
 )
