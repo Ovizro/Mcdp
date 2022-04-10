@@ -1,4 +1,5 @@
 cimport cython
+from cpython cimport PyObject, PyTuple_New, PyTuple_SET_ITEM, Py_INCREF
 
 import ujson
 from enum import Enum
@@ -312,7 +313,9 @@ cdef class MCString(MCSS):
             for i in range(l_with):
                 val = (<tuple>_with)[i]
                 val = fsmcstr(val)
-                PyTuple_SetItem(tmp, i, val)
+
+                Py_INCREF(val)
+                PyTuple_SET_ITEM(tmp, i, val)
             _with = tmp
         else:
             _with = (fsmcstr(_with),)

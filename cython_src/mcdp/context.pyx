@@ -246,7 +246,7 @@ cdef class TagManager(McdpVar):
 
     collections = _tag_collections
 
-    def __init__(
+    def __cinit__(
             self, 
             str type not None, 
             *, 
@@ -315,7 +315,7 @@ cdef class TagManager(McdpVar):
         for i in _tag_collections.values():
             i.apply()
     
-    def __del__(self) -> None:
+    def __dealloc__(self) -> None:
         if self.cache:
             self.apply()
 

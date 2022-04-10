@@ -1,5 +1,4 @@
 from libc.stdint cimport uint8_t
-from cpython cimport PyObject, PyTuple_New, PyTuple_SetItem, PyTuple_GetItem
 from ._typing cimport McdpVar, _McdpBaseModel
 from .version cimport Version, VersionError
 from .exception cimport McdpValueError, McdpTypeError

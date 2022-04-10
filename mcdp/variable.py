@@ -322,7 +322,7 @@ class ScoreCache(Score, metaclass=ScoreMeta):
 
     def __init__(self, default: Union[int, Score] = 0, *, init: bool = True, stack_id: int = -1) -> None:
         self.freed = False
-        if stack_id != 0 and stack_id != -1:
+        if stack_id not in [0, -1]:
             raise McdpValueError(f"Cannot use dp cahce object in the stack ID {stack_id}.")
         name = self.cache.get(stack_id)
         super().__init__(name, default, display={"text": "Mcdp Cache", "color": "dark_blue"}, init=init, stack_id=stack_id)
