@@ -3,6 +3,7 @@ from typing import Any, Dict, Final, List, OrderedDict, Tuple, Callable, Union, 
 
 T_version = Union[Tuple[Union[str, int], ...], Dict[str, Union[str, int]], str, "Version"]
 
+from .exception import McdpError
 
 class Version:
     """
@@ -94,13 +95,6 @@ class VersionChecker:
     def __call__(self, *args: Any, **kwds: Any) -> Any:...
 
 
-class AioCompatVersionChecker(VersionChecker):
-    """
-    The async compat version of class VersionCheck.
-    """
-    @property
-    def decorator(self) -> Callable[..., Callable[[Callable], Callable]]:...
-    async def __call__(self, *args: Any, **kwds: Any) -> Any:...
-
-class VersionError(Exception):
+class McdpVersionError(McdpError):
+    version: Any
     def __init__(self, *msg, version: Optional[Version] = None) -> None:...

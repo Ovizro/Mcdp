@@ -1,7 +1,4 @@
-from ._typing cimport McdpError
-
-
-cdef class McdpVersionError(McdpError):
+cdef class McdpError(Exception):
     pass
 
 

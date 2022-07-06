@@ -13,7 +13,7 @@ from .typing import Variable, McdpVar
 
 @lru_cache(2)
 def get_tag() -> str:
-    return "Mcdp_" + get_config().namespace
+    return "Mcdp_" + get_config().package.namespace
 
 
 _entity_counter = count(0)

@@ -4,8 +4,6 @@ cimport cython
 import re
 from functools import wraps
 from collections import OrderedDict
-from asyncio import iscoroutinefunction
-from typing import Union, Tuple
 
 
 cdef SEMVER_REGEX = re.compile(
@@ -38,9 +36,9 @@ cpdef int get_version(_version) except -1:
         mc_version = _version
 
     if mc_version.major != 1:
-        raise VersionError("Minecraft version must start with '1.'.")
+        raise McdpVersionError("Minecraft version must start with '1.'.")
     elif mc_version.minor < 13:
-        raise VersionError("datapack is not enable for Minecraft below 1.13 .")
+        raise McdpVersionError("datapack is not enable for Minecraft below 1.13 .")
     elif mc_version.minor < 15:
         return 4
     elif mc_version <= "1.16.1":
@@ -83,7 +81,6 @@ cdef inline bint _version_cmp(Version v0, Version v1, int op) except -1:
 
 
 cdef class Version:
-
     @cython.nonecheck(False)
     def __init__(self, version):
         cdef:
@@ -242,24 +239,17 @@ def fail_version_check(func: Callable, *, collection: Dict[str, Callable] = _ver
     name = func.__qualname__
     if name in collection:
         return collection[name]
-    if not iscoroutinefunction(func):
-        @wraps(func)
-        def nope(*args, **kwargs) -> NoReturn:
-            raise VersionError(f"The function '{name}' fails to pass the version check.")
+    @wraps(func)
+    def nope(*args, **kwargs) -> NoReturn:
+        raise McdpVersionError(f"The function '{name}' fails to pass the version check.")
 
-        return nope
-    else:
-        @wraps(func)
-        async def aio_nope(*args, **kwargs) -> NoReturn:
-            raise VersionError(f"The function '{name}' fails to pass the version check.")
-
-        return aio_nope
+    return nope
 
 
 def pass_version_check(func: Callable, *, collection: Dict[str, Callable] = _version_func) -> Callable:
     name = func.__qualname__
     if name in collection:
-        raise VersionError(f"The function '{name}' has a version conflict.")
+        raise McdpVersionError(f"The function '{name}' has a version conflict.")
     collection[name] = func
     return func
 
@@ -367,8 +357,8 @@ def version_check(
     else:
         return pass_version_check
 
-cdef class VersionChecker:
 
+cdef class VersionChecker:
     def __init__(self, version_factory: Callable[[], Version]) -> None:
         self.collection: Dict[str, Callable] = {}
         self.version_factory = version_factory
@@ -400,15 +390,13 @@ cdef class VersionChecker:
                     if name in self.collection:
                         return self.collection[name](*arg, **kw)
                     else:
-                        raise VersionError(
+                        raise McdpVersionError(
                                 f"The function '{name}' fails to pass the version check.",
                                 version=self.version_factory()
                             )
 
                 return wrapper
-
             return get_func
-
         return version_check_decorator
 
     cpdef void apply_check(self):
@@ -425,8 +413,10 @@ cdef class VersionChecker:
         return self.__func__(*args, **kwds)
 
 
-cdef class VersionError(Exception):
-
-    def __init__(self, *msg, version: Optional[Version] = None) -> None:
-        self.version = version
+cdef class McdpVersionError(McdpError):
+    def __init__(self, *msg, version = None) -> None:
+        if version is None:
+            self.version = __version__
+        else:
+            self.version = version
         super().__init__(*msg)

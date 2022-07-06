@@ -1,3 +1,6 @@
+from .exception cimport McdpError
+
+
 cdef class Version:
     cdef readonly:
         int major
@@ -25,5 +28,5 @@ cdef class VersionChecker:
 
 cpdef int get_version(_version) except -1
 
-cdef class VersionError(Exception):
+cdef class McdpVersionError(McdpError):
     cdef readonly version
