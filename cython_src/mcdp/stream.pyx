@@ -50,22 +50,20 @@ cpdef void mkdir(const char* dir_path) nogil except *:
 
 cdef class Stream:
 
-    def __cinit__(self, str path, *, str root = None):
+    def __cinit__(self, bytes path, *, bytes root = None):
         cdef:
-            bytes _tmp = path.encode()
-            char* p = _tmp
+            char* p = path
             Py_ssize_t l_str
         if not isabs(p):
             if not root:
                 p = abspath(p)
             else:
-                _tmp = root.encode()
-                p = join_path(_tmp, p)
+                p = join_path(root, p)
             if p == NULL:
                 raise MemoryError
             self.path = p
         else:
-            l_str = len(_tmp) + 1
+            l_str = len(path) + 1
             self.path = <char*>malloc(l_str * sizeof(char))
             if self.path == NULL:
                 raise MemoryError
@@ -102,7 +100,7 @@ cdef class Stream:
         raise OSError("fail to open %s" % self.path)
     
     @cython.nonecheck(False)
-    cpdef int fwrite(self, const char* _s) except -1:
+    cdef int fwrite(self, const char* _s) except -1:
         if self._file == NULL:
             raise OSError("not writable")
 
@@ -116,6 +114,31 @@ cdef class Stream:
                 raise OSError("fail to write to file %s" % self.path)
             c = strlen(_s)
             counter.chars += c
+        return c
+    
+    @cython.nonecheck(False)
+    cdef int vformat(self, const char* _s, va_list ap) except -1:
+        if self._file == NULL:
+            raise OSError("not writable")
+
+        cdef:
+            int c
+
+        with nogil:
+            c = vfprintf(self._file, _s, ap)
+            if c < 0:
+                raise OSError("fail to write to file %s" % self.path)
+            counter.chars += c
+        return c
+    
+    @cython.nonecheck(False)
+    cdef int format(self, const char* _s, ...) except -1:
+        cdef:
+            va_list ap
+            int c
+        va_start(ap, _s)
+        c = self.vformat(_s, ap)
+        va_end(ap)
         return c
     
     cpdef int write(self, str _s) except -1:

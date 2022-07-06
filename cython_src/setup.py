@@ -1,6 +1,11 @@
+from glob import glob
 import os
 from setuptools import setup, Extension
 from Cython.Build import cythonize
+
+path = os.getcwd()
+if os.path.split(path)[1] != "cython_src":
+    os.chdir("cython_src")
 
 ext = [
     Extension("mcdp.version", ["mcdp\\version.pyx"]),
@@ -9,12 +14,8 @@ ext = [
     Extension("mcdp.exception", ["mcdp\\exception.pyx"])
 ]
 
-path = os.getcwd()
-if os.path.split(path)[1] != "cython_src":
-    os.chdir("cython_src")
-
 setup(
     name="mcdp",
-    ext_modules=cythonize(ext, annotate=True, compiler_directives={"language_level": "3str"}),
+    ext_modules=cythonize(ext, annotate=True, compiler_directives={"language_level": "3"}),
     zip_safe=False,
 )

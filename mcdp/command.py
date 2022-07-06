@@ -59,9 +59,9 @@ class Position(McdpVar):
                 if tid == 3:
                     raise McdpTypeError("Invalid position.")
                 tid = 2
+            elif tid < 3 and tid != 0:
+                raise McdpTypeError("Invalid position.")
             else:
-                if tid < 3 and tid != 0:
-                    raise McdpTypeError("Invalid position.")
                 tid = 3
 
         self._posXYZ = tuple(l)
@@ -98,10 +98,7 @@ class KeywordArg(McdpVar):
             value: Union[str, Set["KeywordArg"], None] = None
     ) -> Union[List["KeywordArg"], "KeywordArg"]:
         if not value:
-            ans = []
-            for t in name.items():
-                ans.append(cls(t[0], t[1]))
-            return ans
+            return [cls(t[0], t[1]) for t in name.items()]
         else:
             return McdpVar.__new__(cls)
 
@@ -169,9 +166,8 @@ class Selector(McdpBaseModel):
     def __str__(self) -> str:
         if not self.args:
             return self.name
-        else:
-            value = ','.join((str(i) for i in self.args))
-            return f"{self.name}[{value}]"
+        value = ','.join((str(i) for i in self.args))
+        return f"{self.name}[{value}]"
 
     __repr__ = __str__
 
@@ -430,7 +426,7 @@ class DataCase(_Case, type="data"):
             super().__init__(type=type, targets=pos_or_targets, path=path)
 
     def __str__(self) -> str:
-        if type == "block":
+        if self.type == "block":
             return f"data block {self.pos} {self.path}"
         else:
             return f"data {self.type} {self.targets} {self.path}"
@@ -672,15 +668,16 @@ class Execute(McdpVar):
 
     def __call__(self, command: Optional[str] = None) -> None:
         exc = "execute " + " ".join((str(i) for i in self.instructions))
-        if not command:
-            if not isinstance(self.instructions[-1], ConditionInstruction):
-                raise McdpCommandError(
-                        "execute", TypeError(
-                                "Final instruction should be a conditon instruction."
-                        ))
-            insert(exc)
-        else:
+        if command:
             insert(f"{exc} run {command}")
+
+        elif not isinstance(self.instructions[-1], ConditionInstruction):
+            raise McdpCommandError(
+                    "execute", TypeError(
+                            "Final instruction should be a conditon instruction."
+                    ))
+        else:
+            insert(exc)
     
     def command_prefix(self) -> str:
         return "execute {0} run ".format(" ".join((str(i) for i in self.instructions)))

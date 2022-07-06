@@ -189,7 +189,7 @@ cdef class Version:
         cdef Version other
         if not isinstance(_other, Version):
             try:
-                other = self.__class__(_other)
+                other = type(self)(_other)
             except ValueError:
                 return NotImplemented
         else:
