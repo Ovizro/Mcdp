@@ -16,13 +16,15 @@ cdef class Version:
     cpdef int to_int(self)
 
 cdef class VersionChecker:
+    cdef dict collection
     cdef readonly:
-        list sentence
-        dict collection
+        list sentences
+        list functions
         bint checked
-        __func__
+        bint save_check
     cdef public:
         version_factory
+        __func__
     cpdef void apply_check(self)
 
 

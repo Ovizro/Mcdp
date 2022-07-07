@@ -359,19 +359,21 @@ def version_check(
 
 
 cdef class VersionChecker:
-    def __init__(self, version_factory: Callable[[], Version]) -> None:
-        self.collection: Dict[str, Callable] = {}
+    def __init__(self, version_factory: Callable[[], Version], bint save_check = False) -> None:
         self.version_factory = version_factory
         self.checked = False
-        self.__func__: Union[List[Callable], Callable, None] = []
-        self.sentence: List[dict] = []
+        self.save_check = save_check
+
+        self.functions = []
+        self.sentences = []
+        self.collection = {}
 
     def register(self, func: Callable, *args: str, **kwds) -> None:
         cdef Version version
         if not self.checked:
             c = analyse_check_sentences(*args, **kwds)
-            self.__func__.append(func)
-            self.sentence.append(c)
+            self.functions.append(func)
+            self.sentences.append(c)
         else:
             version = self.version_factory()
             check_ans = version_check(version, *args, **kwds)
@@ -400,12 +402,14 @@ cdef class VersionChecker:
         return version_check_decorator
 
     cpdef void apply_check(self):
-        cdef list l
-        if not self.checked:
-            l = self.__func__
-            for i in range(len(l)):
-                ans = version_check(self.version_factory(), **self.sentence[i])
-                self.__func__ = ans(l[i], collection=self.collection)
+        if self.checked:
+            return
+
+        cdef Version ver = self.version_factory()
+        for i in range(len(self.functions)):
+            ans = version_check(ver, **self.sentences[i])
+            self.__func__ = ans(self.functions[i], collection=self.collection)
+        if self.save_check:
             self.checked = True
 
     def __call__(self, *args: Any, **kwds: Any) -> Any:

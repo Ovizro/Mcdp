@@ -85,8 +85,15 @@ class VersionChecker:
     
     In the same time, the class supports the multiple version check.
     """
+    functions: Final[List[Callable]]
+    sentences: Final[List[Dict[str, Any]]]
+    checked:Final[bool]
+    save_check: Final[bool]
 
-    def __init__(self, version_factory: Callable[[], Version]) -> None:...
+    version_factory: Callable[[], Version]
+    __func__: Callable
+
+    def __init__(self, version_factory: Callable[[], Version], save_check: bool = False) -> None:...
     def register(self, func: Callable, *args: str, **kwds) -> None:...
     
     @property
