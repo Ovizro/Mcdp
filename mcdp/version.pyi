@@ -87,7 +87,7 @@ class VersionChecker:
     """
     functions: Final[List[Callable]]
     sentences: Final[List[Dict[str, Any]]]
-    checked:Final[bool]
+    checked: Final[bool]
     save_check: Final[bool]
 
     version_factory: Callable[[], Version]

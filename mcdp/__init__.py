@@ -23,7 +23,7 @@ class Mcdatapack(object):
             icon_path: Optional[str] = None,
             **kwds
     ) -> None:
-        self.pack_info = PackageImformation(
+        self.pack_info = PackageInformation(
             name=name, support_version=version, description=description, icon_path=icon_path)
         self.namespaces: Dict[str, Namespace] = {}
         
@@ -56,7 +56,7 @@ def get_pack() -> Mcdatapack:
 
 from .exception import *
 from .version import __version__
-from .config import PackageImformation, check_mc_version, check_mcdp_version, get_config, T_version
+from .config import PackageInformation, check_mc_version, check_mcdp_version, get_config, T_version
 from .objects import BaseNamespace
 from .stream import Stream
 

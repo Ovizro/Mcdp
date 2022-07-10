@@ -1,14 +1,61 @@
+cimport cython
+from cpython cimport (PyCapsule_New, PyCapsule_CheckExact, PyCapsule_GetPointer,
+    Py_INCREF, Py_DECREF, PyFunction_Check)
+
+
 cdef class McdpObject(object):
     pass
 
 
+cdef dict _namespace_property = {}
+
+
 cdef class BaseNamespace(McdpObject):
     def __init__(self, name not None, bytes path = None):
-        self.n_name = name.encode()
+        self.n_name = name
+        cdef bytes _name = name.encode()
         if not path is None:
-            self.n_path = path + self.n_name
+            self.n_path = path + _name
         else:
-            self.n_path = self.n_name
+            self.n_path = _name
         
-        self.n_tag = "Mcdp_" + name
-        self.n_selector = "@e[tag=McdpHome,tag=%s,limit=1]" % self.n_tag
+    def __getattr__(self, str name not None):
+        cdef:
+            str _name
+            T_property cfactory
+        if name.startswith("n_"):
+            _name = name[2:]
+            if _name in _namespace_property:
+                f_attr = _namespace_property[_name]
+                if PyCapsule_CheckExact(f_attr):
+                    cfactory = <T_property>PyCapsule_GetPointer(f_attr, "dp_nspProperty")
+                    ret = cfactory(self)
+                else:
+                    ret = f_attr(self)
+                self.__dict__[name] = ret
+                return ret
+        raise AttributeError("'%s' object has no attribute '%s'" % (type(self).__name__, name))
+    
+    @staticmethod
+    def property(attr not None):
+        if PyFunction_Check(attr):
+            _namespace_property[(<FunctionType>attr).__name__] = attr
+            return attr
+        elif not isinstance(attr, str):
+            raise TypeError("Argument 'attr' must be str or Function, not %s" % type(attr).__name__)
+        def wrapper(func):
+            _namespace_property[attr] = func
+            return func
+        return wrapper
+
+
+cdef void register_factory(const char* name, T_property factory) except *:
+    cdef object fac = PyCapsule_New(factory, "dp_nspProperty", NULL)
+
+    _namespace_property[name.decode()] = fac
+
+
+cdef str pfac_tag(BaseNamespace nsp):
+    return "Mcdp_" + nsp.n_name
+
+register_factory("tag", <T_property>pfac_tag)

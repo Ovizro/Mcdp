@@ -11,7 +11,8 @@ ext = [
     Extension("mcdp.version", ["mcdp\\version.pyx"]),
     Extension("mcdp.stream", ["mcdp\\stream.pyx"]),
     Extension("mcdp.objects", ["mcdp\\objects.pyx"]),
-    Extension("mcdp.exception", ["mcdp\\exception.pyx"])
+    Extension("mcdp.exception", ["mcdp\\exception.pyx"]),
+    Extension("mcdp.dp_interface", ["mcdp\\dp_interface.pyx"])
 ]
 
 setup(

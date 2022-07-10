@@ -1,3 +1,4 @@
+import os
 from pydantic import BaseModel
 from typing import Dict, Tuple, Union, Optional, List
 
@@ -8,20 +9,16 @@ from .version import Version, __version__, VersionChecker, McdpVersionError
 T_version = Union[Version, Tuple[Union[str, int], ...], Dict[str, Union[str, int]], str]
 
 
-UPWARD_COMPAT   = 1
-DOWNWARD_COMPAT = 2
-
-
 class VmclConfig(BaseModel):
     enabled: bool = True
     enable_pywheel: bool = True
 
 
-class PackageImformation(BaseModel):
+class PackageInformation(BaseModel):
     name: str
     support_version: Version
     description: str
-    icon_path: Optional[str] = None
+    icon_path: Optional[Union[str, os.PathLike]] = None
 
 
 class Config(BaseModel):
@@ -43,10 +40,6 @@ _config = Config()
 
 def get_config() -> Config:
     return _config
-
-def set_config(config: Config) -> None:
-    global _config
-    _config = config
 
 
 check_mcdp_version = __version__.check
