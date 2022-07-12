@@ -38,7 +38,7 @@ print(BaseNamespace("test").n_newtag)
 # output: DpTag_test
 ```
 ### (str) `n_name`:
-命名空间名，该属性是只读的
+只读: 命名空间名
 
 ### (bytes) `n_path`:
-只读：命名空间路径，由于正常情况下Mcdp运行时会将工作目录切换到data中，故一般与n_name相同。为方便IO类的使用，这里使用bytes类型。该属性也是只读的
+只读: 命名空间路径，由于正常情况下Mcdp运行时会将工作目录切换到data中，故一般与n_name相同。为方便IO类的使用，这里使用bytes类型。该属性也是只读的

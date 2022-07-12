@@ -98,20 +98,20 @@ class PackBuilder(AbstractBuilder):
     def get_mcmeta(self) -> Dict[str, Any]:
         return {
             "pack": {
-                "pack_format": self.get_version_num(),
+                "pack_format": self.get_pack_format(),
                 "description": self.description
             }
         }
 
     @abstractmethod
-    def get_version_num(self) -> int:
+    def get_pack_format(self) -> int:
         raise NotImplementedError
 
 
 class DatapackBuilder(PackBuilder):
     src_dir: ClassVar[str] = "data"
 
-    def get_version_num(self) -> int:
+    def get_pack_format(self) -> int:
         mc_version = self.support_version
         
         if mc_version.major != 1:

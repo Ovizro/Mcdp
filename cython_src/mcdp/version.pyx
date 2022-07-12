@@ -31,29 +31,6 @@ cdef SEMVER_REGEX = re.compile(
     re.VERBOSE,
 )
 
-'''
-cpdef int get_version(_version) except -1:
-    cdef Version mc_version 
-    if not isinstance(_version, Version):
-        mc_version = Version(_version)
-    else:
-        mc_version = _version
-
-    if mc_version.major != 1:
-        raise McdpVersionError("Minecraft version must start with '1.'.")
-    elif mc_version.minor < 13:
-        raise McdpVersionError("datapack is not enable for Minecraft below 1.13 .")
-    elif mc_version.minor < 15:
-        return 4
-    elif mc_version <= "1.16.1":
-        return 5
-    elif mc_version.minor < 17:
-        return 6
-    elif mc_version.minor == 17:
-        return 7
-    else:
-        raise ValueError(f"unknow Minecraft datapack version {mc_version}.")
-'''
 
 cdef inline bint _version_cmp(Version v0, Version v1, int op) except -1:
     cdef:
@@ -303,7 +280,7 @@ cdef class Version:
         return version
 
 
-__version__ = Version("0.2.3-Alpha")
+__version__ = Version("0.4.0-Alpha")
 
 cdef dict _version_func = {}
 
