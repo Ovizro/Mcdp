@@ -59,8 +59,8 @@ def get_pack() -> Mcdatapack:
 
 
 from .exception import *
-from .version import __version__
-from .config import check_mc_version, check_mcdp_version, get_config, T_version
+from .version import __version__, T_version
+from .config import check_mc_version, check_mcdp_version, get_config
 from .objects import BaseNamespace
 from .stream import Stream
 from .build import PackageInformation, AbstractBuilder, get_defaultbuilder

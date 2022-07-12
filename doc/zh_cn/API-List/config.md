@@ -2,25 +2,6 @@
 
 此模块包含Mcdp中所有的配置文件类及相关的函数。
 
-## 使用类型
-- `T_version`: Version | Tuple[str | int, ...] | Dict[str, str | int] | str
-
-## `class PackageInformation`
-包信息记录类，记录一个包的基础信息
-
-### (str) `name`:
-数据包名称
-
-### (mcdp.version.Version) `support_version`:
-当前支持的Minecraft版本
-
-### (str) `description`:
-数据包的描述
-
-### (str | os.Pathlike | None) `icon_path`:
-数据包图标的路径
-
-
 ## `class Config`
 Mcdp的配置文件类，正常情况下，我们希望使用直接mcdp.config对象，额不是实例化该类。
 
@@ -40,7 +21,7 @@ Mcdp的配置文件类，正常情况下，我们希望使用直接mcdp.config�
 - param ge(T_version | None): 要求大于等于对应版本
 - param lt(T_version | None): 要求小于对应版本
 - param le(T_version | None): 要求小于等于对应版本
-- return ((*args, **kwds) -> Any) -> Any: 返回装饰器内层函数
+- return (((*args, **kwds) -> Any) -> Any): 返回装饰器内层函数
 
 用例:
 ```py

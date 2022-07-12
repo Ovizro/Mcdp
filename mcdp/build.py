@@ -62,7 +62,7 @@ class AbstractBuilder(PackageInformation):
                 _dst = os.path.join(dst, self.name)
                 if self.remove_old_pack and os.path.exists(_dst):
                     rmtree(_dst)
-                copytree(pack_path, _dst)
+                copytree(pack_path, _dst, dirs_exist_ok=True)
             else:
                 copy(pack_path, dst)
 
