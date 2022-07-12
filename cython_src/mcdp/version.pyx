@@ -4,6 +4,10 @@ cimport cython
 import re
 from functools import wraps
 from collections import OrderedDict
+from typing import Union, Tuple, Dict
+
+
+T_version = Union[Tuple[Union[str, int], ...], Dict[str, Union[str, int]], str, "Version"]
 
 
 cdef SEMVER_REGEX = re.compile(
@@ -27,7 +31,7 @@ cdef SEMVER_REGEX = re.compile(
     re.VERBOSE,
 )
 
-
+'''
 cpdef int get_version(_version) except -1:
     cdef Version mc_version 
     if not isinstance(_version, Version):
@@ -49,6 +53,7 @@ cpdef int get_version(_version) except -1:
         return 7
     else:
         raise ValueError(f"unknow Minecraft datapack version {mc_version}.")
+'''
 
 cdef inline bint _version_cmp(Version v0, Version v1, int op) except -1:
     cdef:
@@ -215,8 +220,76 @@ cdef class Version:
                 n += 1
         return n
     
-    def check(self, *args: str, **kw: Union[Tuple[int, ...], str, "Version"]):
-        return version_check(self, *args, **kw)
+    cdef bint _ensure(
+            self, list eq = None, list ne = None,
+            object gt = None, object ge = None,
+            object lt = None, object le = None
+    ) except -1:
+        cdef bint check = True
+        if not gt is None:
+            check = check and (self> gt)
+        if not ge is None:
+            check = check and (self >= ge)
+        if not lt is None:
+            check = check and (self < lt)
+        if not le is None:
+            check = check and (self <= le)
+        if eq:
+            for v in eq:
+                if self == Version(v):
+                    check = True
+        if ne:
+            for v in ne:
+                if self == Version(v):
+                    check = False
+        return check
+    
+    
+    def ensure(
+            self,
+            *args,
+            object eq = None, object ne = None,
+            object gt = None, object ge = None,
+            object lt = None, object le = None
+    ) -> bool:
+        """
+        The core function of the version check.
+        """
+        cdef str i
+        cdef list _eq, _ne
+        if not (eq is None or isinstance(eq, list)):
+            _eq = [eq, ]
+        else:
+            _eq = eq
+        if not (ne is None or isinstance(ne, list)):
+            _ne = [ne, ]
+        else:
+            _ne = ne
+        if args:
+            for i in args:
+                if i.startswith('>='):
+                    ge = ge or i[2:]
+                elif i.startswith('<='):
+                    le = le or i[2:]
+                elif i.startswith('>'):
+                    gt = gt or i[1:]
+                elif i.startswith('<'):
+                    lt = lt or i[1:]
+                elif i.startswith('=='):
+                    _eq.append(i[2:])
+                elif i.startswith('!='):
+                    _ne.append(i[2:])
+                else:
+                    raise ValueError(f"Cannot analyze the argument {i}")
+        return self._ensure(_eq, _ne, ge, gt, le, lt)
+
+
+    def check(self, *args, **kwds):
+        cdef bint check = self.ensure(*args, **kwds)
+        if not check:
+            return fail_version_check
+        else:
+            return pass_version_check
 
     def __repr__(self) -> str:
         return "Version%s" % (self.to_tuple(),)
@@ -292,70 +365,7 @@ def analyse_check_sentences(
     return ans
 
 
-def version_check(
-        Version version,
-        *args: str,
-        eq: Union[List[T_Version], T_Version] = [],
-        ne: Union[List[T_Version], T_Version] = [],
-        gt: Optional[T_Version] = None,
-        ge: Optional[T_Version] = None,
-        lt: Optional[T_Version] = None,
-        le: Optional[T_Version] = None
-) -> Callable[[Callable], Callable]:
-    """
-    The core function of the version check.
-    """
-    cdef str i
-    cdef list _eq, _ne
-    if not isinstance(eq, list):
-        _eq = [eq, ]
-    else:
-        _eq = eq
-    if not isinstance(ne, list):
-        _ne = [ne, ]
-    else:
-        _ne = ne
-    if args:
-        for i in args:
-            if i.startswith('>='):
-                ge = ge or i[2:]
-            elif i.startswith('<='):
-                le = le or i[2:]
-            elif i.startswith('>'):
-                gt = gt or i[1:]
-            elif i.startswith('<'):
-                lt = lt or i[1:]
-            elif i.startswith('=='):
-                _eq.append(i[2:])
-            elif i.startswith('!='):
-                _ne.append(i[2:])
-            else:
-                raise ValueError(f"Cannot analyze the argument {i}")
-
-    cdef bint check = True
-    if gt:
-        check = check and (version > gt)
-    if ge:
-        check = check and (version >= ge)
-    if lt:
-        check = check and (version < lt)
-    if le:
-        check = check and (version <= le)
-    if _eq:
-        for v in _eq:
-            if version == Version(v):
-                check = True
-        _eq.clear()
-    if _ne:
-        for v in _ne:
-            if version == Version(v):
-                check = False
-        _ne.clear()
-
-    if not check:
-        return fail_version_check
-    else:
-        return pass_version_check
+version_check = Version.check
 
 
 cdef class VersionChecker:
@@ -376,7 +386,7 @@ cdef class VersionChecker:
             self.sentences.append(c)
         else:
             version = self.version_factory()
-            check_ans = version_check(version, *args, **kwds)
+            check_ans = version.CHECK(*args, **kwds)
             self.__func__ = check_ans(func, collection=self.collection)
 
     @property

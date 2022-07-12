@@ -50,7 +50,7 @@ cpdef void mkdir(const char* dir_path) nogil except *:
 
 cdef class Stream:
 
-    def __cinit__(self, bytes path, *, bytes root = None):
+    def __cinit__(self, bytes path not None, *, bytes root = None):
         cdef:
             char* p = path
             Py_ssize_t l_str

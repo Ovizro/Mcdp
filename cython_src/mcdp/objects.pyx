@@ -38,24 +38,16 @@ cdef class BaseNamespace(McdpObject):
     
     @staticmethod
     def property(attr not None):
-        if PyFunction_Check(attr):
-            _namespace_property[(<FunctionType>attr).__name__] = attr
+        if not isinstance(attr, str):
+            _namespace_property[attr.__name__] = attr
             return attr
-        elif not isinstance(attr, str):
-            raise TypeError("Argument 'attr' must be str or Function, not %s" % type(attr).__name__)
         def wrapper(func):
             _namespace_property[attr] = func
             return func
         return wrapper
 
 
-cdef void register_factory(const char* name, T_property factory) except *:
+cdef api void DpNsp_property(const char* name, T_property factory) except *:
     cdef object fac = PyCapsule_New(factory, "dp_nspProperty", NULL)
 
     _namespace_property[name.decode()] = fac
-
-
-cdef str pfac_tag(BaseNamespace nsp):
-    return "Mcdp_" + nsp.n_name
-
-register_factory("tag", <T_property>pfac_tag)

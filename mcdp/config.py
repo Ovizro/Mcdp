@@ -1,38 +1,19 @@
 import os
 from pydantic import BaseModel
-from typing import Dict, Tuple, Union, Optional, List
 
 from .exception import *
-from .version import Version, __version__, VersionChecker, McdpVersionError
-
-
-T_version = Union[Version, Tuple[Union[str, int], ...], Dict[str, Union[str, int]], str]
-
-
-class VmclConfig(BaseModel):
-    enabled: bool = True
-    enable_pywheel: bool = True
-
-
-class PackageInformation(BaseModel):
-    name: str
-    support_version: Version
-    description: str
-    icon_path: Optional[Union[str, os.PathLike]] = None
+from .version import __version__, VersionChecker, McdpVersionError
 
 
 class Config(BaseModel):
-    # build option
-    build_zip: bool = False
-    build_dir: List[str] = ["."]
-    remove_old_pack: bool = True
+    check_stack: bool = True
 
     # function option
-    enable_overload: bool = True
+    overload_enable: bool = True
     add_comments: bool = True
     
     # Vmcl option
-    vmcl_cfg: VmclConfig = VmclConfig()
+    disable_macro: bool = False
 
 
 _config = Config()

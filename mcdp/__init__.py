@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Optional
+from typing import Dict, Optional, Type
 
 
 __author__ = "Ovizro"
@@ -12,7 +12,7 @@ _pack: Optional["Mcdatapack"] = None
 
 
 class Mcdatapack(object):
-    __slots__ = ["pack_info", "namespaces"]
+    __slots__ = ["builder", "namespaces"]
 
     def __init__(
             self,
@@ -21,16 +21,20 @@ class Mcdatapack(object):
             description: str,
             *,
             icon_path: Optional[str] = None,
+            builderclass: Optional[Type["AbstractBuilder"]]  = None,
             **kwds
     ) -> None:
-        self.pack_info = PackageInformation(
-            name=name, support_version=version, description=description, icon_path=icon_path)
+        if builderclass is None:
+            builderclass = get_defaultbuilder()
+        self.builder = builderclass(
+            name=name, support_version=version, description=description, icon_path=icon_path, **kwds)
         self.namespaces: Dict[str, Namespace] = {}
-        
-        for k, v in kwds.items():
-            setattr(config, k, v)
         self.active()
     
+    @property
+    def pack_info(self) -> "PackageInformation":
+        return self.builder
+
     @property
     def actived(self) -> bool:
         return _pack is self
@@ -56,9 +60,10 @@ def get_pack() -> Mcdatapack:
 
 from .exception import *
 from .version import __version__
-from .config import PackageInformation, check_mc_version, check_mcdp_version, get_config, T_version
+from .config import check_mc_version, check_mcdp_version, get_config, T_version
 from .objects import BaseNamespace
 from .stream import Stream
+from .build import PackageInformation, AbstractBuilder, get_defaultbuilder
 
 config_module = config
 config = get_config()

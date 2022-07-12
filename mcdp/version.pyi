@@ -36,6 +36,15 @@ class Version:
     def __len__(self) -> int:...
     def to_tuple(self) -> Tuple[int, int, int, Optional[str], Optional[str]]:...
     def to_dict(self) -> OrderedDict[str, Union[int, str]]:...
+    def ensure(self,
+        *args: str,
+        eq: Union[List[T_version], T_version] = [],
+        ne: Union[List[T_version], T_version] = [],
+        gt: Optional[T_version] = None,
+        ge: Optional[T_version] = None,
+        lt: Optional[T_version] = None,
+        le: Optional[T_version] = None
+    ) -> bool:...
     def check(self,
         *args: str,
         eq: Union[List[T_version], T_version] = [],
