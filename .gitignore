@@ -139,6 +139,7 @@ cython_debug/
 cython_src/*/*.html
 cython_src/*/*/*.html
 cython_src/*/*.c
+cython_src/*/*.h
 cython_src/*/*/*.c
 !cython_src/mcdp/path.c
 !cython_src/mcdp/lex.yy.c
@@ -149,7 +150,6 @@ file_test/
 /testdatapack
 /test
 /testdatapack.py
-/mcdp/command
 .vscode
 disabled.*
 test.*

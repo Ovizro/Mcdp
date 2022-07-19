@@ -52,7 +52,7 @@ Mcdp构建器抽象基类，提供相关接口及上下文管理器供上层调�
 - *default*: ['.']
 
 
-## `class PackBuilder`
+## `class PackBuilder(AbstractBuilder)`
 Minecraft包构建基类，提供了一个Minecraft包的构建模版。
 
 ### `build() -> None`:
@@ -91,7 +91,7 @@ pack.mcmeta中的数据，格式为
 ### (bool) `make_archive`:
 是否打包为zip
 
-## `class DatapackBuilder`:
+## `class DatapackBuilder(PackBuilder)`:
 
 ### (abstractmethod) `get_pack_format() -> int`:
 获取support_version对应的数据包版本号

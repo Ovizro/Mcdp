@@ -1,185 +1,158 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <direct.h>
-#include <dirent.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
 #pragma warning(disable: 4996)
 
-#define MALLOC(size, type) (type*)malloc((size) * sizeof(type))
-#define FREE free
-
-#ifdef  _MSC_VER
+#ifdef _WIN32
 #define PATH_PUBLIC __declspec(dllexport)
-#else
-#define PATH_PUBLIC
-#endif //  _MSC_VER
+#endif
 
+#include "path.h"
 
 typedef struct stat Stat;
 
-PATH_PUBLIC char* _fspath(const char* path) {
-	size_t len = strlen(path);
-	char* tmp_path = MALLOC(len + 1, char);
+
+PATH_PUBLIC char* _fspath(const char* path, int* _len) {
+	size_t len = (_len) ? *_len : 0;
+	if (len == 0) {
+		len = strlen(path);
+	}
+	if (len > PATH_MAX) {
+		goto bad;
+	}
+
+	char* tmp_path = MALLOC(len + 2, char);
 	if (tmp_path == NULL) {
-		return NULL;
+		goto bad;
 	}
-	for (int i = 0; i < len; ++i) {
-		if (path[i] == '/') {
-			tmp_path[i] = '\\';
+
+	len = 0;
+	for (int i = 0; i < PATH_MAX; ++i) {
+		tmp_path[i] = path[i];
+		if (path[i] == '\0') break;
+		if (altsep && path[i] == altsep) {
+			tmp_path[i] = sep;
 		}
-		else
-		{
-			tmp_path[i] = path[i];
-		}
+		++len;
 	}
-	if (tmp_path[len - 1] == '\\') {
+	if (tmp_path[len - 1] == sep) {
 		tmp_path[len - 1] = '\0';
+		len -= 1;
 	}
-	else
-	{
+	else {
 		tmp_path[len] = '\0';
 	}
+
+	if (_len) *_len = len;
 	return tmp_path;
+bad:
+	if (_len) *_len = 0;
+	return NULL;
 }
 
-char* _join_path(const char* base, const char* path) {
-	size_t len0 = strlen(base);
-	size_t len1 = strlen(path);
-	size_t len = len0 + len1 + 1;
-	char* buffer = MALLOC(len + 1, char);
-	if (buffer == NULL) {
-		return NULL;
+PATH_PUBLIC __inline char* _fsdir(const char* path, int* _len) {
+	int len = 0;
+	if (_len == NULL) _len = &len;
+	char* p = _fspath(path, _len);
+	if (p == NULL) return NULL;
+
+	len = *_len;
+	if (p[len - 1] != sep) {
+		p[len] = sep;
+		p[len + 1] = '\0';
+		*_len += 1;
 	}
-
-	strcpy(buffer, base);
-	buffer[len0] = '\\';
-	buffer[len0 + 1] = '\0';
-
-	strcat(buffer, path);
-	buffer[len] = '\0';
-	return buffer;
+	return p;
 }
 
-PATH_PUBLIC char* join_path(const char* base, const char* path) {
-	char* _base = _fspath(base);
-	char* _path = _fspath(path);
+PATH_PUBLIC char* join(const char* base, const char* path) {
+	int l_base = strlen(base), l_path = strlen(path);
+	l_base += l_path + 1;
+	char* _base = _fsdir(base, &l_base);
+	char* _path = _fspath(path, &l_path);
 	if (_base == NULL || _path == NULL) {
 		return NULL;
 	}
-	char* new_p = _join_path(_base, _path);
-	FREE(_base);
+	strcat(_base, _path);
 	FREE(_path);
-	return new_p;
+	return _base;
 }
 
-PATH_PUBLIC void split(const char* path, char** base, char** name) {
-	size_t len = strlen(path);
+PATH_PUBLIC void split(const char* _path, char** base, char** name) {
+	int len = 0;
+	char* path = _fspath(_path, &len);
+	if (path == NULL) return;
+
 	int i;
 	for (i = len - 1; i >= 0; --i) {
-		if (path[i] == '\\') {
-			break;
-		}
+		if (path[i] == sep) break;
 	}
-	if (i < 0) {
-		if (name != NULL) {
-			*name = MALLOC(len + 1, char);
-			if (*name == NULL) {
-				return;
-			}
-			strcpy(*name, path);
-		}
-		if (base != NULL) {
-			*base = MALLOC(3, char);
-			if (*base == NULL) {
-				return;
-			}
+
+	if (name) {
+		*name = MALLOC(len - i, char);
+		if (*name == NULL) goto bad;
+		strcpy(*name, path + i + 1);
+	}
+
+	if (base) {
+		if (i < 0) {
+			*base = MALLOC(2, char);
+			if (*base == NULL) goto bad1;
 			strcpy(*base, ".");
 		}
-	}
-	else if (i == 0)
-	{
-		if (name != NULL) {
-			*name = MALLOC(len, char);
-			if (*name == NULL) {
-				return;
-			}
-			strcpy(*name, path + 1);
-		}
-		if (base != NULL) {
-			*base = MALLOC(3, char);
-			if (*base == NULL) {
-				return;
-			}
-			strcpy(*base, "/.");
+		else {
+			*base = path;
+			if (i) path[i] = '\0';
+			return;
 		}
 	}
-	else
-	{
-		if (base != NULL) {
-			*base = MALLOC(i + 1, char);
-			if (*base == NULL) {
-				return;
-			}
-			strncpy(*base, path, i);
-			(*base)[i] = '\0';
-		}
-		if (name != NULL) {
-			*name = MALLOC(len - i + 1, char);
-			if (*name == NULL) {
-				return;
-			}
-			strcpy(*name, path + i + 1);
+	free(path);
+	return;
 
-		}
-	}
+bad1:
+	if (name) free(*name);
+bad:
+	free(path);
+	return;
 }
 
 PATH_PUBLIC char* dirname(const char* path) {
 	char* dir = NULL;
-	char* tmp_path = _fspath(path);
-	if (tmp_path == NULL) {
-		return NULL;
-	}
-	split(tmp_path, &dir, NULL);
-	FREE(tmp_path);
+	split(path, &dir, NULL);
 	return dir;
 }
 
 PATH_PUBLIC char* basename(const char* path) {
 	char* name = NULL;
-	char* tmp_path = _fspath(path);
-	if (tmp_path == NULL) {
-		return NULL;
-	}
-	split(tmp_path, NULL, &name);
-	FREE(tmp_path);
+	split(path, NULL, &name);
 	return name;
 }
 
-int _isabs(const char* path) {
-	size_t len = strlen(path);
-	if (len > 1) {
-		if (path[1] == ':') {
+PATH_PUBLIC int isabs(const char* _path) {
+#ifdef _WIN32
+	int len = 0;
+	char* path = _fspath(_path, &len);
+	if (len > 2) {
+		if (path[1] == ':' && path[2] == sep) {
 			char d = path[0];
 			if ((d >= 'A' && d <= 'Z') || (d >= 'a' && d <= 'z')) {
 				return 1;
 			}
 		}
+		else if (path[0] == sep && path[1] == sep && path[2] != sep) {
+			if (strchr(path + 3, sep)) {
+				return 1;
+			}
+		}
+
 	}
 	return 0;
-}
-
-PATH_PUBLIC int isabs(const char* path) {
-	char* tmp_path = _fspath(path);
-	if (tmp_path == NULL) {
-		return -1;
-	}
-	int b = _isabs(tmp_path);
-	FREE(tmp_path);
-	return b;
+#else
+	return (_path[0] == sep) ? 1 : 0;
+#endif
 }
 
 PATH_PUBLIC int isexist(const char* path) {
@@ -223,45 +196,27 @@ PATH_PUBLIC char* abspath(const char* path) {
 		return NULL;
 	}
 	char cwd[PATH_MAX] = { '\0' };
-	_getcwd(cwd, sizeof(cwd));
-	return join_path(cwd, path);
+	GETCWD(cwd, sizeof(cwd));
+	return join(cwd, path);
 }
 
-int _rmtree(const char* path) {
-	DIR* dir;
-	int _sc;
-
-	int len = strlen(path);
-	if (path[len - 1] != '/' && path[len - 1] != '\\') {
-		char* tmp_path = MALLOC(len + 2, char);
-		if (tmp_path == NULL) {
-			return -2;
-		}
-		strcpy(tmp_path, path);
-		tmp_path[len] = '\\';
-		tmp_path[len + 1] = '\0';
-		dir = opendir(tmp_path);
-		FREE(tmp_path);
-	}
-	else
-	{
-		dir = opendir(path);
-	}
-
+PATH_PUBLIC int rmtree(const char* path) {
+	DIR* dir = opendir(path);
 	if (dir == NULL) {
 		return -1;
 	}
+
+	int _sc;
 	for (struct dirent* next_file = readdir(dir); next_file != NULL; next_file = readdir(dir)) {
-		if (strcmp(next_file->d_name, ".") == 0 || strcmp(next_file->d_name, "..") == 0) {
+		if (strcmp(next_file->d_name, curdir) == 0 || strcmp(next_file->d_name, pardir) == 0) {
 			continue;
 		}
-		char* p = _join_path(path, next_file->d_name);
+		char* p = join(path, next_file->d_name);
 		if (next_file->d_type & S_IFREG) {
 			_sc = remove(p);
 		}
-		else
-		{
-			_sc = _rmtree(p);
+		else {
+			_sc = rmtree(p);
 		}
 		FREE(p);
 		if (_sc != 0) {
@@ -269,37 +224,19 @@ int _rmtree(const char* path) {
 		}
 	}
 	closedir(dir);
-	_sc = _rmdir(path);
+	_sc = RMDIR(path);
 	if (_sc != 0) {
-		return -2;
+		return -3;
 	}
 	return 0;
 }
 
-PATH_PUBLIC int rmtree(const char* path) {
-	char* tmp_path = _fspath(path);
-	if (tmp_path == NULL) {
-		return -2;
-	}
-	int _sc = _rmtree(tmp_path);
-	FREE(tmp_path);
-	return _sc;
-}
-
 PATH_PUBLIC int copyfile(const char* src, const char* dst) {
-	char* _src = _fspath(src);
-	char* _dst = _fspath(dst);
-	if (_src == NULL || _dst == NULL) {
-		return -2;
-	}
-
-	FILE* fr = fopen(_src, "rb");
-	FREE(_src);
+	FILE* fr = fopen(src, "rb");
 	if (fr == NULL) {
 		return -1;
 	}
-	FILE* fw = fopen(_dst, "wb");
-	FREE(_dst);
+	FILE* fw = fopen(dst, "wb");
 	if (fw == NULL) {
 		fclose(fr);
 		return -1;

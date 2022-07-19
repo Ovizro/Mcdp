@@ -3,7 +3,9 @@
 一个用来帮助制作数据包的Python库，  
 名称"Mcdp"是"Minecraft datapack"的简称。
 
-[![License](https://img.shields.io/github/license/Ovizro/Mcdp.svg)](LICENSE)
+![Mcdp Logo](hhttps://github.com/Ovizro/Mcdp/blob/master/doc/pictures/Mcdp_logo.png)
+
+[![License](https://img.shields.io/github/license/Ovizro/Mcdp.svg)](https://github.com/Ovizro/Mcdp/blob/master/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/Mcdp.svg)](https://pypi.python.org/pypi/Mcdp)
 ![Python Version](https://img.shields.io/badge/python-3.7+-blue.svg)
 [![QQ 群](https://img.shields.io/badge/QQ%E7%BE%A4-931430660-lightblue.svg)](https://jq.qq.com/?_wv=1027&k=OffuPrxM)

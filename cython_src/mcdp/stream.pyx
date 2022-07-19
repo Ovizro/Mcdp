@@ -1,3 +1,5 @@
+# distutils: sources = mcdp/path.c
+
 cimport cython
 from libc.stdio cimport fopen, fputs, fclose, sprintf
 from libc.stdlib cimport malloc, free
@@ -13,7 +15,7 @@ cdef inline StreamCounter get_counter() nogil:
     return counter
 
 cdef inline void print_counter():
-    cdef char buffer[128]
+    cdef char buffer[256]
     sprintf(buffer, "%d dirs, %d files, %d commands, %d chars in total",
         counter.dirs, counter.files, counter.commands, counter.chars)
     print(buffer.decode())
@@ -27,7 +29,7 @@ cdef void _mkdir(const char* path, int* _c) nogil except *:
         with gil:
             raise MemoryError
     if isdir(pdir) == 1:
-        _sc = cmkdir(path)
+        _sc = cmkdir(path, 777)
         if _sc != 0:
             free(pdir)
             with gil:
@@ -46,6 +48,9 @@ cpdef void mkdir(const char* dir_path) nogil except *:
     _mkdir(dir_path, &c)
     if c:
         counter.dirs += c
+
+
+cpdef void 
     
 
 cdef class Stream:
@@ -58,7 +63,7 @@ cdef class Stream:
             if not root:
                 p = abspath(p)
             else:
-                p = join_path(root, p)
+                p = join(root, p)
             if p == NULL:
                 raise MemoryError
             self.path = p
@@ -72,6 +77,8 @@ cdef class Stream:
         self.closed = False
     
     def __dealloc__(self):
+        if self.path != NULL:
+            free(self.path)
         if self._file != NULL:
             fclose(self._file)
             self._file = NULL
@@ -82,7 +89,7 @@ cdef class Stream:
 
         cdef:
             const char* open_mod
-            char* file_dir = dirname(self.path)
+            char* file_dir
         if mod == 'w':
             open_mod = 'w'
         elif mod == 'a':
@@ -91,6 +98,7 @@ cdef class Stream:
             raise ValueError("Invalid open mod.")
             
         with nogil:
+            file_dir = dirname(self.path)
             mkdir(file_dir)
             free(file_dir)
             self._file = fopen(self.path, open_mod)
