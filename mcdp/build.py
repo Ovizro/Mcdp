@@ -120,13 +120,13 @@ class DatapackBuilder(PackBuilder):
             raise MinecraftVersionError("datapack is not enable for Minecraft below 1.13 .")
         elif mc_version.minor < 15:
             return 4
-        elif mc_version <= "1.16.1":
+        elif mc_version <= (1, 16, 1):
             return 5
         elif mc_version.minor < 17:
             return 6
         elif mc_version.minor < 18:
             return 7
-        elif mc_version <= "1.18.1":
+        elif mc_version <= (1, 18, 1):
             return 8
         elif mc_version.minor < 19:
             return 9

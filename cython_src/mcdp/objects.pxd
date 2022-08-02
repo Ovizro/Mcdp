@@ -1,9 +1,9 @@
 # from .cpython_interface cimport FunctionType
 
-ctypedef api object (*T_property)(BaseNamespace nsp)
+ctypedef api object (*T_property)(object nsp)
 
 
-cdef class McdpObject(object):
+cdef api class McdpObject(object) [object DpBaseObject, type DpBaseObject_Type]:
     pass
 
 
@@ -14,4 +14,4 @@ cdef class BaseNamespace(McdpObject):
         bytes n_path "path"
 
 
-cdef api void DpNsp_property(const char* name, T_property factory) except *
+cdef api int DpNamespace_Property(const char* name, T_property factory) except -1

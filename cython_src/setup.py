@@ -9,10 +9,11 @@ if os.path.split(path)[1] != "cython_src":
 
 ext = [
     Extension("mcdp.version", ["mcdp\\version.pyx"]),
-    Extension("mcdp.stream", ["mcdp\\stream.pyx"]),
     Extension("mcdp.objects", ["mcdp\\objects.pyx"]),
     Extension("mcdp.exception", ["mcdp\\exception.pyx"]),
-    Extension("mcdp.dp_interface", ["mcdp\\dp_interface.pyx"])
+    Extension("mcdp.stream", ["mcdp\\stream.pyx"]),
+    Extension("mcdp.context", ["mcdp\\context.pyx"])
+    # Extension("mcdp.dp_interface", ["mcdp\\dp_interface.pyx"])
 ]
 
 setup(

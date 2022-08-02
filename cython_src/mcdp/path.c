@@ -164,31 +164,23 @@ PATH_PUBLIC int isexist(const char* path) {
 PATH_PUBLIC int isdir(const char* path) {
 	Stat st;
 	int _sc = stat(path, &st);
-	if (_sc != 0) {
-		return 0;
+	if (_sc == 0) {
+		if S_ISDIR(st.st_mode) {
+			return 1;
+		}
 	}
-	if S_ISDIR(st.st_mode) {
-		return 1;
-	}
-	else
-	{
-		return -1;
-	}
+	return 0;
 }
 
 PATH_PUBLIC int isfile(const char* path) {
 	Stat st;
 	int _sc = stat(path, &st);
-	if (_sc != 0) {
-		return 0;
+	if (_sc == 0) {
+		if S_ISREG(st.st_mode) {
+			return 1;
+		}
 	}
-	if S_ISREG(st.st_mode) {
-		return 1;
-	}
-	else
-	{
-		return -1;
-	}
+	return 0;
 }
 
 PATH_PUBLIC char* abspath(const char* path) {
@@ -213,17 +205,16 @@ PATH_PUBLIC int rmtree(const char* path) {
 		}
 		char* p = join(path, next_file->d_name);
 		if (next_file->d_type & S_IFREG) {
-			_sc = remove(p);
+			if (remove(p)) _sc = -2;
 		}
 		else {
-			_sc = rmtree(p);
+			if (rmtree(p)) _sc = -3;
 		}
 		FREE(p);
-		if (_sc != 0) {
-			return -3;
-		}
 	}
 	closedir(dir);
+
+	if (_sc) return _sc;
 	_sc = RMDIR(path);
 	if (_sc != 0) {
 		return -3;
@@ -232,6 +223,7 @@ PATH_PUBLIC int rmtree(const char* path) {
 }
 
 PATH_PUBLIC int copyfile(const char* src, const char* dst) {
+	const size_t buffer_size = 1 << 16;
 	FILE* fr = fopen(src, "rb");
 	if (fr == NULL) {
 		return -1;
@@ -242,15 +234,15 @@ PATH_PUBLIC int copyfile(const char* src, const char* dst) {
 		return -1;
 	}
 
-	fseek(fr, 0, SEEK_END);
-	int length = ftell(fr);
-	char* buffer = MALLOC(length + 1, char);
+	char* buffer = MALLOC(buffer_size + 1, char);
 	if (buffer == NULL) {
 		return -2;
 	}
-	rewind(fr);
-	fread(buffer, 1, length, fr);
-	fwrite(buffer, 1, length, fw);
+	while (!feof(fr))
+	{
+		fread(buffer, 1, buffer_size, fr);
+		fwrite(buffer, 1, buffer_size, fw);
+	}
 	FREE(buffer);
 
 	fclose(fr);

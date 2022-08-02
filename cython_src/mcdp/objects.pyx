@@ -1,6 +1,6 @@
 cimport cython
 from cpython cimport (PyCapsule_New, PyCapsule_CheckExact, PyCapsule_GetPointer,
-    Py_INCREF, Py_DECREF, PyFunction_Check)
+    Py_INCREF, Py_DECREF)
 
 
 cdef class McdpObject(object):
@@ -47,7 +47,8 @@ cdef class BaseNamespace(McdpObject):
         return wrapper
 
 
-cdef api void DpNsp_property(const char* name, T_property factory) except *:
+cdef api int DpNamespace_Property(const char* name, T_property factory) except -1:
     cdef object fac = PyCapsule_New(factory, "dp_nspProperty", NULL)
 
     _namespace_property[name.decode()] = fac
+    return 0
