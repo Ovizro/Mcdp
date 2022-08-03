@@ -1,4 +1,5 @@
-# from .cpython_interface cimport FunctionType
+from .cpython_interface cimport PyType_GetNameStr, PyEval_GetFuncName
+
 
 ctypedef api object (*T_property)(object nsp)
 

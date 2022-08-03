@@ -1,6 +1,6 @@
 cimport cython
-from cpython cimport (PyCapsule_New, PyCapsule_CheckExact, PyCapsule_GetPointer,
-    Py_INCREF, Py_DECREF)
+from cpython cimport (PyObject, PyCapsule_New, PyCapsule_CheckExact, PyCapsule_GetPointer,
+    Py_INCREF, Py_DECREF, PyDict_SetItemString, PyErr_Format)
 
 
 cdef class McdpObject(object):
@@ -34,12 +34,12 @@ cdef class BaseNamespace(McdpObject):
                     ret = f_attr(self)
                 self.__dict__[name] = ret
                 return ret
-        raise AttributeError("'%s' object has no attribute '%s'" % (type(self).__name__, name))
+        PyErr_Format(AttributeError, "'%s' object has no attribute '%U'", PyType_GetNameStr(type(self)), <PyObject*>name)
     
     @staticmethod
     def property(attr not None):
         if not isinstance(attr, str):
-            _namespace_property[attr.__name__] = attr
+            PyDict_SetItemString(_namespace_property, PyEval_GetFuncName(attr), attr)
             return attr
         def wrapper(func):
             _namespace_property[attr] = func

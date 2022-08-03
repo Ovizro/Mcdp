@@ -1,8 +1,6 @@
 from cpython cimport PyCapsule_New, PyCapsule_CheckExact, PyCapsule_GetPointer
 from libc.string cimport strcpy
 
-from .config import get_config
-
 
 cdef extern from *:
     """
@@ -13,10 +11,15 @@ cdef extern from *:
     const char* buffer_newline
 
 
-cdef bytes file_suffix = b".mcfunction"
+cdef:
+    Context _current = None
+    Handler _default_handler = None
 
-cdef Context _current = None
-cdef Handler _default_handler = None
+cdef:
+    bytes file_suffix = b".mcfunction"
+    Py_ssize_t max_open = 8
+    Py_ssize_t max_stack = 128
+    bint use_comments = True
 
 
 cdef bytes _nspp_funcpath(BaseNamespace nsp):
@@ -57,7 +60,7 @@ cdef class _CHandlerMeta(type):
     cdef void set_handler(self, T_handler handler_func):
         self.handler_func = PyCapsule_New(handler_func, "dp_handler", NULL)
     
-    cdef void set_link(self, T_link lk_func):
+    cdef void set_link(self, T_connect lk_func):
         self.link_func = PyCapsule_New(lk_func, "dp_link_handler", NULL)
     
     @property
@@ -72,7 +75,7 @@ cdef class _CHandler(Handler):
     cpdef object do_handler(self, Context ctx, object code):
         cdef _CHandlerMeta cls = type(self)
         if cls.handler_func is None:
-            raise ValueError("C function of the handler was unset")
+            raise ValueError("C function of the handler is unset")
         cdef T_handler f_hdl = <T_handler>PyCapsule_GetPointer(self.handler_func, "dp_handler")
         return f_hdl(ctx, code, self.next)
     
@@ -81,13 +84,13 @@ cdef class _CHandler(Handler):
         if cls.link_func is None:
             new_head.append(self)
             return new_head
-        cdef T_link f_lnk = <T_link>PyCapsule_GetPointer(self.link_func, "dp_link_handler")
+        cdef T_connect f_lnk = <T_connect>PyCapsule_GetPointer(self.link_func, "dp_link_handler")
         return f_lnk(self, new_head)
 
 
 cdef class CommentHandler(Handler):
     cpdef object do_handler(self, Context ctx, object code):
-        if not get_config().add_comments:
+        if not use_comments:
             return
 
         code = self.next_handler(ctx, code)
@@ -130,40 +133,56 @@ cdef class Context(McdpObject):
         ):
         self.name = name
         self.namespace = namespace
+        self.length = 1
         self.handler_chain = hdl_chain
         if not back is None:
             self.set_back(back)
     
     cpdef void set_back(self, Context back) except *:
         self.back = back
+        self.length = back.length + 1
         if self.namespace is None:
             self.namespace = back.namespace
         if self.handler_chain is None:
             self.handler_chain = back.handler_chain
         elif not back.handler_chain is None:
             self.handler_chain = back.handler_chain.link_to(self.handler_chain)
+        self.init_stream()
+    
+    cdef void init_stream(self) except *:
+        if not self.stream is None:
+            self.stream.close()
         self.stream = Stream(
             self.name.encode() + file_suffix, root=self.namespace.n_funcpath)
-    
+
     cpdef void join(self) except *:
-        self.set_back(_current)
+        self.set_back(<Context>DpContext_Get())
+    
+    cpdef void activate(self) except *:
+        global _current
+        if self.stream is None:
+            raise McdpContextError("context '%s' is activated before init" % self.name)
+        self.stream.open()
+        _current = self
+    
+    cpdef void deactivate(self) except *:
+        global _current
+        if not _current is self:
+            raise McdpContextError("incurrect context stat detected")
+        self.stream.close()
+        _current = self.back
     
     cpdef bint writable(self):
-        return self.stream != None
+        if self.stream is None:
+            return False
+        return self.stream.writable()
     
     cpdef void put(self, object code) except *:
         if not self.handler_chain is None:
-            c = self.handler_chain.do_handler(self, code)
-        if not c is None:
-            self.stream.write(str(c))
+            code = self.handler_chain.do_handler(self, code)
+        if not code is None:
+            self.stream.putln((<str>str(code)).encode())
     
-    cpdef void newline(self, unsigned int n_line = 1) except *:
-        if n_line <= MAX_NEWLINE:
-            self.stream.put(buffer_newline - n_line + MAX_NEWLINE)
-        else:
-            self.stream.put(buffer_newline)
-            self.newline(n_line - MAX_NEWLINE)
-
     cpdef void add_handler(self, Handler hdl) except *:
         self.handler_chain = self.handler_chain.link_to(hdl)
     
@@ -182,34 +201,18 @@ cdef class Context(McdpObject):
                 raise ValueError("fail to pop handler")
         else:
             self.handler_chain = self.handler_chain.next
-
-
-def init_context(BaseNamespace nsp):
-    global _current
-    _current = Context("__init__", namespace=nsp, hdl_chain=_default_handler)
-    _current.stream = Stream(
-        _current.name.encode() + file_suffix, root=_current.namespace.n_funcpath)
-
-
-def get_context():
-    return DpContext_Get()
-
-
-def insert(*codes):
-    cdef Context ctx = <Context>DpContext_Get()
-    for i in codes:
-        if isinstance(i, str):
-            for j in (<str>i).split('\n'):
-                ctx.put(j)
-        else:
-            ctx.put(i)
-
-
-def newline(unsigned int n_line = 1):
-    if not get_config().add_comments:
-        return
-    cdef Context ctx = <Context>DpContext_Get()
-    ctx.newline(n_line)
+    
+    def __len__(self):
+        return self.length
+    
+    def __enter__(self):
+        if self.stream is None:
+            self.join()
+        self.activate()
+        return self
+    
+    def __exit__(self, exc_type, exc_obj, traceback):
+        self.deactivate()
 
 
 cdef class _CommentImpl:
@@ -260,8 +263,11 @@ cdef class _CommentImpl:
         self.exit_comment()
     
     def __call__(self, *comments):
-        if self.ensure():
+        if not use_comments:
+            return
+        elif self.ensure():
             return insert(*comments)
+
         cdef:
             Context ctx = <Context>DpContext_Get()
             CommentHandler cmt_hdl = CommentHandler()
@@ -271,6 +277,50 @@ cdef class _CommentImpl:
             insert(*comments)
         finally:
             ctx.pop_handler(cmt_hdl)
+
+
+def init_context(BaseNamespace nsp):
+    global _current
+    _current = Context("__init__", namespace=nsp, hdl_chain=_default_handler)
+    _current.init_stream()
+    return _current
+
+
+def get_context():
+    return <Context>DpContext_Get()
+
+
+def insert(*codes):
+    cdef Context ctx = <Context>DpContext_Get()
+    for i in codes:
+        if isinstance(i, str):
+            for j in (<str>i).split('\n'):
+                ctx.put(j)
+        else:
+            ctx.put(i)
+
+
+def newline(unsigned int n_line = 1):
+    DpContext_Newline(n_line)
+
+
+def _get_ctx_config():
+    return {
+        "max_open": max_open,
+        "max_stack": max_stack,
+        "use_comments": use_comments
+    }
+
+
+def _set_ctx_config(**kwds):
+    global use_comments, max_open, max_stack
+    use_comments = kwds.pop("use_comments", use_comments)
+    max_open = kwds.pop("max_open", max_open)
+    max_stack = kwds.pop("max_stack", max_stack)
+    if kwds:
+        raise TypeError(
+            "_set_ctx_config() got an unexpected keyword argument '%s'" % kwds.popitem()[0]
+        )
 
 
 comment = _CommentImpl()
@@ -287,7 +337,7 @@ cdef _CHandlerMeta DpHandler_NewMeta(const char* name, T_handler handler_func):
         name.decode(), (_CHandler,), {"__init__": Handler.__init__})
     hdl_cls.set_handler(handler_func)
 
-cdef object DpHandler_New(_CHandlerMeta cls, object next_hdl):
+cdef object DpHandler_FromMeta(_CHandlerMeta cls, object next_hdl):
     return cls(next_hdl)
 
 cdef object DpHandler_NewSimple(const char* name, T_handler handler_func):
@@ -297,10 +347,10 @@ cdef object DpHandler_DoHandler(object hdl, object ctx, object code):
     return (<Handler?>hdl).do_handler(ctx, code)
 
 # Context API
-cdef object DpContext_Get():
+cdef PyObject* DpContext_Get() except NULL:
     if _current is None:
         raise McdpContextError("fail to get context")
-    return _current
+    return <PyObject*>_current
 
 cdef object DpContext_New(const char* name):
     return Context(name.decode())
@@ -314,7 +364,7 @@ cdef int DpContext_AddHnadler(object ctx, object hdl) except -1:
     return 0
 
 cdef int DpContext_AddHandlerSimple(object ctx, T_handler handler_func) except -1:
-    cdef Handler hdl = <Handler>DpHandler_NewSimple("mcdp.context.TempHandler", handler_func)
+    cdef Handler hdl = <Handler>DpHandler_NewSimple("mcdp.context.CHandler", handler_func)
     return DpContext_AddHnadler(ctx, hdl)
 
 cdef int DpContext_InsertV(const char* format, va_list ap) except -1:
@@ -333,6 +383,8 @@ cdef int DpContext_Insert(const char* format, ...) except -1:
     return 0
 
 cdef int DpContext_CommentV(const char* format, va_list ap) except -1:
+    if not use_comments:
+        return 0
     cdef Context ctx = <Context>DpContext_Get()
     cdef _CommentImpl cmt = <_CommentImpl>comment
 
@@ -354,13 +406,11 @@ cdef int DpContext_Comment(const char* format, ...) except -1:
     return 0
 
 cdef int DpContext_FastComment(const char* cmt) except -1:
-    if not get_config().add_comments:
+    if not use_comments:
         return 0
-    cdef Context top = <Context>DpContext_Get()
-    if not top.writable():
-        raise McdpContextError("fail to add comments")
 
     cdef:
+        Context top = <Context>DpContext_Get()
         char buffer[129]
         int i = 2
     strcpy(buffer, "# ")
@@ -382,6 +432,15 @@ cdef int DpContext_FastComment(const char* cmt) except -1:
     buffer[i+1] = ord('\0')
     top.stream.put(buffer)
     return 0
+
+cdef int DpContext_Newline(unsigned int n_line) except -1:
+    if not use_comments:
+        return 0
+    cdef Context ctx = <Context>DpContext_Get()
+    while n_line > MAX_NEWLINE:
+        ctx.stream.put(buffer_newline)
+        n_line -= MAX_NEWLINE
+    ctx.stream.put(buffer_newline - n_line + MAX_NEWLINE)
 
 
 cdef class McdpContextError(McdpError):

@@ -28,16 +28,14 @@ cdef inline void print_counter():
 cdef int _mkdir(const char* path, int* _c) nogil:
     cdef:
         char* pdir = dirname(path)
-        int _sc
+        int _sc = 0
     if pdir == NULL:
         return -2
-    elif strcmp(pdir, ".") == 0 or isdir(pdir):
-        _sc = cmkdir(path, 777)
-        if _sc != 0:
-            free(pdir)
-            return -1
-    else:
-        _mkdir(pdir, _c)
+    elif not isdir(pdir):
+        _sc = _mkdir(pdir, _c)
+
+    if _sc == 0 and cmkdir(path, 777) != 0:
+        _sc = -1
     free(pdir)
     _c[0] += 1
     return 0
@@ -133,7 +131,7 @@ cdef class Stream:
             if self._file != NULL:
                 self.closed = False
                 return
-        PyErr_Format(OSError, "fail to open %s", self.path)
+        PyErr_Format(OSError, "fail to open '%s'", self.path)
     
     @cython.nonecheck(False)
     cdef int put(self, const char* _s) except -1:
