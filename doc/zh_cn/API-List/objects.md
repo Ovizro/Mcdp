@@ -23,7 +23,7 @@ Mcdp中所有对象的基类，提供了一套属性及方法的接口提供给�
 
 - *type alias* `T_Nspp_F`: ((BaseNamespace) -> Any)
 - *param* `attr`(str | T_Nspp_F): 属性注册名或工厂函数
-- *return*: (((T_Nspp_F) -> T_Nspp_F) | T_Nspp_F)
+- *return* (((T_Nspp_F) -> T_Nspp_F) | T_Nspp_F): 工厂注册函数或工厂函数
 
 用例:
 

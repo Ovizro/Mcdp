@@ -36,12 +36,14 @@ cdef class Handler:
         self.next_handler(ctx, code)
     
     cpdef object next_handler(self, Context ctx, object code):
+        if self.next is None:
+            return code
         self.next.do_handler(ctx, code)
     
-    cpdef void append(self, Handler hdl):
+    cpdef void append(self, Handler nxt):
         while not self.next is None:
             self = self.next
-        self.next = hdl
+        self.next = nxt
     
     cpdef Handler link_to(self, Handler new_head):
         new_head.append(self)
@@ -332,7 +334,7 @@ Context C API
 """
 
 # Handler API
-cdef _CHandlerMeta DpHandler_NewMeta(const char* name, T_handler handler_func):
+cdef _CHandlerMeta DpHandlerMeta_New(const char* name, T_handler handler_func):
     cdef _CHandlerMeta hdl_cls = _CHandlerMeta(
         name.decode(), (_CHandler,), {"__init__": Handler.__init__})
     hdl_cls.set_handler(handler_func)
@@ -341,7 +343,7 @@ cdef object DpHandler_FromMeta(_CHandlerMeta cls, object next_hdl):
     return cls(next_hdl)
 
 cdef object DpHandler_NewSimple(const char* name, T_handler handler_func):
-    return DpHandler_NewMeta(name, handler_func)
+    return DpHandler_FromMeta(DpHandlerMeta_New(name, handler_func))
 
 cdef object DpHandler_DoHandler(object hdl, object ctx, object code):
     return (<Handler?>hdl).do_handler(ctx, code)

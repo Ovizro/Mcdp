@@ -13,12 +13,12 @@ ctypedef api object (*T_handler)(object ctx, object code, object chain)
 ctypedef api object (*T_connect)(object handler_self, object new_head)
 
 
-cdef class Handler(McdpObject):
+cdef class Handler:
     cdef public Handler next
 
     cpdef object do_handler(self, Context ctx, object code)
     cpdef object next_handler(self, Context ctx, object code)
-    cpdef void append(self, Handler hdl)
+    cpdef void append(self, Handler nxt)
     cpdef Handler link_to(self, Handler new_head)
 
 
@@ -76,9 +76,9 @@ cdef class _CommentImpl:
     cdef void exit_comment(self) except *
 
 
-cdef _CHandlerMeta DpHandler_NewMeta(const char* name, T_handler handler_func)
-cdef object DpHandler_FromMeta(_CHandlerMeta cls, object next_hdl)
-cdef object DpHandler_NewSimple(const char* name, T_handler handler_func)
+cdef api _CHandlerMeta DpHandlerMeta_New(const char* name, T_handler handler_func)
+cdef api object DpHandler_FromMeta(_CHandlerMeta cls, object next_hdl)
+cdef api object DpHandler_NewSimple(const char* name, T_handler handler_func)
 cdef api object DpHandler_DoHandler(object hdl, object ctx, object code)
 
 cdef api PyObject* DpContext_Get() except NULL
