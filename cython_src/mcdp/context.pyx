@@ -45,9 +45,23 @@ cdef class Handler:
             self = self.next
         self.next = nxt
     
-    cpdef Handler link_to(self, Handler new_head):
-        new_head.append(self)
-        return new_head
+    cpdef Handler link_handler(self, Handler header):
+        header.append(self)
+        return header
+    
+    cpdef Handler pop_handler(self, Handler header):
+        while header != self:
+            header = header.pop_handler(header)
+            if not self in header:
+                return header
+        return self.next
+    
+    def __contains__(self, hdl):
+        while self:
+            if self == hdl:
+                return True
+            self = self.next
+        return False
     
     def __call__(self, code, *, Context ctx = None):
         if ctx is None:
@@ -59,12 +73,15 @@ cdef class Handler:
 
 
 cdef class _CHandlerMeta(type):
-    cdef void set_handler(self, T_handler handler_func):
-        self.handler_func = PyCapsule_New(handler_func, "dp_handler", NULL)
+    cdef void set_handler(self, T_handler hdl_func):
+        self.handler_func = PyCapsule_New(hdl_func, "dp_handler", NULL)
     
     cdef void set_link(self, T_connect lk_func):
         self.link_func = PyCapsule_New(lk_func, "dp_link_handler", NULL)
     
+    cdef void set_pop(self, T_connect pop_func):
+        self.pop_func = PyCapsule_New(pop_func, "dp_pop_handler", NULL)
+        
     @property
     def valid(self):
         return not self.handler_func is None
@@ -81,13 +98,20 @@ cdef class _CHandler(Handler):
         cdef T_handler f_hdl = <T_handler>PyCapsule_GetPointer(self.handler_func, "dp_handler")
         return f_hdl(ctx, code, self.next)
     
-    cpdef Handler link_to(self, Handler new_head):
+    cpdef Handler link_handler(self, Handler header):
         cdef _CHandlerMeta cls = type(self)
         if cls.link_func is None:
-            new_head.append(self)
-            return new_head
+            header.append(self)
+            return header
         cdef T_connect f_lnk = <T_connect>PyCapsule_GetPointer(self.link_func, "dp_link_handler")
-        return f_lnk(self, new_head)
+        return f_lnk(self, header)
+        
+    cpdef Handler pop_handler(self, Handler header):
+        cdef _CHandlerMeta cls = type(self)
+        if cls.pop_func is None:
+            return Handler.pop_handler(self, header)
+        cdef T_connect f_pop = <T_connect>PyCapsule_GetPointer(self.pop_func, "dp_pop_handler")
+        return f_pop(self, header)
 
 
 cdef class CommentHandler(Handler):
@@ -103,10 +127,21 @@ cdef class CommentHandler(Handler):
         else:
             return "# " + s
     
-    cpdef Handler link_to(self, Handler new_head):
+    cpdef Handler link_handler(self, Handler header):
         nxt = self.next
-        self.next = nxt.link_to(new_head)
+        self.next = nxt.link_handler(header)
+        self.link_count += 1
         return self
+    
+    cpdef Handler pop_handler(self, Handler header):
+        if not self == header:
+            raise McdpContextError("invalid handler chain")
+        if self.link_count > 0:
+            self.next = self.next.pop_handler(header.next)
+            self.link_count -= 1
+            return self
+        else:
+            return self.next
 
 
 cdef class HandlerIter:
@@ -143,12 +178,14 @@ cdef class Context(McdpObject):
     cpdef void set_back(self, Context back) except *:
         self.back = back
         self.length = back.length + 1
+        if self.length > max_stack:
+            raise McdpContextError("maximum ")
         if self.namespace is None:
             self.namespace = back.namespace
         if self.handler_chain is None:
             self.handler_chain = back.handler_chain
         elif not back.handler_chain is None:
-            self.handler_chain = back.handler_chain.link_to(self.handler_chain)
+            self.handler_chain = back.handler_chain.link_handler(self.handler_chain)
         self.init_stream()
     
     cdef void init_stream(self) except *:
@@ -185,24 +222,18 @@ cdef class Context(McdpObject):
         if not code is None:
             self.stream.putln((<str>str(code)).encode())
     
+    cpdef list get_handler(self):
+        return list(self.handler_chain)
+    
     cpdef void add_handler(self, Handler hdl) except *:
-        self.handler_chain = self.handler_chain.link_to(hdl)
+        self.handler_chain = self.handler_chain.link_handler(hdl)
     
     cpdef void pop_handler(self, Handler hdl = None) except *:
         if self.handler_chain is None:
             raise McdpContextError("no handler has been set")
-        if not hdl is None:
-            chain = self.handler_chain
-            while not chain is None:
-                if chain == hdl:
-                    self.handler_chain = chain.next
-                    break
-                else:
-                    chain = chain.next
-            else:
-                raise ValueError("fail to pop handler")
-        else:
-            self.handler_chain = self.handler_chain.next
+        if hdl is None:
+            hdl = self.handler_chain
+        hdl.pop_handler(self.handler_chain)
     
     def __len__(self):
         return self.length
@@ -343,7 +374,7 @@ cdef object DpHandler_FromMeta(_CHandlerMeta cls, object next_hdl):
     return cls(next_hdl)
 
 cdef object DpHandler_NewSimple(const char* name, T_handler handler_func):
-    return DpHandler_FromMeta(DpHandlerMeta_New(name, handler_func))
+    return DpHandler_FromMeta(DpHandlerMeta_New(name, handler_func), None)
 
 cdef object DpHandler_DoHandler(object hdl, object ctx, object code):
     return (<Handler?>hdl).do_handler(ctx, code)

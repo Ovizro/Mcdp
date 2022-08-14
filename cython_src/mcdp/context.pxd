@@ -10,7 +10,7 @@ cdef extern from "Python.h":
 
 
 ctypedef api object (*T_handler)(object ctx, object code, object chain)
-ctypedef api object (*T_connect)(object handler_self, object new_head)
+ctypedef api object (*T_connect)(object handler_self, object header)
 
 
 cdef class Handler:
@@ -19,25 +19,30 @@ cdef class Handler:
     cpdef object do_handler(self, Context ctx, object code)
     cpdef object next_handler(self, Context ctx, object code)
     cpdef void append(self, Handler nxt)
-    cpdef Handler link_to(self, Handler new_head)
+    cpdef Handler link_handler(self, Handler header)
+    cpdef Handler pop_handler(self, Handler header)
 
 
-cdef api class _CHandlerMeta(type) [object DpHandlerObject, type DpHandlerMeta_Type]:
+cdef api class _CHandlerMeta(type) [object DpHandlerMetaObject, type DpHandlerMeta_Type]:
     cdef:
         object handler_func
-        object linked_func
+        object link_func
+        object pop_func
     cdef void set_handler(self, T_handler hdl_func)
     cdef void set_link(self, T_connect lk_func)
+    cdef void set_pop(self, T_connect pop_func)
 
 
 cdef class _CHandler(Handler):
     cpdef object do_handler(self, Context ctx, object code)
-    cpdef Handler link_to(self, Handler new_head)
+    cpdef Handler link_handler(self, Handler header)
 
 
 cdef class CommentHandler(Handler):
+    cdef Py_ssize_t link_count
     cpdef object do_handler(self, Context ctx, object code)
-    cpdef Handler link_to(self, Handler new_head)
+    cpdef Handler link_handler(self, Handler header)
+    cpdef Handler pop_handler(self, Handler header)
 
 
 cdef class HandlerIter:
@@ -61,8 +66,9 @@ cdef api class Context(McdpObject) [object DpContextObject, type DpContext_Type]
     cpdef void deactivate(self) except *
     cpdef bint writable(self)
     cpdef void put(self, object code) except *
+    cpdef list get_handler(self)
     cpdef void add_handler(self, Handler hdl) except *
-    cpdef void pop_handler(self, Handler hdl = *) except *
+    cpdef void pop_handler(self) except *
 
 
 cdef class _CommentImpl:

@@ -128,4 +128,11 @@ Context类则实现了相关的进栈出栈功能，以及Stream文件输出流�
 - *return* (None): 无返回值
 
 ### `add_handler(hdl: Handler) -> None`:
-添加处理节点
+添加处理节点。
+
+- *param* `hdl`(Handler): 新的处理节点
+- *return* (None): 无返回值
+
+### `pop_handler(hdl: Optional[Handler]) -> None`:
+移除处理节点。
+
