@@ -136,3 +136,25 @@ Context类则实现了相关的进栈出栈功能，以及Stream文件输出流�
 ### `pop_handler(hdl: Optional[Handler]) -> None`:
 移除处理节点。
 
+
+## `insert(*args: Any) -> None`:
+向当前环境中插入Minecraft命令。
+
+## `comment`:
+用例:
+```py
+@namespace.mcfunc
+def test_comment(fm: Frame) -> None:
+
+    # as function
+    comment(
+        "This is a test function.",
+        "Use `comment()` to add comments."
+    )
+
+    # as context manager
+    with comment:
+        insert("In this case, use `insert()` instead of `comment()`.")
+        fm.var_int = 5
+        fm.var_int += 2      # This part of compiled minecraft command will turn into comments too.
+```

@@ -68,7 +68,7 @@ cdef api class Context(McdpObject) [object DpContextObject, type DpContext_Type]
     cpdef void put(self, object code) except *
     cpdef list get_handler(self)
     cpdef void add_handler(self, Handler hdl) except *
-    cpdef void pop_handler(self) except *
+    cpdef void pop_handler(self, Handler hdl = *) except *
 
 
 cdef class _CommentImpl:

@@ -129,7 +129,7 @@ cdef class Version:
         )
     
     cpdef int to_int(self):
-        return (self.major * 10 + self.minor) * 10 + self.patch
+        return (self.major * 100 + self.minor) * 100 + self.patch
 
     @cython.nonecheck(False)
     def __getitem__(self, index):
@@ -280,7 +280,7 @@ cdef class Version:
         return version
 
 
-__version__ = Version("0.4.0-Alpha")
+__version__ = Version(DP_VERSION.decode())
 
 cdef dict _version_func = {}
 

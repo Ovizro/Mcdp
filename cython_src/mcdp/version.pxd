@@ -1,6 +1,14 @@
 from .exception cimport McdpError
 
 
+cdef extern from "version.h":
+    const unsigned int DP_RELEASE_LEVEL_ALPHA, DP_RELEASE_LEVEL_BETA, DP_RELEASE_LEVEL_GAMMA, DP_RELEASE_LEVEL_FINAL
+    const unsigned int DP_MAJOR_VERSION, DP_MINOR_VERSION, DP_MICRO_VERSION
+    const unsigned int DP_RELEASE_LEVEL, DP_RELEASE_SERIAL
+    const char* DP_VERSION
+    const unsigned int DP_VERSION_HEX
+
+
 cdef class Version:
     cdef readonly:
         int major

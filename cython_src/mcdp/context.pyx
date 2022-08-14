@@ -1,4 +1,5 @@
-from cpython cimport PyCapsule_New, PyCapsule_CheckExact, PyCapsule_GetPointer
+cimport cython
+from cpython cimport PyCapsule_New, PyCapsule_CheckExact, PyCapsule_GetPointer, PyErr_Format
 from libc.string cimport strcpy
 
 
@@ -33,22 +34,24 @@ cdef class Handler:
         self.next = next_hdl
     
     cpdef object do_handler(self, Context ctx, object code):
-        self.next_handler(ctx, code)
+        return self.next_handler(ctx, code)
     
     cpdef object next_handler(self, Context ctx, object code):
         if self.next is None:
             return code
-        self.next.do_handler(ctx, code)
+        return self.next.do_handler(ctx, code)
     
     cpdef void append(self, Handler nxt):
         while not self.next is None:
             self = self.next
         self.next = nxt
     
+    @cython.nonecheck(True)
     cpdef Handler link_handler(self, Handler header):
         header.append(self)
         return header
     
+    @cython.nonecheck(True)
     cpdef Handler pop_handler(self, Handler header):
         while header != self:
             header = header.pop_handler(header)
@@ -128,11 +131,17 @@ cdef class CommentHandler(Handler):
             return "# " + s
     
     cpdef Handler link_handler(self, Handler header):
+        if header is None:
+            PyErr_Format(ValueError, "argument 'header' should be Handler, not NoneType")
         nxt = self.next
-        self.next = nxt.link_handler(header)
+        if not nxt is None:
+            self.next = nxt.link_handler(header)
+        else:
+            self.next = header
         self.link_count += 1
         return self
     
+    @cython.nonecheck(True)
     cpdef Handler pop_handler(self, Handler header):
         if not self == header:
             raise McdpContextError("invalid handler chain")
@@ -223,17 +232,22 @@ cdef class Context(McdpObject):
             self.stream.putln((<str>str(code)).encode())
     
     cpdef list get_handler(self):
+        if self.handler_chain is None:
+            return []
         return list(self.handler_chain)
     
     cpdef void add_handler(self, Handler hdl) except *:
-        self.handler_chain = self.handler_chain.link_handler(hdl)
+        if self.handler_chain is None:
+            self.handler_chain = hdl
+        else:
+            self.handler_chain = self.handler_chain.link_handler(hdl)
     
     cpdef void pop_handler(self, Handler hdl = None) except *:
         if self.handler_chain is None:
             raise McdpContextError("no handler has been set")
         if hdl is None:
             hdl = self.handler_chain
-        hdl.pop_handler(self.handler_chain)
+        self.handler_chain = hdl.pop_handler(self.handler_chain)
     
     def __len__(self):
         return self.length
@@ -377,6 +391,8 @@ cdef object DpHandler_NewSimple(const char* name, T_handler handler_func):
     return DpHandler_FromMeta(DpHandlerMeta_New(name, handler_func), None)
 
 cdef object DpHandler_DoHandler(object hdl, object ctx, object code):
+    if hdl is None:
+        return code
     return (<Handler?>hdl).do_handler(ctx, code)
 
 # Context API

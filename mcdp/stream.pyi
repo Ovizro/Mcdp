@@ -1,9 +1,9 @@
-from typing import IO, Any, Final, Literal, Optional
+from typing import Any, Final, Literal, Optional, TextIO
 
 
 def mkdir(dir_path: bytes) -> None: ...
 
-class Stream(IO):
+class Stream(TextIO):
     path: Final[str]
 
     def __init__(self, path: bytes, *, root: Optional[bytes] = None) -> None: ...

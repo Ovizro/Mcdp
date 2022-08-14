@@ -26,14 +26,14 @@ class Mcdatapack(object):
     ) -> None:
         if builderclass is None:
             builderclass = get_defaultbuilder()
-        self.builder = builderclass(
-            name=name, support_version=version, description=description, icon_path=icon_path, **kwds)
+        self.builder = builderclass(name, version, description, 
+            icon_path=icon_path, **kwds)
         self.namespaces: Dict[str, Namespace] = {}
         self.active()
     
     @property
     def pack_info(self) -> "PackageInformation":
-        return self.builder
+        return self.builder.pack_info
 
     @property
     def actived(self) -> bool:
@@ -63,7 +63,7 @@ from .version import __version__, T_version
 from .config import check_mc_version, check_mcdp_version, get_config
 from .objects import BaseNamespace
 from .stream import Stream
-from .context import Context
+from .context import Context, get_context
 from .build import PackageInformation, AbstractBuilder, get_defaultbuilder
 
 config_module = config

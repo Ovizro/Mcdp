@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import re
 import warnings
 from setuptools import setup
 
@@ -24,9 +25,16 @@ except OSError:
     warnings.warn("Miss file 'README.md', using default description.", ResourceWarning)
     description = "A python wheel helps to build a Minecraft datapack."
 
+try:
+    with open("mcdp/include/version.h") as f:
+        version = re.search(r"#define DP_VERSION \"(.*)\"\n", f.read()).group(1)
+except Exception as e:
+    raise ValueError("fail to read mcdp version") from e
+
+
 setup(
     name="Mcdp",
-    version="0.4.0-Alpha",
+    version=version,
     description="A python wheel helps to build a Minecraft datapack.\nThe name 'Mcdp' is short for 'Minecraft datapack'.",
     long_description=description,
     long_description_content_type='text/markdown',
@@ -39,8 +47,8 @@ setup(
 
     url="https://github.com/Ovizro/Mcdp",
     packages=["mcdp"],
-    package_data={'':["*.pyi"]},
-    install_requires=["ujson", "pydantic", "aiofiles"],
+    package_data={'':["*.pyi", "include/*.h", "*.pxd"]},
+    install_requires=["ujson", "pydantic"],
 
     classifiers=[
         "Development Status :: 3 - Alpha",

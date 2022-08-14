@@ -4,15 +4,10 @@ from abc import abstractmethod
 from typing import Any, ClassVar, Dict, List, Optional, Type, Union
 from pydantic import BaseModel, PrivateAttr, validator
 
-from .version import Version
+from .version import T_version, Version
 from .config import MinecraftVersionError
 from .stream import Stream
-
-try:
-    import ujson as json
-except ImportError:
-    import json
-
+ 
 
 class PackageInformation(BaseModel):
     name: str
@@ -23,16 +18,34 @@ class PackageInformation(BaseModel):
     @validator("icon_path")
     def validate_icon_path(cls, icon_path: Optional[Union[str, os.PathLike]]) -> Optional[str]:
         if icon_path:
+            if not os.path.isfile(icon_path):
+                raise FileNotFoundError(f"invalid icon path '{icon_path}'")
             return os.path.abspath(icon_path)
 
 
-class AbstractBuilder(PackageInformation):
+class AbstractBuilder(BaseModel):
+    pack_info: PackageInformation
     build_dir: ClassVar[str] = "build"
 
     remove_old_pack: bool = True
     output_dir: List[str] = ['.']
 
     _origin_dir: str = PrivateAttr('.')
+
+    def __init__(
+            self, 
+            name: str, 
+            support_version: T_version,
+            description: str,
+            *,
+            icon_path: Optional[Union[str, os.PathLike]] = None,
+            **data: Any
+        ) -> None:
+        if icon_path is not None:
+            icon_path = os.fspath(icon_path)
+        info = PackageInformation(
+            name=name, support_version=support_version, description=description, icon_path=icon_path)
+        super().__init__(pack_info=info, **data)
 
     @abstractmethod
     def build(self) -> None:
@@ -59,7 +72,7 @@ class AbstractBuilder(PackageInformation):
         for dst in self.output_dir:
             os.makedirs(dst, exist_ok=True)
             if is_dir:
-                _dst = os.path.join(dst, self.name)
+                _dst = os.path.join(dst, self.pack_info.name)
                 if self.remove_old_pack and os.path.exists(_dst):
                     rmtree(_dst)
                 copytree(pack_path, _dst, dirs_exist_ok=True)
@@ -73,15 +86,15 @@ class PackBuilder(AbstractBuilder):
     make_archive: bool = False
 
     def build(self, *argv: str) -> None:
-        p_name = self.name
+        p_name = self.pack_info.name
         if not os.path.isdir(p_name):
             os.mkdir(p_name)
         os.chdir(p_name)
         
         with Stream(b"pack.mcmeta") as f:
-            json.dump(self.get_mcmeta(), f, indent=4)
-        if self.icon_path:
-            copy(self.icon_path, "pack.png")
+            f.dump(self.get_mcmeta())
+        if self.pack_info.icon_path:
+            copy(self.pack_info.icon_path, "pack.png")
 
         src_path = self.src_dir
         if not os.path.isdir(src_path):
@@ -91,15 +104,15 @@ class PackBuilder(AbstractBuilder):
     def finalize(self) -> str:
         os.chdir("../..")
         if self.make_archive:
-            return make_archive(self.name, "zip", root_dir=self.name)
+            return make_archive(self.pack_info.name, "zip", root_dir=self.pack_info.name)
         else:
-            return os.path.abspath(self.name)
+            return os.path.abspath(self.pack_info.name)
 
     def get_mcmeta(self) -> Dict[str, Any]:
         return {
             "pack": {
                 "pack_format": self.get_pack_format(),
-                "description": self.description
+                "description": self.pack_info.description
             }
         }
 
@@ -112,7 +125,7 @@ class DatapackBuilder(PackBuilder):
     src_dir: ClassVar[str] = "data"
 
     def get_pack_format(self) -> int:
-        mc_version = self.support_version
+        mc_version = self.pack_info.support_version
         
         if mc_version.major != 1:
             raise MinecraftVersionError("Minecraft version must start with '1.'.")
