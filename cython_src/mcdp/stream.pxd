@@ -1,25 +1,8 @@
 from libc.stdio cimport FILE
-from .exception cimport McdpValueError
+from .cpython_interface cimport va_list, vfprintf, va_start, va_end
 from .path cimport dirname, join, abspath, isdir, isabs, cmkdir
 from .path cimport rmtree as _rmtree, copyfile as _copyfile
 
-
-cdef extern from "<stdarg.h>":
-    ctypedef void* va_list
-    int vfprintf(FILE*, const char*, ...) nogil
-    void va_start(va_list ap, const char* last_arg) nogil
-    void va_end(va_list ap) nogil
-
-
-cdef struct StreamCounter:
-    int dirs
-    int files
-    int commands
-    int chars
-
-
-cdef StreamCounter get_counter() nogil
-cdef void print_counter()
 
 cpdef void mkdir(const char* dir_path) except *
 cpdef void rmtree(const char* path) except *

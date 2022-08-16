@@ -1,6 +1,6 @@
 cimport cython
 from cpython cimport (PyObject, PyCapsule_New, PyCapsule_CheckExact, PyCapsule_GetPointer,
-    Py_INCREF, Py_DECREF, PyDict_SetItemString, PyErr_Format)
+    Py_INCREF, Py_DECREF, PyDict_SetItemString, PyErr_Format, PyUnicode_FromFormat)
 
 
 cdef class McdpObject(object):
@@ -34,7 +34,7 @@ cdef class BaseNamespace(McdpObject):
                     ret = f_attr(self)
                 self.__dict__[name] = ret
                 return ret
-        PyErr_Format(AttributeError, "'%s' object has no attribute '%U'", PyType_GetNameStr(type(self)), <PyObject*>name)
+        PyErr_Format(AttributeError, "'%s' object has no attribute '%U'", get_type_name(self), <PyObject*>name)
     
     @staticmethod
     def property(attr not None):
@@ -45,6 +45,9 @@ cdef class BaseNamespace(McdpObject):
             _namespace_property[attr] = func
             return func
         return wrapper
+    
+    def __repr__(self):
+        return PyUnicode_FromFormat("<namespace %U at %p>", <void*>self.n_name, <void*>self)
 
 
 cdef api int DpNamespace_Property(const char* name, T_property factory) except -1:

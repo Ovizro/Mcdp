@@ -1,5 +1,9 @@
 cdef class McdpError(Exception):
-    pass
+    """
+    Base exception for Mcdp
+
+    This exception can be raised when mcdp compiler is running.
+    """
 
 
 cdef class McdpValueError(McdpError):
@@ -11,4 +15,12 @@ cdef class McdpTypeError(McdpError):
 
 
 cdef class McdpIndexError(McdpError):
+    pass
+
+
+cdef class McdpUnboundError(McdpError):
+    pass
+
+
+cdef class McdpRuntimeError(McdpError):
     pass

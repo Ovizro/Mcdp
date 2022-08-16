@@ -47,6 +47,7 @@ setup(
 
     url="https://github.com/Ovizro/Mcdp",
     packages=["mcdp"],
+    python_requires="3.7",
     package_data={'':["*.pyi", "include/*.h", "*.pxd"]},
     install_requires=["ujson", "pydantic"],
 

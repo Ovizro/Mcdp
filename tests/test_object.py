@@ -6,6 +6,7 @@ class TestObject(TestCase):
     def test_init(self) -> None:
         obj = McdpObject()
         nsp = BaseNamespace("test")
+        self.assertRegex(str(nsp), r"<namespace test at 0x[0-9A-Z]+>")
     
     def test_property(self) -> None:
         nsp = BaseNamespace("test")

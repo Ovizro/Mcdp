@@ -12,3 +12,12 @@ class McdpTypeError(McdpError):
 
 class McdpIndexError(McdpError):
     __slots__ = []
+
+
+class McdpUnboundError(McdpError):
+    __slots__ = []
+
+
+class McdpRuntimeError(McdpError):
+    __slots__ = []
+    

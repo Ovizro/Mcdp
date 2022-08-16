@@ -12,49 +12,32 @@ except ImportError:
     import json
 
 
-cdef StreamCounter counter = StreamCounter(0, 0, 0, 0)
-
-
-cdef inline StreamCounter get_counter() nogil:
-    return counter
-
-cdef inline void print_counter():
-    cdef char buffer[256]
-    sprintf(buffer, "%d dirs, %d files, %d commands, %d chars in total",
-        counter.dirs, counter.files, counter.commands, counter.chars)
-    print(buffer.decode())
-
-
-cdef int _mkdir(const char* path, int* _c) nogil:
+cdef int _mkdir(const char* path) nogil:
     cdef:
         char* pdir = dirname(path)
         int _sc = 0
     if pdir == NULL:
         return -2
     elif not isdir(pdir):
-        _sc = _mkdir(pdir, _c)
+        _sc = _mkdir(pdir)
 
     if _sc == 0 and cmkdir(path, 777) != 0:
         _sc = -1
     free(pdir)
-    _c[0] += 1
-    return 0
+    return _sc
 
 cpdef void mkdir(const char* dir_path) except *:
-    cdef:
-        int _s, c = 0
+    cdef int _s
 
     with nogil:
         if isdir(dir_path) == 1:
             return
-        _s = _mkdir(dir_path, &c)
+        _s = _mkdir(dir_path)
 
     if _s == -1:
         raise OSError("fail to create dir")
     elif _s == -2:
         raise MemoryError
-    if c:
-        counter.dirs += c
 
 cpdef void rmtree(const char* path) except *:
     cdef int _s
@@ -120,12 +103,12 @@ cdef class Stream:
         elif mod == 'a':
             open_mod = 'a'
         else:
-            raise ValueError("Invalid open mod.")
+            raise ValueError("invalid open mod")
             
         with nogil:
             file_dir = dirname(self.path)
-            if not isdir(file_dir) and _mkdir(file_dir, &(counter.dirs)):
-                raise FileNotFoundError("No such file or directory")
+            if not isdir(file_dir) and _mkdir(file_dir):
+                raise FileNotFoundError("no such file or directory")
             free(file_dir)
             self._file = fopen(self.path, open_mod)
             if self._file != NULL:
@@ -145,8 +128,6 @@ cdef class Stream:
             if c < 0:
                 with gil:
                     PyErr_Format(OSError, "fail to write to file %s", self.path)
-            c = strlen(_s)
-            counter.chars += c
         return c
     
     @cython.nonecheck(False)
@@ -160,7 +141,6 @@ cdef class Stream:
             if c < 0:
                 with gil:
                     PyErr_Format(OSError, "fail to write to file %s", self.path)
-            counter.chars += 1
         return 1
     
     @cython.nonecheck(False)
@@ -180,7 +160,6 @@ cdef class Stream:
             if c < 0:
                 with gil:
                     PyErr_Format(OSError, "fail to write to file %s", self.path)
-            counter.chars += c
         return c
     
     @cython.nonecheck(False)

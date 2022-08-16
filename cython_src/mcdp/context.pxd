@@ -1,17 +1,19 @@
 from cpython cimport PyObject
+from .cpython_interface cimport *
 from .objects cimport McdpObject, BaseNamespace, DpNamespace_Property, T_property
-from .exception cimport McdpError, McdpValueError
-from .stream cimport Stream, va_list, va_start, va_end
+from .exception cimport McdpError, McdpRuntimeError, McdpUnboundError
+from .stream cimport Stream
 
 
-cdef extern from "Python.h":
-    str PyUnicode_FromFormatV(const char* format, va_list vargs)
-    str PyUnicode_FromFormat(const char* format, ...)
-
-
+ctypedef api void (*T_hook)(object nsp) except *
 ctypedef api object (*T_handler)(object ctx, object code, object chain)
 ctypedef api object (*T_connect)(object handler_self, object header)
 
+ctypedef struct ContextConfig:
+    Py_ssize_t max_open
+    Py_ssize_t max_stack
+    bint use_comments
+    
 
 cdef class Handler:
     cdef public Handler next
@@ -63,6 +65,7 @@ cdef api class Context(McdpObject) [object DpContextObject, type DpContext_Type]
     cdef void init_stream(self) except *
     cpdef void join(self) except *
     cpdef void activate(self) except *
+    cpdef void reactivate(self) except *
     cpdef void deactivate(self) except *
     cpdef bint writable(self)
     cpdef void put(self, object code) except *
@@ -83,11 +86,15 @@ cdef class _CommentImpl:
 
 
 cdef api _CHandlerMeta DpHandlerMeta_New(const char* name, T_handler handler_func)
+cdef api void DpHandlerMeta_SetHandler(_CHandlerMeta cls, T_handler func)
+cdef api void DpHandlerMeta_SetLinkHandler(_CHandlerMeta cls, T_connect func)
+cdef api void DpHandlerMeta_SetPopHandler(_CHandlerMeta cls, T_connect func)
 cdef api object DpHandler_FromMeta(_CHandlerMeta cls, object next_hdl)
 cdef api object DpHandler_NewSimple(const char* name, T_handler handler_func)
 cdef api object DpHandler_DoHandler(object hdl, object ctx, object code)
 
 cdef api PyObject* DpContext_Get() except NULL
+cdef api PyObject* DpContext_Getback(object ctx) except NULL
 cdef api object DpContext_New(const char* name)
 cdef api int DpContext_Join(object ctx) except -1
 cdef api int DpContext_AddHnadler(object ctx, object hdl) except -1

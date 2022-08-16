@@ -63,11 +63,14 @@ from .version import __version__, T_version
 from .config import check_mc_version, check_mcdp_version, get_config
 from .objects import BaseNamespace
 from .stream import Stream
-from .context import Context, get_context
+from .context import Context, get_context, McdpContextError
 from .build import PackageInformation, AbstractBuilder, get_defaultbuilder
+from .include import get_include
 
 config_module = config
 config = get_config()
+
+
 P_name = re.compile("^[a-z0-9\\-_]+$")
 
 
@@ -81,9 +84,16 @@ class Namespace(BaseNamespace):
 
 
 __all__ = [
+    # core
     "Mcdatapack",
     "Namespace",
     # config
     "config",
-    
+    # context
+    "Context",
+    "get_context",
+    # exception
+    "McdpError",
+    "McdpValueError",
+    "McdpContextError",
 ]
