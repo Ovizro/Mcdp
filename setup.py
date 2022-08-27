@@ -14,9 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import os
 import re
 import warnings
-from setuptools import setup
+from setuptools import setup, Extension
+
 
 try:
     with open("README.md", encoding='utf-8') as f:
@@ -30,6 +32,22 @@ try:
         version = re.search(r"#define DP_VERSION \"(.*)\"\n", f.read()).group(1)
 except Exception as e:
     raise ValueError("fail to read mcdp version") from e
+
+
+USE_CYTHON = "USE_CYTHON" in os.environ
+FILE_SUFFIX = ".pyx" if USE_CYTHON else ".c"
+
+ext = [
+    Extension("mcdp.version", ["mcdp/version" + FILE_SUFFIX], include_dirs=["mcdp/include"]),
+    Extension("mcdp.objects", ["mcdp/objects" + FILE_SUFFIX]),
+    Extension("mcdp.exception", ["mcdp/exception" + FILE_SUFFIX]),
+    Extension("mcdp.stream", ["mcdp/stream" + FILE_SUFFIX, "mcdp/path.c"], include_dirs=["mcdp/include"]),
+    Extension("mcdp.context", ["mcdp/context" + FILE_SUFFIX], include_dirs=["mcdp/include"])
+]
+
+if USE_CYTHON:
+    from Cython.Build import cythonize
+    extensions = cythonize(ext, annotate=True, compiler_directives={"language_level": "3"})
 
 
 setup(
@@ -47,8 +65,9 @@ setup(
 
     url="https://github.com/Ovizro/Mcdp",
     packages=["mcdp"],
-    python_requires="3.7",
+    python_requires=">=3.6",
     package_data={'':["*.pyi", "include/*.h", "*.pxd"]},
+    ext_modules=ext,
     install_requires=["ujson", "pydantic"],
 
     classifiers=[

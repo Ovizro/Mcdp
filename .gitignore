@@ -1,6 +1,6 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
-*.py[co]
+*.py[cod]
 *$py.class
 
 # C extensions
@@ -136,14 +136,10 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
-cython_src/*/*.html
-cython_src/*/*/*.html
-cython_src/*/*.c
-cython_src/*/*.h
-cython_src/*/*/*.c
-!cython_src/mcdp/path.c
-!cython_src/mcdp/lex.yy.c
-cython_src/*.py[id]
+mcdp/*.html
+mcdp/*.c
+!mcdp/path.c
+!mcdp/lex.yy.c
 
 # 测试文件
 file_test/
