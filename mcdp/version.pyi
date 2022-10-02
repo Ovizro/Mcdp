@@ -1,4 +1,4 @@
-from typing import Any, Dict, Final, List, OrderedDict, Tuple, Callable, Union, Optional, overload
+from typing import Any, Dict, Final, Generator, List, OrderedDict, Tuple, Callable, Union, Optional, overload
 
 
 T_version = Union[Tuple[Union[str, int], ...], Dict[str, Union[str, int]], str, "Version"]
@@ -24,9 +24,9 @@ class Version:
     def __getitem__(self, key: Union[int, slice]) -> Union[int, Tuple[int, ...]]:...
     def __iter__(self) -> Tuple[int, int, int, Optional[str], Optional[str]]:...
     @classmethod
-    def __get_validators__(cls):...
+    def __get_validators__(cls) -> Generator[Callable, None, None]:...
     @classmethod
-    def validate(cls, val: T_version):...
+    def validate(cls, val: T_version) -> Version:...
     def __eq__(self, other: T_version) -> bool:...
     def __ne__(self, other: T_version) -> bool:...
     def __gt__(self, other: T_version) -> bool:...
@@ -64,22 +64,22 @@ def fail_version_check(func: Callable, *, collection: Dict[str, Callable] = ...)
 def pass_version_check(func: Callable, *, collection: Dict[str, Callable] = ...) -> Callable:...
 def analyse_check_sentences(
         *args: str,
-        eq: Union[List[T_version], T_version] = [],
-        ne: Union[List[T_version], T_version] = [],
-        gt: Optional[T_version] = None,
-        ge: Optional[T_version] = None,
-        lt: Optional[T_version] = None,
-        le: Optional[T_version] = None
+        eq: Union[List[T_version], T_version] = ...,
+        ne: Union[List[T_version], T_version] = ...,
+        gt: T_version = ...,
+        ge: T_version = ...,
+        lt: T_version = ...,
+        le: T_version = ...,
 ) -> Dict[str, Union[List[T_version], T_version, None]]:...
 def version_check(
         version: Version,
         *args: str,
-        eq: Union[List[T_version], T_version] = [],
-        ne: Union[List[T_version], T_version] = [],
-        gt: Optional[T_version] = None,
-        ge: Optional[T_version] = None,
-        lt: Optional[T_version] = None,
-        le: Optional[T_version] = None
+        eq: Union[List[T_version], T_version] = ...,
+        ne: Union[List[T_version], T_version] = ...,
+        gt: T_version = ...,
+        ge: T_version = ...,
+        lt: T_version = ...,
+        le: T_version = ...,
 ) -> Callable[[Callable], Callable]:
     """
     The core function of the version check.

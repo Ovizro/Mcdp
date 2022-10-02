@@ -17,6 +17,7 @@ limitations under the License.
 import os
 import re
 import warnings
+from xml.etree.ElementInclude import include
 from setuptools import setup, Extension
 
 
@@ -36,17 +37,24 @@ except Exception as e:
 
 USE_CYTHON = "USE_CYTHON" in os.environ
 FILE_SUFFIX = ".pyx" if USE_CYTHON else ".c"
+HOME_PATH = os.path.join(os.path.dirname(__file__), "mcdp")
 
 ext = [
-    Extension("mcdp.version", ["mcdp/version" + FILE_SUFFIX], include_dirs=["mcdp/include"]),
+    Extension("mcdp.version", ["mcdp/version" + FILE_SUFFIX]),
     Extension("mcdp.objects", ["mcdp/objects" + FILE_SUFFIX]),
     Extension("mcdp.exception", ["mcdp/exception" + FILE_SUFFIX]),
-    Extension("mcdp.stream", ["mcdp/stream" + FILE_SUFFIX, "mcdp/path.c"], include_dirs=["mcdp/include"]),
-    Extension("mcdp.context", ["mcdp/context" + FILE_SUFFIX], include_dirs=["mcdp/include"])
+    Extension("mcdp.stream", ["mcdp/stream" + FILE_SUFFIX, "mcdp/path.c"],
+        include_dirs=[HOME_PATH, os.path.join(HOME_PATH, "include")]),
+    Extension("mcdp.context", ["mcdp/context" + FILE_SUFFIX]),
+    Extension("mcdp.variable.mcstring", ["mcdp/variable/mcstring" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
+    Extension("mcdp.variable.selector", ["mcdp/variable/selector" + FILE_SUFFIX], include_dirs=[HOME_PATH])
 ]
 
 if USE_CYTHON:
     from Cython.Build import cythonize
+    from Cython.Compiler import Options
+    
+    Options.fast_fail = True
     extensions = cythonize(ext, annotate=True, compiler_directives={"language_level": "3"})
 
 
@@ -68,13 +76,15 @@ setup(
     python_requires=">=3.6",
     package_data={'':["*.pyi", "include/*.h", "*.pxd"]},
     ext_modules=ext,
-    install_requires=["ujson", "pydantic"],
+    install_requires=["pydantic>=1.7.0", "typing_extensions>=4.3.0"],
 
     classifiers=[
         "Development Status :: 3 - Alpha",
         "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Cython",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",

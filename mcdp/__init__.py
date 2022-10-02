@@ -64,6 +64,7 @@ from .config import check_mc_version, check_mcdp_version, get_config
 from .objects import BaseNamespace
 from .stream import Stream
 from .context import Context, get_context, McdpContextError
+from .variable import *
 from .build import PackageInformation, AbstractBuilder, get_defaultbuilder
 from .include import get_include
 

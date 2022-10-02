@@ -138,6 +138,8 @@ dmypy.json
 cython_debug/
 mcdp/*.html
 mcdp/*.c
+mcdp/*/*.html
+mcdp/*/*.c
 !mcdp/path.c
 !mcdp/lex.yy.c
 

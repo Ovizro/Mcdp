@@ -5,7 +5,7 @@ cdef extern from *:
     #endif
     """
 
-cdef extern from "path.h":
+cdef extern from "include/path.h":
     char* _fspath(const char* path, int* len) nogil
     char* _fsdir(const char* path, int* len) nogil
     char* fspath(const char* path) nogil

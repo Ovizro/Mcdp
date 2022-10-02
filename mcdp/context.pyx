@@ -46,10 +46,11 @@ cdef class Handler:
     cpdef Handler link_handler(self, Handler header):
         header.append(self)
         return header
-    
-    @cython.nonecheck(True)
+
     cpdef Handler pop_handler(self, Handler header):
         while header != self:
+            if header is None:
+                raise TypeError("argument 'header' should be Handler, not NoneType")
             header = header.pop_handler(header)
             if not self in header:
                 return header
@@ -72,8 +73,8 @@ cdef class Handler:
     
     def __repr__(self):
         if self.next is None:
-            return PyUnicode_FromFormat("<%s object at %p>", get_type_name(self), <void*>self)
-        return PyUnicode_FromFormat("<%s object linked <%s object at %p> at %p>", get_type_name(self), get_type_name(self.next), <void*>self.next, <void*>self)
+            return PyUnicode_FromFormat("<%s object at %p>", Py_TYPE_NAME(self), <void*>self)
+        return PyUnicode_FromFormat("<%s object linked <%s object at %p> at %p>", Py_TYPE_NAME(self), Py_TYPE_NAME(self.next), <void*>self.next, <void*>self)
 
 
 cdef class _CHandlerMeta(type):
@@ -133,7 +134,7 @@ cdef class CommentHandler(Handler):
     
     cpdef Handler link_handler(self, Handler header):
         if header is None:
-            PyErr_Format(ValueError, "argument 'header' should be Handler, not NoneType")
+            raise TypeError("argument 'header' should be Handler, not NoneType")
         nxt = self.next
         if not nxt is None:
             self.next = nxt.link_handler(header)
@@ -142,11 +143,12 @@ cdef class CommentHandler(Handler):
         self.link_count += 1
         return self
     
-    @cython.nonecheck(True)
     cpdef Handler pop_handler(self, Handler header):
         if not self == header:
             raise McdpContextError("invalid handler chain")
         if self.link_count > 0:
+            if self.next is None:
+                raise TypeError("link counter unmatch")
             self.next = self.next.pop_handler(header.next)
             self.link_count -= 1
             return self
@@ -187,8 +189,9 @@ cdef class Context(McdpObject):
         elif not namespace is None:
             self.init_stream()
     
-    @cython.nonecheck(True)
     cpdef void set_back(self, Context back) except *:
+        if back is None:
+            raise TypeError("argument 'back' should be Handler, not NoneType")
         self.back = back
         self.length = back.length + 1
         if self.length > _config.max_stack:
@@ -248,8 +251,7 @@ cdef class Context(McdpObject):
             raise McdpContextError(f"context {self.name} is not writable")
         if not self.handler_chain is None:
             code = self.handler_chain.do_handler(self, code)
-        if not code is None:
-            self.stream.putln((<str>str(code)).encode())
+        self.stream.putln((<str>str(code)).encode())
     
     cpdef list get_handler(self):
         if self.handler_chain is None:

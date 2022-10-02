@@ -55,14 +55,14 @@ class TestContext(TestCase):
             h = Handler()
             with comment:
                 
-                with self.assertRaises(ValueError):
-                    c.add_handler(None)
+                with self.assertRaises(TypeError):
+                    c.add_handler(None) # type: ignore
                 c.add_handler(h)
                 self.assertEqual(len(c.get_handler()), 2)
                 c.pop_handler(h)
                 self.assertEqual(len(c.get_handler()), 1)
                 
-            self.assertEqual(c.get_handler(), [])
+            self.assertListEqual(c.get_handler(), [])
             with self.assertRaises(McdpContextError):
                 c.pop_handler()
         ctx.deactivate()

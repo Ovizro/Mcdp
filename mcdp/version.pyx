@@ -306,19 +306,25 @@ def pass_version_check(func: Callable, *, collection: Dict[str, Callable] = _ver
 
 def analyse_check_sentences(
         *args,
-        eq: Union[List[T_Version], T_Version] = [],
-        ne: Union[List[T_Version], T_Version] = [],
+        eq: Union[List[T_Version], T_Version] = None,
+        ne: Union[List[T_Version], T_Version] = None,
         gt: Optional[T_Version] = None,
         ge: Optional[T_Version] = None,
         lt: Optional[T_Version] = None,
         le: Optional[T_Version] = None
 ) -> Dict[str, Union[List[T_Version], T_Version, None]]:
     cdef dict ans = {}
-    if not isinstance(eq, list):
+
+    if eq is None:
+        ans['eq'] = []
+    elif not isinstance(eq, list):
         ans['eq'] = [eq, ]
     else:
         ans['eq'] = eq
-    if not isinstance(ne, list):
+
+    if ne is None:
+        ans['ne'] = []
+    elif not isinstance(ne, list):
         ans['ne'] = [ne, ]
     else:
         ans['ne'] = ne
