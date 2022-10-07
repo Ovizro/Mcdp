@@ -43,12 +43,12 @@ static int (*__pyx_api_f_4mcdp_7context_DpContext_InsertV)(char const *, va_list
 #define DpContext_InsertV __pyx_api_f_4mcdp_7context_DpContext_InsertV
 static int (*__pyx_api_f_4mcdp_7context_DpContext_Insert)(char const *, ...) = 0;
 #define DpContext_Insert __pyx_api_f_4mcdp_7context_DpContext_Insert
-static int (*__pyx_api_f_4mcdp_7context_DpContext_CommentV)(char const *, va_list) = 0;
-#define DpContext_CommentV __pyx_api_f_4mcdp_7context_DpContext_CommentV
-static int (*__pyx_api_f_4mcdp_7context_DpContext_Comment)(char const *, ...) = 0;
-#define DpContext_Comment __pyx_api_f_4mcdp_7context_DpContext_Comment
-static int (*__pyx_api_f_4mcdp_7context_DpContext_FastComment)(char const *) = 0;
-#define DpContext_FastComment __pyx_api_f_4mcdp_7context_DpContext_FastComment
+static int (*__pyx_api_f_4mcdp_7context_DpContext_AnnotateV)(char const *, va_list) = 0;
+#define DpContext_AnnotateV __pyx_api_f_4mcdp_7context_DpContext_AnnotateV
+static int (*__pyx_api_f_4mcdp_7context_DpContext_Annotate)(char const *, ...) = 0;
+#define DpContext_Annotate __pyx_api_f_4mcdp_7context_DpContext_Annotate
+static int (*__pyx_api_f_4mcdp_7context_DpContext_FastAnnotate)(char const *) = 0;
+#define DpContext_FastAnnotate __pyx_api_f_4mcdp_7context_DpContext_FastAnnotate
 static int (*__pyx_api_f_4mcdp_7context_DpContext_Newline)(unsigned int) = 0;
 #define DpContext_Newline __pyx_api_f_4mcdp_7context_DpContext_Newline
 #if !defined(__Pyx_PyIdentifier_FromString)
@@ -186,9 +186,9 @@ static int import_mcdp__context(void) {
   if (__Pyx_ImportFunction(module, "DpContext_AddHandlerSimple", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_AddHandlerSimple, "int (PyObject *, T_handler)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpContext_InsertV", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_InsertV, "int (char const *, va_list)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpContext_Insert", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_Insert, "int (char const *, ...)") < 0) goto bad;
-  if (__Pyx_ImportFunction(module, "DpContext_CommentV", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_CommentV, "int (char const *, va_list)") < 0) goto bad;
-  if (__Pyx_ImportFunction(module, "DpContext_Comment", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_Comment, "int (char const *, ...)") < 0) goto bad;
-  if (__Pyx_ImportFunction(module, "DpContext_FastComment", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_FastComment, "int (char const *)") < 0) goto bad;
+  if (__Pyx_ImportFunction(module, "DpContext_AnnotateV", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_AnnotateV, "int (char const *, va_list)") < 0) goto bad;
+  if (__Pyx_ImportFunction(module, "DpContext_Annotate", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_Annotate, "int (char const *, ...)") < 0) goto bad;
+  if (__Pyx_ImportFunction(module, "DpContext_FastAnnotate", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_FastAnnotate, "int (char const *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpContext_Newline", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_Newline, "int (unsigned int)") < 0) goto bad;
   __pyx_ptype_4mcdp_7context__CHandlerMeta = __Pyx_ImportType(module, "mcdp.context", "_CHandlerMeta", sizeof(struct DpHandlerMetaObject), __Pyx_ImportType_CheckSize_Warn);
    if (!__pyx_ptype_4mcdp_7context__CHandlerMeta) goto bad;

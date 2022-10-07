@@ -13,12 +13,12 @@ class Config(BaseModel):
     
     # context option
     @property
-    def use_comments(self) -> bool:
-        return _get_ctx_config()["use_comments"]
+    def use_annotates(self) -> bool:
+        return _get_ctx_config()["use_annotates"]
     
-    @use_comments.setter
-    def use_comments(self, val: bool) -> None:
-        _set_ctx_config(use_comments=val)
+    @use_annotates.setter
+    def use_annotates(self, val: bool) -> None:
+        _set_ctx_config(use_annotates=val)
     
     @property
     def max_stack(self) -> int:

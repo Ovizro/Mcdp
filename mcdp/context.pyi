@@ -2,6 +2,7 @@ from typing import Any, Dict, Final, List, Optional, Union
 
 from .objects import BaseNamespace, McdpObject
 from .stream import Stream
+from .exception import McdpError
 
 class Handler:
     next: Handler
@@ -15,7 +16,7 @@ class Handler:
     def __iter__(self) -> "HandlerIter": ...
 
 
-class CommentHandler(Handler):
+class AnnotateHandler(Handler):
     def do_handler(self, ctx: Context, code: Any) -> Any: ...
     def link_to(self, new_head: Handler) -> Handler: ...
 
@@ -57,34 +58,34 @@ class Context(McdpObject):
     def __exit__(self, exc_type, exc_obj, traceback) -> None: ...
 
 
-class _CommentImpl:
+class _AnnotateImpl:
     """
-    Magic method implement class for context.comment
+    Magic method implement class for context.annotate
 
     Usage:
 
         @namespace.mcfunc
-        def test_comment(frame: Frame) -> None:
+        def test_annotate(frame: Frame) -> None:
 
             # as function
-            comment(
+            annotate(
                 "This is a test function.",
-                "Use `comment()` to add comments."
+                "Use `annotate()` to add annotates."
             )
 
             # as context manager
-            with comment:
-                insert("In this case, use `insert()` instead of `comment()`.")
+            with annotate:
+                insert("In this case, use `insert()` instead of `annotate()`.")
                 frame.var_int = 5
-                frame.var_int += 2      # This part of compiled mc command will turn into comments too.
+                frame.var_int += 2      # This part of compiled mc command will turn into annotates too.
 
     """
  
     def __init__(self) -> None: ...
     def ensure(self) -> bool: ...
-    def __enter__(self) -> CommentHandler: ...
+    def __enter__(self) -> AnnotateHandler: ...
     def __exit__(self, exc_type, exc_obj, traceback) -> None: ...
-    def __call__(self, *comments: Any) -> None: ...
+    def __call__(self, *annotates: Any) -> None: ...
 
 
 def init_context(nsp: BaseNamespace) -> Context: ...
@@ -92,9 +93,9 @@ def get_context() -> Context: ...
 def insert(*codes: Any) -> None: ...
 def newline(n_line: int = 1) -> None: ...
 def _get_ctx_config() -> Dict[str, Any]: ...
-def _set_ctx_config(*, max_open: int = ..., max_stack: int = ..., use_comments: bool = ...) -> None: ...
-comment = _CommentImpl()
+def _set_ctx_config(*, max_open: int = ..., max_stack: int = ..., use_annotates: bool = ...) -> None: ...
+annotate = _AnnotateImpl()
 
 
-class McdpContextError:
+class McdpContextError(McdpError):
     context: Final[Context]

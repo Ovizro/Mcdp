@@ -12,7 +12,7 @@ ctypedef api object (*T_connect)(object handler_self, object header)
 ctypedef struct ContextConfig:
     Py_ssize_t max_open
     Py_ssize_t max_stack
-    bint use_comments
+    bint use_annotates
     
 
 cdef class Handler:
@@ -40,7 +40,7 @@ cdef class _CHandler(Handler):
     cpdef Handler link_handler(self, Handler header)
 
 
-cdef class CommentHandler(Handler):
+cdef class AnnotateHandler(Handler):
     cdef Py_ssize_t link_count
     cpdef object do_handler(self, Context ctx, object code)
     cpdef Handler link_handler(self, Handler header)
@@ -74,15 +74,15 @@ cdef api class Context(McdpObject) [object DpContextObject, type DpContext_Type]
     cpdef void pop_handler(self, Handler hdl = *) except *
 
 
-cdef class _CommentImpl:
-    cdef CommentHandler cmt_hdl
+cdef class _AnnotateImpl:
+    cdef AnnotateHandler cmt_hdl
     cdef public:
         __name__
         __qualname__
     
     cpdef bint ensure(self) except -1
-    cdef void enter_comment(self) except *
-    cdef void exit_comment(self) except *
+    cdef void enter_annotate(self) except *
+    cdef void exit_annotate(self) except *
 
 
 cdef api _CHandlerMeta DpHandlerMeta_New(const char* name, T_handler handler_func)
@@ -101,9 +101,9 @@ cdef api int DpContext_AddHnadler(object ctx, object hdl) except -1
 cdef api int DpContext_AddHandlerSimple(object ctx, T_handler handler_func) except -1
 cdef api int DpContext_InsertV(const char* format, va_list ap) except -1
 cdef api int DpContext_Insert(const char* format, ...) except -1
-cdef api int DpContext_CommentV(const char* format, va_list ap) except -1
-cdef api int DpContext_Comment(const char* format, ...) except -1
-cdef api int DpContext_FastComment(const char* cmt) except -1
+cdef api int DpContext_AnnotateV(const char* format, va_list ap) except -1
+cdef api int DpContext_Annotate(const char* format, ...) except -1
+cdef api int DpContext_FastAnnotate(const char* cmt) except -1
 cdef api int DpContext_Newline(unsigned int n_line) except -1
 
 

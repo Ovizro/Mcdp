@@ -119,9 +119,9 @@ cdef class _CHandler(Handler):
         return f_pop(self, header)
 
 
-cdef class CommentHandler(Handler):
+cdef class AnnotateHandler(Handler):
     cpdef object do_handler(self, Context ctx, object code):
-        if not _config.use_comments:
+        if not _config.use_annotates:
             return
 
         code = self.next_handler(ctx, code)
@@ -289,72 +289,72 @@ cdef class Context(McdpObject):
         return PyUnicode_FromFormat("<context %U in namespace %U at %p>", <void*>self.name, <void*>self.namespace.n_name, <void*>self)
 
 
-cdef class _CommentImpl:
+cdef class _AnnotateImpl:
     """
-    Magic method implement class for context.comment
+    Magic method implement class for context.annotate
 
     Usage:
 
         @namespace.mcfunc
-        def test_comment(frame: Frame) -> None:
+        def test_annotate(frame: Frame) -> None:
 
             # as function
-            comment(
+            annotate(
                 "This is a test function.",
-                "Use `comment()` to add comments."
+                "Use `annotate()` to add annotates."
             )
 
             # as context manager
-            with comment:
-                insert("In this case, use `insert()` instead of `comment()`.")
+            with annotate:
+                insert("In this case, use `insert()` instead of `annotate()`.")
                 frame.var_int = 5
-                frame.var_int += 2      # This part of compiled mc command will turn into comments too.
+                frame.var_int += 2      # This part of compiled mc command will turn into annotates too.
 
     """
     
     def __init__(self):
-        self.__name__ = "comment"
-        self.__qualname__ = "mcdp.context.comment"
+        self.__name__ = "annotate"
+        self.__qualname__ = "mcdp.context.annotate"
     
     cpdef bint ensure(self) except -1:
         cdef Context ctx = <Context>DpContext_Get()
         return ctx.handler_chain == self.cmt_hdl
 
-    cdef void enter_comment(self) except *:
+    cdef void enter_annotate(self) except *:
         cdef Context ctx = <Context>DpContext_Get()
-        self.cmt_hdl = CommentHandler()
+        self.cmt_hdl = AnnotateHandler()
         ctx.add_handler(self.cmt_hdl)
     
-    cdef void exit_comment(self) except *:
+    cdef void exit_annotate(self) except *:
         cdef Context ctx = <Context>DpContext_Get()
         ctx.pop_handler(self.cmt_hdl)
     
     @property
     def handler(self):
         if not self.ensure():
-            raise McdpContextError("not in comment environment")
+            raise McdpContextError("not in annotate environment")
         return self.cmt_hdl
     
     def __enter__(self):
-        self.enter_comment()
+        self.enter_annotate()
         return self.cmt_hdl
     
     def __exit__(self, exc_type, exc_obj, traceback):
-        self.exit_comment()
+        self.exit_annotate()
     
-    def __call__(self, *comments):
-        if not _config.use_comments:
+    def __call__(self, *annotates):
+        if not _config.use_annotates:
             return
         elif self.ensure():
-            return insert(*comments)
+            return insert(*annotates)
 
         cdef:
             Context ctx = <Context>DpContext_Get()
-            CommentHandler cmt_hdl = CommentHandler()
+            AnnotateHandler cmt_hdl = AnnotateHandler()
 
         ctx.add_handler(cmt_hdl)
         try:
-            insert(*comments)
+            insert(*annotates)
         finally:
             ctx.pop_handler(cmt_hdl)
 
@@ -388,7 +388,7 @@ def _get_ctx_config():
 
 
 def _set_ctx_config(**kwds):
-    _config.use_comments = kwds.pop("use_comments", _config.use_comments)
+    _config.use_annotates = kwds.pop("use_annotates", _config.use_annotates)
     _config.max_open = kwds.pop("max_open", _config.max_open)
     _config.max_stack = kwds.pop("max_stack", _config.max_stack)
     if kwds:
@@ -397,7 +397,7 @@ def _set_ctx_config(**kwds):
         )
 
 
-comment = _CommentImpl()
+annotate = _AnnotateImpl()
 
 
 """
@@ -471,31 +471,31 @@ cdef int DpContext_Insert(const char* format, ...) except -1:
         va_end(ap)
     return 0
 
-cdef int DpContext_CommentV(const char* format, va_list ap) except -1:
-    if not _config.use_comments:
+cdef int DpContext_AnnotateV(const char* format, va_list ap) except -1:
+    if not _config.use_annotates:
         return 0
     cdef Context ctx = <Context>DpContext_Get()
-    cdef _CommentImpl cmt = <_CommentImpl>comment
+    cdef _AnnotateImpl cmt = <_AnnotateImpl>annotate
 
     code = PyUnicode_FromFormatV(format, ap)
-    cmt.enter_comment()
+    cmt.enter_annotate()
     try:
         ctx.put(code)
     finally:
-        cmt.exit_comment()
+        cmt.exit_annotate()
     return 0
 
-cdef int DpContext_Comment(const char* format, ...) except -1:
+cdef int DpContext_Annotate(const char* format, ...) except -1:
     cdef va_list ap
     va_start(ap, format)
     try:
-        DpContext_CommentV(format, ap)
+        DpContext_AnnotateV(format, ap)
     finally:
         va_end(ap)
     return 0
 
-cdef int DpContext_FastComment(const char* cmt) except -1:
-    if not _config.use_comments:
+cdef int DpContext_FastAnnotate(const char* cmt) except -1:
+    if not _config.use_annotates:
         return 0
 
     cdef:
@@ -523,7 +523,7 @@ cdef int DpContext_FastComment(const char* cmt) except -1:
     return 0
 
 cdef int DpContext_Newline(unsigned int n_line) except -1:
-    if not _config.use_comments:
+    if not _config.use_annotates:
         return 0
     cdef Context ctx = <Context>DpContext_Get()
     while n_line > MAX_NEWLINE:

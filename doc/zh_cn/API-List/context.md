@@ -59,10 +59,10 @@ class TestHandler(Handler):
 处理链的下个节点
 
 
-## `class CommentHandler(Handler)`
+## `class AnnotateHandler(Handler)`
 注释处理节点类，在注释块中使用。
 
-> 注意，由于`DpContext_FastComment`等底层API会绕过处理链，mcdp不保证所有的注释都会通过该处理节点
+> 注意，由于`DpContext_FastAnnotate`等底层API会绕过处理链，mcdp不保证所有的注释都会通过该处理节点
 
 ### `do_handler(ctx: Context, code: Any) -> Any`:
 将输入转化为字符串并在开头加入`# `，该方法会先执行处理链再处理字符串。
@@ -140,21 +140,21 @@ Context类则实现了相关的进栈出栈功能，以及Stream文件输出流�
 ## `insert(*args: Any) -> None`:
 向当前环境中插入Minecraft命令。
 
-## `comment`:
+## `annotate`:
 用例:
 ```py
 @namespace.mcfunc
-def test_comment(fm: Frame) -> None:
+def test_annotate(fm: Frame) -> None:
 
     # as function
-    comment(
+    annotate(
         "This is a test function.",
-        "Use `comment()` to add comments."
+        "Use `annotate()` to add annotates."
     )
 
     # as context manager
-    with comment:
-        insert("In this case, use `insert()` instead of `comment()`.")
+    with annotate:
+        insert("In this case, use `insert()` instead of `annotate()`.")
         fm.var_int = 5
-        fm.var_int += 2      # This part of compiled minecraft command will turn into comments too.
+        fm.var_int += 2      # This part of compiled minecraft command will turn into annotates too.
 ```
