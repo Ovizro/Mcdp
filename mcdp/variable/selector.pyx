@@ -1,7 +1,8 @@
 cimport cython
-from cpython cimport PyErr_Format
+from cpython cimport PyErr_Format, PyObject_Str, PyDict_Next
 from ..cpython_interface cimport *
 
+from typing import Union
 from typing_extensions import Protocol
 
 
@@ -9,9 +10,54 @@ class SelectorLike(Protocol):
     def __selector__(self) -> Selector:
         pass
 
+T_Selector = Union[str, Selector, SelectorLike]
+
+
+cdef str args2str(dict d):
+    cdef:
+        str k, ret
+        object v
+        _PyUnicodeWriter writer
+
+    if not d:
+        return "{}"
+        
+    _PyUnicodeWriter_Init(&writer)
+    writer.overallocate = 1
+    try:
+        _PyUnicodeWriter_WriteChar(&writer, ord('{'))
+        for k, v in d.items():
+            write_args(&writer, k, v)
+        ret = _PyUnicodeWriter_Finish(&writer)
+        PyUnicode_WriteChar(ret, len(ret) - 1, ord('}'))
+        return ret
+    except:
+        _PyUnicodeWriter_Dealloc(&writer)
+        raise
+
+cdef void write_args(_PyUnicodeWriter* writer, str key, object val) except *:
+    cdef:
+        object i
+        str v
+    if isinstance(val, set):
+        for i in <set>val:
+            write_args(writer, key, i)
+        return
+        
+    _PyUnicodeWriter_WriteStr(writer, key)
+    _PyUnicodeWriter_WriteChar(writer, ord('='))
+    if isinstance(val, str):
+        v = val
+    if isinstance(val, dict):
+        v = args2str(<dict>val)
+    else:
+        v = PyObject_Str(val)
+    _PyUnicodeWriter_WriteStr(writer, v)
+    _PyUnicodeWriter_WriteChar(writer, ord(','))
+
 
 cdef class Selector(McdpObject):
-    def __init__(self, str name not None, _iter = None, **kwds):
+    def __cinit__(self, str name not None, _iter = None, **kwds):
         cdef:
             str tmp = name[:2]
             list l_args
@@ -36,13 +82,17 @@ cdef class Selector(McdpObject):
                     else:
                         raise TypeError("invalid iteration")
 
-        with cython.nonecheck(False):
-            if len(name) > 2:
-                l_args = <list>name[3:-1].split(',')
-                for tmp in l_args:
-                    kv = <list>tmp.split('=')
-                    k, v = kv
-                    self.add_args(k, v)
+        if len(name) <= 2:
+            return
+
+        if (PyUnicode_ReadChar(name, 2) != ord('[') or
+                PyUnicode_ReadChar(name, len(name) - 1) != ord(']')):
+            raise ValueError("selector string should be like @a[arg=xxx], not %s" % name)
+        l_args = name[3:-1].split(',')
+        for tmp in l_args:
+            kv = tmp.split('=', 2)
+            k, v = kv
+            self.add_args(k, v)
         
     cpdef void add_args(self, str key, value) except *:
         cdef:
@@ -74,6 +124,15 @@ cdef class Selector(McdpObject):
         else:
             return DpSelector_FromObject(val)
     
+    def __eq__(self, other):
+        if not isinstance(other, Selector):
+            return NotImplemented
+        
+        cdef Selector slt = <Selector>other
+        if slt.name != self.name:
+            return False
+        return slt.args == self.args
+    
     def __selector__(self) -> Selector:
         return self
     
@@ -84,36 +143,14 @@ cdef class Selector(McdpObject):
         return "Selector(%s)" % self
 
     def __str__(self):
-        cdef:
-            object k, v, i
-            str slt_string
-            _PyUnicodeWriter writer
+        cdef str ret
         if not self.args:
             return self.name
 
-        _PyUnicodeWriter_Init(&writer)
-        try:
-            _PyUnicodeWriter_WriteStr(&writer, self.name)
-            _PyUnicodeWriter_WriteChar(&writer, ord('['))
-            for k, v in self.args.items():
-                if isinstance(v, set):
-                    for i in <set>v:
-                        _PyUnicodeWriter_WriteStr(&writer, k)
-                        _PyUnicodeWriter_WriteChar(&writer, ord('='))
-                        _PyUnicodeWriter_WriteStr(&writer, <str>str(i))
-                        _PyUnicodeWriter_WriteChar(&writer, ord(','))
-                else:
-                    _PyUnicodeWriter_WriteStr(&writer, k)
-                    _PyUnicodeWriter_WriteChar(&writer, ord('='))
-                    _PyUnicodeWriter_WriteStr(&writer, <str>str(v))
-                    _PyUnicodeWriter_WriteChar(&writer, ord(','))
-
-            slt_string = _PyUnicodeWriter_Finish(&writer)
-            PyUnicode_WriteChar(slt_string, len(slt_string) - 1, ord(']'))
-            return slt_string
-        except:
-            _PyUnicodeWriter_Dealloc(&writer)
-            raise
+        ret = args2str(self.args)
+        PyUnicode_WriteChar(ret, 0, ord('['))
+        PyUnicode_WriteChar(ret, len(ret) - 1, ord(']'))
+        return self.name + ret
 
 
 def selector(t_slt not None, _iter = None, **kwds):
@@ -134,3 +171,6 @@ cdef object DpSelector_FromObject(object obj):
 
 cdef object DpSelector_FromString(const char* string):
     return Selector(string.decode())
+
+cdef object DpSelector_GetName(object slt):
+    return (<Selector?>slt).name

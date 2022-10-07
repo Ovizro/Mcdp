@@ -1,6 +1,6 @@
 from shutil import rmtree
 from mcdp import BaseNamespace
-from mcdp.context import Context, Handler, McdpContextError, comment, init_context, insert
+from mcdp.context import Context, Handler, McdpContextError, annotate, init_context, insert
 from unittest import TestCase
 
 
@@ -29,15 +29,15 @@ class TestContext(TestCase):
                 "say Hello world\n"
             )
     
-    def test_comment(self) -> None:
+    def test_annotate(self) -> None:
         self.addCleanup(clear_file)
         nsp = BaseNamespace("Temp")
         ctx = init_context(nsp)
 
         with Context("__main__", ctx) as c:
-            with comment:
+            with annotate:
                 insert("hhh")
-            comment("First line\nSecond line")
+            annotate("First line\nSecond line")
         ctx.deactivate()
         
         with open("Temp/functions/__main__.mcfunction") as fr:
@@ -53,8 +53,7 @@ class TestContext(TestCase):
 
         with Context("__main__", ctx) as c:
             h = Handler()
-            with comment:
-                
+            with annotate:
                 with self.assertRaises(TypeError):
                     c.add_handler(None) # type: ignore
                 c.add_handler(h)

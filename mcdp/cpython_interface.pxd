@@ -22,6 +22,7 @@ cdef extern from "Python.h":
 
     str PyUnicode_FromFormatV(const char* format, va_list vargs)
     str PyUnicode_FromFormat(const char* format, ...)
+    Py_UCS4 PyUnicode_ReadChar(str unicode, Py_ssize_t index)
     int PyUnicode_WriteChar(str unicode, Py_ssize_t index, Py_UCS4 character) except -1
 
     enum PyUnicode_Kind:

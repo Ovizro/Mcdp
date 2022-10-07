@@ -47,7 +47,8 @@ ext = [
         include_dirs=[HOME_PATH, os.path.join(HOME_PATH, "include")]),
     Extension("mcdp.context", ["mcdp/context" + FILE_SUFFIX]),
     Extension("mcdp.variable.mcstring", ["mcdp/variable/mcstring" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
-    Extension("mcdp.variable.selector", ["mcdp/variable/selector" + FILE_SUFFIX], include_dirs=[HOME_PATH])
+    Extension("mcdp.variable.selector", ["mcdp/variable/selector" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
+    Extension("mcdp.variable.position", ["mcdp/variable/position" + FILE_SUFFIX], include_dirs=[HOME_PATH])
 ]
 
 if USE_CYTHON:
