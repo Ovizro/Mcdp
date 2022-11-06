@@ -276,7 +276,7 @@ cdef class Position(McdpObject):
                 scale_x, scale_y, scale_z = other
             except Exception:
                 return NotImplemented
-                
+
         cdef tuple c = PyTuple_New(3)
         tmp = opt(x, scale_x)
         Py_INCREF(tmp)
@@ -344,6 +344,15 @@ cdef class Position(McdpObject):
     
     def __str__(self):
         return "%s %s %s" % self.components
+
+
+def position(x, y = None, z = None, *, type = None):
+    if isinstance(x, Position):
+        return x
+    if x is None and y is None:
+        return Position(x, type=type)
+    else:
+        return Position(x=x, y=y, z=z, type=type)
 
 
 cdef object DpPosition_New(float x, float y, float z, MCPos_TypeFlag flag):

@@ -51,7 +51,7 @@ cdef void write_args(_PyUnicodeWriter* writer, str key, object val) except *:
     if isinstance(val, dict):
         v = args2str(<dict>val)
     else:
-        v = PyObject_Str(val)
+        v = <str>PyObject_Str(val)
     _PyUnicodeWriter_WriteStr(writer, v)
     _PyUnicodeWriter_WriteChar(writer, ord(','))
 
@@ -67,7 +67,7 @@ cdef class Selector(McdpObject):
         if not tmp in ["@p", "@a", "@r", "@e", "@s"]:
             raise ValueError("Invalid selector.")
         self.name = tmp
-        self.args = kwds
+        self._args = kwds
         if _iter:
             if isinstance(_iter, dict):
                 for k, v in (<dict>_iter).items():
@@ -96,7 +96,7 @@ cdef class Selector(McdpObject):
         
     cpdef void add_args(self, str key, value) except *:
         cdef:
-            dict attrs = self.args
+            dict attrs = self._args
             set raw
         if not key in attrs:
             attrs[key] = value if isinstance(value, set) else {value}
@@ -124,6 +124,10 @@ cdef class Selector(McdpObject):
         else:
             return DpSelector_FromObject(val)
     
+    @property
+    def args(self):
+        return PyDictProxy_New(self._args)
+    
     def __eq__(self, other):
         if not isinstance(other, Selector):
             return NotImplemented
@@ -131,23 +135,23 @@ cdef class Selector(McdpObject):
         cdef Selector slt = <Selector>other
         if slt.name != self.name:
             return False
-        return slt.args == self.args
+        return slt._args == self._args
     
     def __selector__(self) -> Selector:
         return self
     
-    def __mcstr__(self) -> MCString:
-        return MCString(selector=str(self))
+    def __mcstr__(self) -> String:
+        return EntityNameString(str(self))
     
     def __repr__(self):
         return "Selector(%s)" % self
 
     def __str__(self):
         cdef str ret
-        if not self.args:
+        if not self._args:
             return self.name
 
-        ret = args2str(self.args)
+        ret = args2str(self._args)
         PyUnicode_WriteChar(ret, 0, ord('['))
         PyUnicode_WriteChar(ret, len(ret) - 1, ord(']'))
         return self.name + ret
@@ -157,6 +161,25 @@ def selector(t_slt not None, _iter = None, **kwds):
     if isinstance(t_slt, str):
         return Selector(t_slt, _iter, **kwds)
     return DpSelector_FromObject(t_slt)
+
+
+SL_S = Selector("@s")
+SL_A = Selector("@a")
+SL_E = Selector("@e")
+SL_P = Selector("@p")
+
+s_current = SL_S
+s_all     = SL_A
+s_entity  = SL_E
+s_nearest = SL_P
+
+cdef object _nspp_top(object nsp):
+    cdef:
+        BaseNamespace n = <BaseNamespace>nsp
+        str name = n.n_name
+    return Selector("@e", tag={"McdpName_" + name, "Mcdp_Top"})
+
+DpNamespace_Property("top", _nspp_top)
 
 
 cdef object DpSelector_FromObject(object obj):
@@ -174,3 +197,9 @@ cdef object DpSelector_FromString(const char* string):
 
 cdef object DpSelector_GetName(object slt):
     return (<Selector?>slt).name
+
+cdef object DpSelector_GetArgs(object slt):
+    return PyDictProxy_New((<Selector?>slt)._args)
+
+cdef object DpStaticStr_FromSelector(object slt):
+    return EntityNameString(str(<Selector?>slt))

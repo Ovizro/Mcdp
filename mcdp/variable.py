@@ -7,7 +7,7 @@ from typing import Any, DefaultDict, Dict, List, Literal, Optional, Type, TypeVa
 from .counter import Counter
 from .context import insert
 from .typing import Variable, McdpVar
-from .mcstring import MCString, Color
+from .mcstring import String, Color
 from .entities import McdpStack, get_tag
 from .command import ConditionInstruction, ScoreCase, Selector
 from .exception import *
@@ -26,7 +26,7 @@ class Scoreboard(Variable):
             name: str,
             *,
             criteria: str = "dummy",
-            display: Optional[Union[dict, MCString]] = None
+            display: Optional[Union[dict, String]] = None
     ):
         if name in cls.collection:
             instance = cls.collection[name]
@@ -41,14 +41,14 @@ class Scoreboard(Variable):
             name: str,
             *,
             criteria: str = "dummy",
-            display: Optional[Union[dict, MCString]] = None
+            display: Optional[Union[dict, String]] = None
     ):
         self.name = name
         self.__class__.collection[name] = self
         self.criteria = criteria
         if display:
             if isinstance(display, dict):
-                self.display_name = MCString(**display)
+                self.display_name = String(**display)
             else:
                 self.display_name = display
         else:
@@ -128,7 +128,7 @@ class Score(Variable):
             stack_id: int = -1,
             selector: Union[Selector, str, None] = None,
             criteria: str = "dummy",
-            display: Optional[Union[dict, MCString]] = None
+            display: Optional[Union[dict, String]] = None
     ) -> None:
         self.name = name
         if selector:
@@ -267,8 +267,8 @@ class Score(Variable):
         if not self.name in Scoreboard.applied:
             self.scoreboard.apply()
 
-    def __mcstr__(self) -> MCString:
-        return MCString(score={"name": str(self.selector), "objective": self.name})
+    def __mcstr__(self) -> String:
+        return String(score={"name": str(self.selector), "objective": self.name})
 
     def __str__(self) -> str:
         return f"<{self.__class__.__name__} objection {self.name} in stack {self.stack_id}>"

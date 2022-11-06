@@ -6,18 +6,18 @@
 #include "Python.h"
 struct DpSelectorObject;
 
-/* "mcdp/variable/selector.pxd":6
+/* "mcdp/variable/selector.pxd":9
  * 
  * 
  * cdef api class Selector(McdpObject) [object DpSelectorObject, type DpSelector_Type]:             # <<<<<<<<<<<<<<
- *     cdef readonly:
- *         str name
+ *     cdef dict _args
+ *     cdef readonly str name
  */
 struct DpSelectorObject {
   struct DpBaseObject __pyx_base;
   struct __pyx_vtabstruct_4mcdp_8variable_8selector_Selector *__pyx_vtab;
+  PyObject *_args;
   PyObject *name;
-  PyObject *args;
 };
 
 #ifndef __PYX_HAVE_API__mcdp__variable__selector

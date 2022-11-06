@@ -17,6 +17,10 @@ static PyObject *(*__pyx_api_f_4mcdp_8variable_8selector_DpSelector_FromString)(
 #define DpSelector_FromString __pyx_api_f_4mcdp_8variable_8selector_DpSelector_FromString
 static PyObject *(*__pyx_api_f_4mcdp_8variable_8selector_DpSelector_GetName)(PyObject *) = 0;
 #define DpSelector_GetName __pyx_api_f_4mcdp_8variable_8selector_DpSelector_GetName
+static PyObject *(*__pyx_api_f_4mcdp_8variable_8selector_DpSelector_GetArgs)(PyObject *) = 0;
+#define DpSelector_GetArgs __pyx_api_f_4mcdp_8variable_8selector_DpSelector_GetArgs
+static PyObject *(*__pyx_api_f_4mcdp_8variable_8selector_DpStaticStr_FromSelector)(PyObject *) = 0;
+#define DpStaticStr_FromSelector __pyx_api_f_4mcdp_8variable_8selector_DpStaticStr_FromSelector
 #if !defined(__Pyx_PyIdentifier_FromString)
 #if PY_MAJOR_VERSION < 3
   #define __Pyx_PyIdentifier_FromString(s) PyString_FromString(s)
@@ -140,6 +144,8 @@ static int import_mcdp__variable__selector(void) {
   if (__Pyx_ImportFunction(module, "DpSelector_FromObject", (void (**)(void))&__pyx_api_f_4mcdp_8variable_8selector_DpSelector_FromObject, "PyObject *(PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpSelector_FromString", (void (**)(void))&__pyx_api_f_4mcdp_8variable_8selector_DpSelector_FromString, "PyObject *(char const *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpSelector_GetName", (void (**)(void))&__pyx_api_f_4mcdp_8variable_8selector_DpSelector_GetName, "PyObject *(PyObject *)") < 0) goto bad;
+  if (__Pyx_ImportFunction(module, "DpSelector_GetArgs", (void (**)(void))&__pyx_api_f_4mcdp_8variable_8selector_DpSelector_GetArgs, "PyObject *(PyObject *)") < 0) goto bad;
+  if (__Pyx_ImportFunction(module, "DpStaticStr_FromSelector", (void (**)(void))&__pyx_api_f_4mcdp_8variable_8selector_DpStaticStr_FromSelector, "PyObject *(PyObject *)") < 0) goto bad;
   __pyx_ptype_4mcdp_8variable_8selector_Selector = __Pyx_ImportType(module, "mcdp.variable.selector", "Selector", sizeof(struct DpSelectorObject), __Pyx_ImportType_CheckSize_Warn);
    if (!__pyx_ptype_4mcdp_8variable_8selector_Selector) goto bad;
   Py_DECREF(module); module = 0;

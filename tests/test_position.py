@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from mcdp.exception import McdpValueError
-from mcdp.variable.position import Position, ComponentType
+from mcdp.variable.position import Position, position, ComponentType
 
 
 class TestPosition(TestCase):
@@ -25,7 +25,9 @@ class TestPosition(TestCase):
         self.assertEqual(str(pos2.z), "^0.5")
 
         with self.assertRaises(McdpValueError):
-            pos1 = Position(x=1, y=2, z=30000005)
+            Position(x=1, y=2, z=30000005)
+        with self.assertRaises(McdpValueError):
+            Position("^1 1 1")
     
     def test_calc(self) -> None:
         pos = Position("~ ~ ~")
@@ -64,3 +66,7 @@ class TestPosition(TestCase):
         self.assertEqual((pos / pos1).z, y * 0.4)
         self.assertEqual(pos1 / 2, Position("1 1.5 2.5"))
         self.assertEqual(pos1 / (2, 3, 5), Position("1 1 1"))
+
+    def test_func(self) -> None:
+        pos = position(1, 2, 3)
+        self.assertEqual(pos, Position("1 2 3"))

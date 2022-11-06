@@ -17,8 +17,7 @@ limitations under the License.
 import os
 import re
 import warnings
-from xml.etree.ElementInclude import include
-from setuptools import setup, Extension
+from setuptools import setup, find_packages, Extension
 
 
 try:
@@ -30,7 +29,7 @@ except OSError:
 
 try:
     with open("mcdp/include/version.h") as f:
-        version = re.search(r"#define DP_VERSION \"(.*)\"\n", f.read()).group(1)
+        version = re.search(r"#define DP_VERSION \"(.*)\"\n", f.read()).group(1) # type: ignore
 except Exception as e:
     raise ValueError("fail to read mcdp version") from e
 
@@ -73,9 +72,9 @@ setup(
     license="Apache 2.0",
 
     url="https://github.com/Ovizro/Mcdp",
-    packages=["mcdp"],
+    packages=find_packages(exclude=["tests"]),
     python_requires=">=3.6",
-    package_data={'':["*.pyi", "include/*.h", "*.pxd"]},
+    # package_data={'':["*.pyi", "*.pxd"]},
     ext_modules=ext,
     install_requires=["pydantic>=1.7.0", "typing_extensions>=4.3.0"],
 

@@ -41,7 +41,7 @@ Mcdp中的计分板类。注意，不是计分板储存型变量，因为Scorebo
 ### (str) criteria:
 计分板判据
 
-### (MCString) display_name:
+### (String) display_name:
 显示名称
 
 ### (List[str]) \_\_class\_\_.builtins:
@@ -64,7 +64,7 @@ Mcdp中的计分板类。注意，不是计分板储存型变量，因为Scorebo
 - param init(bool): 是否对变量进行初始化
 - param stack_offset(int): 储存栈偏移量
 - param criteria(str): 储存计分板判据
-- param dispaly(dict | MCString | None): 储存计分板显示名称
+- param dispaly(dict | String | None): 储存计分板显示名称
 - return (None): 无返回值
 
 ### set_value(value=0):
@@ -110,7 +110,7 @@ Mcdp中的计分板类。注意，不是计分板储存型变量，因为Scorebo
 - param init(bool): 是否对变量进行初始化
 - param stack_offset(int): 储存栈偏移量
 - param criteria(str): 储存计分板判据
-- param dispaly(dict | MCString | None): 储存计分板显示名称
+- param dispaly(dict | String | None): 储存计分板显示名称
 - param simulation(Type[ScoreCache] | None): 模拟类型，若为空则与Score行为相同
 - return (None): 无返回值
 

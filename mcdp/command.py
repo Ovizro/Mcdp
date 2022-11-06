@@ -5,7 +5,7 @@ from typing import Any, Callable, Coroutine, Dict, List, Literal, NoReturn, Opti
 
 from .config import get_config
 from .typing import McdpBaseModel, McdpVar, McdpError
-from .mcstring import MCString
+from .mcstring import String
 from .context import Context, McdpContextError, comment, insert, Handler, newline
 from .exception import *
 
@@ -160,8 +160,8 @@ class Selector(McdpBaseModel):
         else:
             return val.__selector__()
 
-    def __mcstr__(self) -> MCString:
-        return MCString(selector=str(self))
+    def __mcstr__(self) -> String:
+        return String(selector=str(self))
 
     def __str__(self) -> str:
         if not self.args:
@@ -738,7 +738,7 @@ class Printer(IOStreamObject):
 
     __slots__ = ["input"]
 
-    input: List[MCString]
+    input: List[String]
 
     def __init__(self, data: Optional[List[str]] = None, *, base: bool = False):
         super().__init__(data, base=base)
@@ -748,8 +748,8 @@ class Printer(IOStreamObject):
         if isinstance(other, PrinterEOF):
             other(self)
         else:
-            if not isinstance(other, MCString):
-                other = MCString.validate(other)
+            if not isinstance(other, String):
+                other = String.validate(other)
 
             self.input.append(other)
         return self

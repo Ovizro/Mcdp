@@ -16,6 +16,7 @@ cdef extern from "Python.h":
     """
 
     const char* Py_TYPE_NAME(object cls) nogil
+    PyObject* _PyType_Lookup(type t, str name)
     const char* PyEval_GetFuncName(object func)
 
     ctypedef uint64_t Py_UCS4

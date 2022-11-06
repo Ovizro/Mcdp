@@ -8,60 +8,46 @@ struct DpStrModelObject;
 struct DpStrStyleObject;
 struct DpStaticStrObject;
 
-/* "mcdp/variable/mcstring.pxd":27
+/* "mcdp/variable/mcstring.pxd":36
  * 
  * 
- * cdef api class MCStringModel(McdpObject) [object DpStrModelObject, type DpStrModel_Type]:             # <<<<<<<<<<<<<<
+ * cdef api class StringModel(McdpObject) [object DpStrModelObject, type DpStrModel_Type]:             # <<<<<<<<<<<<<<
  *     cpdef dict to_dict(self)
  *     cpdef str to_json(self)
  */
 struct DpStrModelObject {
   struct DpBaseObject __pyx_base;
-  struct __pyx_vtabstruct_4mcdp_8variable_8mcstring_MCStringModel *__pyx_vtab;
+  struct __pyx_vtabstruct_4mcdp_8variable_8mcstring_StringModel *__pyx_vtab;
 };
 
-/* "mcdp/variable/mcstring.pxd":71
+/* "mcdp/variable/mcstring.pxd":80
  * 
  * 
- * cdef api class MCSS(MCStringModel) [object DpStrStyleObject, type DpStrStyle_Type]:             # <<<<<<<<<<<<<<
- *     cdef readonly:
- *         str color
+ * cdef api class MCSS(StringModel) [object DpStrStyleObject, type DpStrStyle_Type]:             # <<<<<<<<<<<<<<
+ *     cdef int render_flag
+ *     cdef public:
  */
 struct DpStrStyleObject {
   struct DpStrModelObject __pyx_base;
+  int render_flag;
   PyObject *color;
-  int bold;
-  int italic;
-  int underlined;
-  int strikethrough;
-  int obfuscated;
   PyObject *font;
-  PyObject *separator;
+};
+
+/* "mcdp/variable/mcstring.pxd":89
+ * 
+ * 
+ * cdef api class BaseString(StringModel) [object DpStaticStrObject, type DpStaticStr_Type]:             # <<<<<<<<<<<<<<
+ *     cdef readonly:
+ *         MCSS style
+ */
+struct DpStaticStrObject {
+  struct DpStrModelObject __pyx_base;
+  struct DpStrStyleObject *style;
+  PyObject *extra;
   PyObject *insertion;
   struct __pyx_obj_4mcdp_8variable_8mcstring_ClickEvent *clickEvent;
   struct __pyx_obj_4mcdp_8variable_8mcstring_HoverEvent *hoverEvent;
-};
-
-/* "mcdp/variable/mcstring.pxd":88
- * 
- * 
- * cdef api class MCString(MCSS) [object DpStaticStrObject, type DpStaticStr_Type]:             # <<<<<<<<<<<<<<
- *     cdef readonly:
- *         str text
- */
-struct DpStaticStrObject {
-  struct DpStrStyleObject __pyx_base;
-  PyObject *text;
-  PyObject *translate;
-  PyObject *with_;
-  struct __pyx_obj_4mcdp_8variable_8mcstring_Score *score;
-  PyObject *selector;
-  PyObject *keybind;
-  PyObject *nbt;
-  PyObject *block;
-  PyObject *entity;
-  PyObject *storage;
-  PyObject *extra;
 };
 
 #ifndef __PYX_HAVE_API__mcdp__variable__mcstring

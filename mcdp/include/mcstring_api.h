@@ -8,17 +8,29 @@
 #include "Python.h"
 #include "mcstring.h"
 
-static PyTypeObject *__pyx_ptype_4mcdp_8variable_8mcstring_MCStringModel = 0;
-#define DpStrModel_Type (*__pyx_ptype_4mcdp_8variable_8mcstring_MCStringModel)
+static PyTypeObject *__pyx_ptype_4mcdp_8variable_8mcstring_StringModel = 0;
+#define DpStrModel_Type (*__pyx_ptype_4mcdp_8variable_8mcstring_StringModel)
 static PyTypeObject *__pyx_ptype_4mcdp_8variable_8mcstring_MCSS = 0;
 #define DpStrStyle_Type (*__pyx_ptype_4mcdp_8variable_8mcstring_MCSS)
-static PyTypeObject *__pyx_ptype_4mcdp_8variable_8mcstring_MCString = 0;
-#define DpStaticStr_Type (*__pyx_ptype_4mcdp_8variable_8mcstring_MCString)
+static PyTypeObject *__pyx_ptype_4mcdp_8variable_8mcstring_BaseString = 0;
+#define DpStaticStr_Type (*__pyx_ptype_4mcdp_8variable_8mcstring_BaseString)
 
+static PyObject *(*__pyx_api_f_4mcdp_8variable_8mcstring_DpStrStyle_New)(enum __pyx_t_4mcdp_8variable_8mcstring_MCStr_Color, int, char const *) = 0;
+#define DpStrStyle_New __pyx_api_f_4mcdp_8variable_8mcstring_DpStrStyle_New
 static PyObject *(*__pyx_api_f_4mcdp_8variable_8mcstring_DpStaticStr_FromObject)(PyObject *) = 0;
 #define DpStaticStr_FromObject __pyx_api_f_4mcdp_8variable_8mcstring_DpStaticStr_FromObject
 static PyObject *(*__pyx_api_f_4mcdp_8variable_8mcstring_DpStaticStr_FromString)(char const *) = 0;
 #define DpStaticStr_FromString __pyx_api_f_4mcdp_8variable_8mcstring_DpStaticStr_FromString
+static PyObject *(*__pyx_api_f_4mcdp_8variable_8mcstring_DpStaticStr_FromDict)(PyObject *) = 0;
+#define DpStaticStr_FromDict __pyx_api_f_4mcdp_8variable_8mcstring_DpStaticStr_FromDict
+static PyObject *(*__pyx_api_f_4mcdp_8variable_8mcstring_DpStaticStr_FromStyle)(PyObject *, PyObject *) = 0;
+#define DpStaticStr_FromStyle __pyx_api_f_4mcdp_8variable_8mcstring_DpStaticStr_FromStyle
+static PyObject *(*__pyx_api_f_4mcdp_8variable_8mcstring_DpStaticStr_FromStyleString)(PyObject *, char const *) = 0;
+#define DpStaticStr_FromStyleString __pyx_api_f_4mcdp_8variable_8mcstring_DpStaticStr_FromStyleString
+static PyObject *(*__pyx_api_f_4mcdp_8variable_8mcstring_DpStaticStr_Copy)(PyObject *) = 0;
+#define DpStaticStr_Copy __pyx_api_f_4mcdp_8variable_8mcstring_DpStaticStr_Copy
+static PyObject *(*__pyx_api_f_4mcdp_8variable_8mcstring_DpStaticStr_ToDict)(PyObject *) = 0;
+#define DpStaticStr_ToDict __pyx_api_f_4mcdp_8variable_8mcstring_DpStaticStr_ToDict
 #if !defined(__Pyx_PyIdentifier_FromString)
 #if PY_MAJOR_VERSION < 3
   #define __Pyx_PyIdentifier_FromString(s) PyString_FromString(s)
@@ -139,14 +151,20 @@ static int import_mcdp__variable__mcstring(void) {
   PyObject *module = 0;
   module = PyImport_ImportModule("mcdp.variable.mcstring");
   if (!module) goto bad;
+  if (__Pyx_ImportFunction(module, "DpStrStyle_New", (void (**)(void))&__pyx_api_f_4mcdp_8variable_8mcstring_DpStrStyle_New, "PyObject *(enum __pyx_t_4mcdp_8variable_8mcstring_MCStr_Color, int, char const *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpStaticStr_FromObject", (void (**)(void))&__pyx_api_f_4mcdp_8variable_8mcstring_DpStaticStr_FromObject, "PyObject *(PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpStaticStr_FromString", (void (**)(void))&__pyx_api_f_4mcdp_8variable_8mcstring_DpStaticStr_FromString, "PyObject *(char const *)") < 0) goto bad;
-  __pyx_ptype_4mcdp_8variable_8mcstring_MCStringModel = __Pyx_ImportType(module, "mcdp.variable.mcstring", "MCStringModel", sizeof(struct DpStrModelObject), __Pyx_ImportType_CheckSize_Warn);
-   if (!__pyx_ptype_4mcdp_8variable_8mcstring_MCStringModel) goto bad;
+  if (__Pyx_ImportFunction(module, "DpStaticStr_FromDict", (void (**)(void))&__pyx_api_f_4mcdp_8variable_8mcstring_DpStaticStr_FromDict, "PyObject *(PyObject *)") < 0) goto bad;
+  if (__Pyx_ImportFunction(module, "DpStaticStr_FromStyle", (void (**)(void))&__pyx_api_f_4mcdp_8variable_8mcstring_DpStaticStr_FromStyle, "PyObject *(PyObject *, PyObject *)") < 0) goto bad;
+  if (__Pyx_ImportFunction(module, "DpStaticStr_FromStyleString", (void (**)(void))&__pyx_api_f_4mcdp_8variable_8mcstring_DpStaticStr_FromStyleString, "PyObject *(PyObject *, char const *)") < 0) goto bad;
+  if (__Pyx_ImportFunction(module, "DpStaticStr_Copy", (void (**)(void))&__pyx_api_f_4mcdp_8variable_8mcstring_DpStaticStr_Copy, "PyObject *(PyObject *)") < 0) goto bad;
+  if (__Pyx_ImportFunction(module, "DpStaticStr_ToDict", (void (**)(void))&__pyx_api_f_4mcdp_8variable_8mcstring_DpStaticStr_ToDict, "PyObject *(PyObject *)") < 0) goto bad;
+  __pyx_ptype_4mcdp_8variable_8mcstring_StringModel = __Pyx_ImportType(module, "mcdp.variable.mcstring", "StringModel", sizeof(struct DpStrModelObject), __Pyx_ImportType_CheckSize_Warn);
+   if (!__pyx_ptype_4mcdp_8variable_8mcstring_StringModel) goto bad;
   __pyx_ptype_4mcdp_8variable_8mcstring_MCSS = __Pyx_ImportType(module, "mcdp.variable.mcstring", "MCSS", sizeof(struct DpStrStyleObject), __Pyx_ImportType_CheckSize_Warn);
    if (!__pyx_ptype_4mcdp_8variable_8mcstring_MCSS) goto bad;
-  __pyx_ptype_4mcdp_8variable_8mcstring_MCString = __Pyx_ImportType(module, "mcdp.variable.mcstring", "MCString", sizeof(struct DpStaticStrObject), __Pyx_ImportType_CheckSize_Warn);
-   if (!__pyx_ptype_4mcdp_8variable_8mcstring_MCString) goto bad;
+  __pyx_ptype_4mcdp_8variable_8mcstring_BaseString = __Pyx_ImportType(module, "mcdp.variable.mcstring", "BaseString", sizeof(struct DpStaticStrObject), __Pyx_ImportType_CheckSize_Warn);
+   if (!__pyx_ptype_4mcdp_8variable_8mcstring_BaseString) goto bad;
   Py_DECREF(module); module = 0;
   return 0;
   bad:
