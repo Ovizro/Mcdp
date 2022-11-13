@@ -248,7 +248,7 @@ cdef class Context(McdpObject):
     
     cpdef void put(self, object code) except *:
         if not self.writable():
-            raise McdpContextError(f"context {self.name} is not writable")
+            PyErr_Format(McdpContextError, "context %U is not writable", <PyObject*>self.name)
         if not self.handler_chain is None:
             code = self.handler_chain.do_handler(self, code)
         self.stream.putln((<str>str(code)).encode())
@@ -360,9 +360,10 @@ cdef class _AnnotateImpl:
 
 
 def init_context(BaseNamespace nsp):
-    global _current
-    _current = Context("__init__", namespace=nsp, hdl_chain=_default_handler)
-    return _current
+    return <object>DpContext_Initalize(nsp)
+
+def finalize_context():
+    DpContext_Finalize()
 
 
 def get_context():
@@ -392,8 +393,11 @@ def _set_ctx_config(**kwds):
     _config.max_open = kwds.pop("max_open", _config.max_open)
     _config.max_stack = kwds.pop("max_stack", _config.max_stack)
     if kwds:
-        raise TypeError(
-            "_set_ctx_config() got an unexpected keyword argument '%s'" % kwds.popitem()[0]
+        tmp = kwds.popitem()[0]
+        PyErr_Format(
+            TypeError,
+            "_set_ctx_config() got an unexpected keyword argument '%S'",
+            <PyObject*>tmp
         )
 
 
@@ -433,9 +437,16 @@ cdef object DpHandler_DoHandler(object hdl, object ctx, object code):
 
 
 # Context API
+cdef PyObject* DpContext_Initalize(object nsp) except NULL:
+    global _current
+    if not _current is None:
+        raise McdpContextError("cannot reinitalize the context")
+    _current = Context("__init__", namespace=nsp, hdl_chain=_default_handler)
+    return <PyObject*>_current
+
 cdef PyObject* DpContext_Get() except NULL:
     if _current is None:
-        raise McdpContextError("fail to get context")
+        raise McdpInitalizeError("the context has not been initalized")
     return <PyObject*>_current
 
 cdef PyObject* DpContext_Getback(object ctx) except NULL:
@@ -446,6 +457,16 @@ cdef object DpContext_New(const char* name):
 
 cdef int DpContext_Join(object ctx) except -1:
     (<Context?>ctx).join()
+    return 0
+
+cdef int DpContext_Finalize() except -1:
+    global _current
+    if _current is None:
+        raise McdpContextError("cannot finalized the context before its initalization")
+    elif _current.name != "__init__":
+        PyErr_Format(McdpContextError, "context finalized on incurrect context %U", <void*>_current.name)
+    _current.deactivate()
+    _current = None
     return 0
 
 cdef int DpContext_AddHnadler(object ctx, object hdl) except -1:
@@ -532,7 +553,7 @@ cdef int DpContext_Newline(unsigned int n_line) except -1:
     ctx.stream.put(buffer_newline - n_line + MAX_NEWLINE)
 
 
-cdef class McdpContextError(McdpError):
+cdef class McdpContextError(McdpRuntimeError):
     def __init__(self, *arg: str) -> None:
         self.context = <Context>DpContext_Get()
         super().__init__(*arg)

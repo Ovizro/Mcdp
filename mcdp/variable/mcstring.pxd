@@ -95,7 +95,8 @@ cdef api class BaseString(StringModel) [object DpStaticStrObject, type DpStaticS
         ClickEvent clickEvent
         HoverEvent hoverEvent
 
-    cpdef void append(self, mcstr) except *
+    cpdef void extend(self, mcstr) except *
+    cpdef BaseString join(self, strings)
     cpdef void set_interactivity(self, str type, value) except *
     cpdef dict to_dict(self)
 
@@ -122,7 +123,7 @@ cdef class ScoreString(BaseString):
 cdef class EntityNameString(BaseString):
     cdef readonly:
         str selector
-        PlainString separator
+        BaseString separator
     cpdef dict to_dict(self)
 
 
@@ -136,7 +137,7 @@ cdef class NBTValueString(BaseString):
     cdef readonly:
         str nbt
         bint interpret
-        PlainString separator
+        BaseString separator
         str block
         str entity
         str storage

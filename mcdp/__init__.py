@@ -1,5 +1,6 @@
 import re
 from typing import Dict, Optional, Type
+from typing_extensions import Self
 
 
 __author__ = "Ovizro"
@@ -44,6 +45,11 @@ class Mcdatapack(object):
         _pack = self
     
     def create_namespace(self, name: str) -> "Namespace":
+        if name in self.namespaces:
+            raise ValueError(
+                f"namespace '{name}' has been already created,",
+                "using get_namespace() instead"
+            )
         namespace = Namespace(name)
         self.namespaces[name] = namespace
         return namespace
@@ -54,7 +60,7 @@ class Mcdatapack(object):
 
 def get_pack() -> Mcdatapack:
     if _pack is None:
-        raise McdpValueError("Mcdatapack has not been instantiated.")
+        raise McdpInitalizeError("Mcdatapack has not been instantiated.")
     return _pack
 
 
@@ -62,8 +68,7 @@ from .exception import *
 from .version import __version__, T_version
 from .config import check_mc_version, check_mcdp_version, get_config
 from .objects import BaseNamespace
-from .stream import Stream
-from .context import Context, get_context, McdpContextError
+from .context import Context, finalize_context, get_context, McdpContextError, init_context
 from .variable import *
 from .build import PackageInformation, AbstractBuilder, get_defaultbuilder
 from .include import get_include
@@ -72,7 +77,7 @@ config_module = config
 config = get_config()
 
 
-P_name = re.compile("^[a-z0-9\\-_]+$")
+P_name = re.compile(r"^[A-Za-z0-9\\-_]+$")
 
 
 class Namespace(BaseNamespace):
@@ -82,6 +87,13 @@ class Namespace(BaseNamespace):
         if P_name.match(name) is None:
             raise McdpValueError("invalid namespace")
         super().__init__(name)
+    
+    def __enter__(self) -> Self:
+        init_context(self).activate()
+        return self
+    
+    def __exit__(self, *args) -> None:
+        finalize_context()
 
 
 __all__ = [
@@ -95,6 +107,8 @@ __all__ = [
     "get_context",
     # exception
     "McdpError",
+    "McdpInitalizeError",
+    "McdpRuntimeError",
     "McdpValueError",
     "McdpContextError",
 ]

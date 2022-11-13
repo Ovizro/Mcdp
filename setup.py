@@ -47,7 +47,8 @@ ext = [
     Extension("mcdp.context", ["mcdp/context" + FILE_SUFFIX]),
     Extension("mcdp.variable.mcstring", ["mcdp/variable/mcstring" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
     Extension("mcdp.variable.selector", ["mcdp/variable/selector" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
-    Extension("mcdp.variable.position", ["mcdp/variable/position" + FILE_SUFFIX], include_dirs=[HOME_PATH])
+    Extension("mcdp.variable.position", ["mcdp/variable/position" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
+    Extension("mcdp.variable.console", ["mcdp/variable/console" + FILE_SUFFIX], include_dirs=[HOME_PATH])
 ]
 
 if USE_CYTHON:
@@ -76,7 +77,7 @@ setup(
     python_requires=">=3.6",
     # package_data={'':["*.pyi", "*.pxd"]},
     ext_modules=ext,
-    install_requires=["pydantic>=1.7.0", "typing_extensions>=4.3.0"],
+    install_requires=["pydantic>=1.7.0", "typing_extensions>=4.2.0"],
 
     classifiers=[
         "Development Status :: 3 - Alpha",

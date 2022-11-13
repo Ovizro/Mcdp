@@ -6,21 +6,30 @@ cdef class McdpError(Exception):
     """
 
 
-cdef class McdpValueError(McdpError):
-    pass
-
-
-cdef class McdpTypeError(McdpError):
-    pass
-
-
-cdef class McdpIndexError(McdpError):
-    pass
-
-
-cdef class McdpUnboundError(McdpError):
+cdef class McdpInitalizeError(McdpError):
     pass
 
 
 cdef class McdpRuntimeError(McdpError):
     pass
+
+
+cdef class McdpCompileError(McdpError):
+    pass
+
+    
+cdef class McdpValueError(McdpRuntimeError):
+    pass
+
+
+cdef class McdpTypeError(McdpRuntimeError):
+    pass
+
+
+cdef class McdpIndexError(McdpValueError):
+    pass
+
+
+cdef class McdpUnboundError(McdpRuntimeError):
+    pass
+

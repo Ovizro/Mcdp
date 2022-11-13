@@ -10,13 +10,13 @@ struct DpSelectorObject;
  * 
  * 
  * cdef api class Selector(McdpObject) [object DpSelectorObject, type DpSelector_Type]:             # <<<<<<<<<<<<<<
- *     cdef dict _args
+ *     cdef dict _args "arguments"
  *     cdef readonly str name
  */
 struct DpSelectorObject {
   struct DpBaseObject __pyx_base;
   struct __pyx_vtabstruct_4mcdp_8variable_8selector_Selector *__pyx_vtab;
-  PyObject *_args;
+  PyObject *arguments;
   PyObject *name;
 };
 

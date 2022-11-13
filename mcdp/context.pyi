@@ -2,7 +2,7 @@ from typing import Any, Dict, Final, List, Optional, Union
 
 from .objects import BaseNamespace, McdpObject
 from .stream import Stream
-from .exception import McdpError
+from .exception import McdpRuntimeError
 
 class Handler:
     next: Handler
@@ -89,6 +89,7 @@ class _AnnotateImpl:
 
 
 def init_context(nsp: BaseNamespace) -> Context: ...
+def finalize_context() -> None: ...
 def get_context() -> Context: ...
 def insert(*codes: Any) -> None: ...
 def newline(n_line: int = 1) -> None: ...
@@ -97,5 +98,5 @@ def _set_ctx_config(*, max_open: int = ..., max_stack: int = ..., use_annotates:
 annotate = _AnnotateImpl()
 
 
-class McdpContextError(McdpError):
+class McdpContextError(McdpRuntimeError):
     context: Final[Context]

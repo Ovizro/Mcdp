@@ -1,7 +1,7 @@
 from cpython cimport PyObject
 from .cpython_interface cimport *
 from .objects cimport McdpObject, BaseNamespace, DpNamespace_Property, T_property
-from .exception cimport McdpError, McdpRuntimeError, McdpUnboundError
+from .exception cimport McdpInitalizeError, McdpRuntimeError, McdpUnboundError
 from .stream cimport Stream
 
 
@@ -93,10 +93,12 @@ cdef api object DpHandler_FromMeta(_CHandlerMeta cls, object next_hdl)
 cdef api object DpHandler_NewSimple(const char* name, T_handler handler_func)
 cdef api object DpHandler_DoHandler(object hdl, object ctx, object code)
 
+cdef api PyObject* DpContext_Initalize(object nsp) except NULL
 cdef api PyObject* DpContext_Get() except NULL
 cdef api PyObject* DpContext_Getback(object ctx) except NULL
 cdef api object DpContext_New(const char* name)
 cdef api int DpContext_Join(object ctx) except -1
+cdef api int DpContext_Finalize() except -1
 cdef api int DpContext_AddHnadler(object ctx, object hdl) except -1
 cdef api int DpContext_AddHandlerSimple(object ctx, T_handler handler_func) except -1
 cdef api int DpContext_InsertV(const char* format, va_list ap) except -1
@@ -107,6 +109,6 @@ cdef api int DpContext_FastAnnotate(const char* cmt) except -1
 cdef api int DpContext_Newline(unsigned int n_line) except -1
 
 
-cdef class McdpContextError(McdpError):
+cdef class McdpContextError(McdpRuntimeError):
     cdef readonly:
         Context context

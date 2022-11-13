@@ -1,9 +1,9 @@
 cimport cython
 from libc.string cimport strrchr
-from cpython cimport PyErr_Format, PyObject, PyTuple_New, PyTuple_SET_ITEM, PyList_New, PyList_SET_ITEM, Py_INCREF
+from cpython cimport PyErr_Format, PyTuple_New, PyTuple_SET_ITEM, Py_INCREF
 
 from enum import Enum
-from typing import Union, Any
+from typing import Union
 from typing_extensions import Protocol
 
 from .. import get_pack
@@ -14,7 +14,7 @@ except ImportError:
     import json
 
 
-class StringLike(Protocol):
+class MCStringLike(Protocol):
     def __mcstr__(self) -> BaseString:
         pass
 
@@ -56,7 +56,7 @@ class RenderStyle(Enum):
 
 ColorName = str
 T_MCStrColor = Union[ColorName, int, Color, str]
-T_String = Union[StringLike, str, dict, Any]
+T_MCString = Union[MCStringLike, str, dict]
 
 
 cdef str get_color_name(MCStr_Color color_id):
@@ -87,6 +87,8 @@ cdef class StringModel(McdpObject):
     def __eq__(self, other):
         if not isinstance(other, StringModel):
             return NotImplemented
+        if not type(self) is type(other):
+            return False
         return self.to_dict() == other.to_dict()
     
     def __repr__(self):
@@ -96,14 +98,14 @@ cdef class StringModel(McdpObject):
             name = qualname
         else:
             name += 1
-        return PyUnicode_FromFormat("%s(%S)", name, <PyObject*>self)
+        return PyUnicode_FromFormat("%s(%S)", name, <void*>self)
     
     def __str__(self):
         return self.to_json()
 
 
 cdef class Score(StringModel):
-    def __cinit__(self, *, str name not None, str objective not None, str value = None):
+    def __cinit__(self, str name not None, str objective not None, *, str value = None):
         self.name = name
         self.objective = objective
         self.value = value
@@ -119,7 +121,7 @@ cdef class Score(StringModel):
 
 
 cdef class ClickEvent(StringModel):
-    def __cinit__(self, *, str action not None, str value not None):
+    def __cinit__(self, str action not None, *, str value not None):
         if not action in ["open_url", "run_command", "suggest_command", 
                 "change_page", "copy_to_clipboard"]:
             PyErr_Format(ValueError, "invalid click event action '%S'", <void*>action)
@@ -135,11 +137,12 @@ cdef class ClickEvent(StringModel):
 
 
 cdef class HoverEvent(StringModel):
-    def __cinit__(self, *, str action not None, str value = None, contents = None):
+    def __cinit__(self, str action not None, *, str value = None, contents = None):
         if not action in ["show_text", "show_item", "show_entity"]:
             PyErr_Format(ValueError, "invalid click event action '%S'", <void*>action)
         if not contents is None:
-            get_support_version()._ensure(None, None, None, "1.16")
+            if not get_support_version()._ensure(None, None, None, "1.16"):
+                raise McdpVersionError("'context' is not supported under Minecraft version 1.16")
             if action == 'show_text':
                 if isinstance(contents, dict):
                     self.contents = DpStaticStr_FromDict(<dict>contents)
@@ -171,7 +174,7 @@ cdef class HoverEvent(StringModel):
 
 
 cdef class HoverItem(StringModel):
-    def __cinit__(self, *, str id not None, count = None, str tag = None):
+    def __cinit__(self, str id not None, *, count = None, str tag = None):
         self.id = id
         if count is None:
             self.count = 0
@@ -189,7 +192,7 @@ cdef class HoverItem(StringModel):
 
 
 cdef class HoverEntity(StringModel):
-    def __cinit__(self, *, str type not None, name = None, str id = None):
+    def __cinit__(self, str type not None, *, name = None, str id = None):
         self.type = type
         if name is None or isinstance(name, BaseString):
             self.name = name
@@ -243,8 +246,8 @@ cdef class MCSS(StringModel):
         elif isinstance(color, Color):
             self.color = color.name
         else:
-            if color.startswith('#'):
-                get_support_version()._ensure(None, None, None, "1.16")
+            if color.startswith('#') and not get_support_version()._ensure(None, None, None, "1.16"):
+                raise McdpVersionError("hex color is not supported under Minecraft version 1.16")
             self.color = color
 
         self.font = font
@@ -323,14 +326,12 @@ cdef class MCSS(StringModel):
         return data
     
     def __call__(self, str text not None, **kwds):
-        return PlainString(text, **kwds)
+        return PlainString(text, style=self, **kwds)
 
 
 cdef class BaseString(StringModel):
     def __cinit__(self, *args, MCSS style = None, list extra = None,
             str insertion = None, clickEvent = None, hoverEvent = None, **kwds):
-        if type(self) is BaseString:
-            raise NotImplementedError
         self.style = style or MCSS(**kwds)
         self.extra = extra or []
         self.insertion = insertion
@@ -341,9 +342,18 @@ cdef class BaseString(StringModel):
         if not hoverEvent is None  and not isinstance(hoverEvent, HoverEvent):
             self.hoverEvent = HoverEvent(**hoverEvent)
     
-    cpdef void append(self, mcstr) except *:
+    cpdef void extend(self, mcstr) except *:
         s = DpStaticStr_FromObject(mcstr)
         self.extra.append(s)
+    
+    cpdef BaseString join(self, strings):
+        cdef BaseString newstr = BaseString()
+        for i in strings:
+            i = DpStaticStr_FromObject(i)
+            newstr.extra.append(i)
+            newstr.extra.append(self)
+        newstr.extra.pop()
+        return newstr
     
     cpdef void set_interactivity(self, str type, value) except *:
         if type == "insertion":
@@ -373,18 +383,14 @@ cdef class BaseString(StringModel):
         if not self.hoverEvent is None:
             data["clickEvent"] = self.hoverEvent
         if self.extra:
-            #_extra = PyList_New(len(self.extra))
-            #for i in range(len(self.extra)):
-            #    dat = (<BaseString?>(self.extra[i])).to_dict()
-            #    Py_INCREF(dat)
-            #    PyList_SET_ITEM(_extra, i, dat)
             data["extra"] = self.extra
         return data
     
     def __add__(self, other):
         if not isinstance(other, BaseString):
             return NotImplemented
-        cdef BaseString newstr = DpStaticStr_Copy(self)
+        cdef BaseString newstr = BaseString()
+        newstr.extra.append(self)
         newstr.extra.append(other)
         return newstr
     
@@ -414,9 +420,9 @@ cdef class PlainString(BaseString):
 
 
 cdef class TranslatedString(BaseString):
-    def __cinit__(self, str translate not None, *with_arg, **kwds):
+    def __cinit__(self, str translate not None, *with_arg, list with_ = None, **kwds):
         self.translate = translate
-        cdef list with_ = kwds.pop("with", None)
+        with_ = kwds.get("with", with_)
         if with_ is None:
             with_ = list(with_arg)
 
@@ -425,7 +431,7 @@ cdef class TranslatedString(BaseString):
             tuple w = PyTuple_New(size)
             
         for i in range(size):
-            tmp = with_[i]
+            tmp = DpStaticStr_FromObject(with_[i])
             Py_INCREF(tmp)
             PyTuple_SET_ITEM(w, i, tmp)
         self.with_ = w
@@ -434,7 +440,7 @@ cdef class TranslatedString(BaseString):
         cdef dict data = BaseString.to_dict(self)
         data["translate"] = self.translate
         if self.with_:
-            data["with"] = self.with_
+            data["with"] = list(self.with_)
         return data
 
 
@@ -454,10 +460,13 @@ cdef class ScoreString(BaseString):
 cdef class EntityNameString(BaseString):
     def __cinit__(self, str selector not None, *, separator = None, **kwds):
         self.selector = selector
-        if isinstance(separator, PlainString):
-            self.separator = <PlainString>separator
-        elif not separator is None:
-            self.separator = PlainString(separator)
+        if not separator is None:
+            if not get_support_version()._ensure(None, None, None, "1.17"):
+                raise McdpValueError("'separator' is not supported under Minecraft version 1.17")
+            if isinstance(separator, BaseString):
+                self.separator = <BaseString>separator
+            else:
+                self.separator = DpStaticStr_FromObject(separator)
     
     cpdef dict to_dict(self):
         cdef dict data = BaseString.to_dict(self)
@@ -482,10 +491,13 @@ cdef class NBTValueString(BaseString):
             str block = None, str entity = None, str storage = None, **kwds):
         self.nbt = nbt
         self.interpret = interpret
-        if isinstance(separator, PlainString):
-            self.separator = <PlainString>separator
-        elif not separator is None:
-            self.separator = PlainString(separator)
+        if not separator is None:
+            if not get_support_version()._ensure(None, None, None, "1.17"):
+                raise McdpValueError("'separator' is not supported under Minecraft version 1.17")
+            if isinstance(separator, BaseString):
+                self.separator = <BaseString>separator
+            else:
+                self.separator = DpStaticStr_FromObject(separator)
         if not block is None:
             self.block = block
         elif not entity is None:
@@ -511,10 +523,12 @@ cdef class NBTValueString(BaseString):
         return data
 
 
-def mcstring(text, **kwds) -> BaseString:
-    if kwds:
+def mcstring(text = None, **kwds) -> BaseString:
+    if isinstance(text, str):
         return PlainString(text=text, **kwds)
-    return DpStaticStr_FromObject(text)
+    elif not text is None:
+        return DpStaticStr_FromObject(text)
+    return DpStaticStr_FromDict(kwds)
 
 
 cdef object DpStrStyle_New(MCStr_Color color, int render, const char* font):
@@ -555,7 +569,7 @@ cdef object DpStaticStr_FromDict(dict data):
     elif "nbt" in data:
         string_type = NBTValueString
     else:
-        raise McdpValueError("invalid mcstring dict")
+        PyErr_Format(McdpValueError, "invalid mcstring dict %S", <void*>data)
     return string_type(**data)
 
 cdef object DpStaticStr_FromString(const char* string):

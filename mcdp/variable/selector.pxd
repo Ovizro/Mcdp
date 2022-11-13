@@ -7,7 +7,7 @@ from .mcstring cimport EntityNameString
 
 
 cdef api class Selector(McdpObject) [object DpSelectorObject, type DpSelector_Type]:
-    cdef dict _args
+    cdef dict _args "arguments"
     cdef readonly str name
     
     cpdef void add_args(self, str key, val) except *

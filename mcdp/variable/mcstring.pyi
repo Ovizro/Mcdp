@@ -1,12 +1,8 @@
 from enum import Enum
-from typing import Any, Dict, Final, List, Literal, Optional, Protocol, Tuple, Type, Union, overload
+from typing import Any, Dict, Final, Generic, Iterable, List, Literal, Optional, Protocol, Tuple, Type, TypeVar, Union, overload
 from typing_extensions import Self
 
 from ..objects import McdpObject
-
-
-class MCStringLike(Protocol):
-    def __mcstr__(self) -> BaseString: ...
 
 
 class Color(Enum):
@@ -38,6 +34,15 @@ class RenderStyle(Enum):
     def __or__(self, other: Union[int, RenderStyle]) -> int: ...
 
 
+_T_StringObj = TypeVar("_T_StringObj",
+    BaseString, PlainString, TranslatedString, ScoreString,
+    EntityNameString, KeybindString, NBTValueString
+)
+
+class MCStringLike(Protocol, Generic[_T_StringObj]):
+    def __mcstr__(self) -> _T_StringObj: ...
+
+
 ColorName = Literal["black", "dark_blue", "dark_green", "dark_aqua", "dark_red", "dark_purple", "gold",
                     "gray", "dark_gray", "blue", "green", "aqua", "red", "light_purple", "yellow", "white"]
 T_MCStrColor = Union[ColorName, int, Color, str]
@@ -46,7 +51,8 @@ T_MCString = Union[MCStringLike, str, Dict[str, Any]]
 
 class StringModel(McdpObject):
     def to_dict(self) -> Dict[str, Any]: ...
-    def copy(self, **kwds) -> StringModel: ...
+    def to_json(self) -> str: ...
+    def copy(self, **kwds: Any) -> Self: ...
 
 
 class Score(StringModel):
@@ -54,14 +60,14 @@ class Score(StringModel):
     objective: str
     value: Optional[str]
 
-    def __init__(self, *, name: str, objective: str, value: Optional[str] = None) -> None: ...
+    def __new__(cls: Type[Self], name: str, objective: str, *, value: Optional[str] = None) -> Self: ...
 
 
 class ClickEvent(StringModel):
     action: Literal["open_url", "run_command", "suggest_command", "change_page", "copy_to_clipboard"]
     value: str
     
-    def __init__(self, *, action: str, value: str) -> None: ...
+    def __new__(cls: Type[Self], action: str, *, value: str) -> Self: ...
 
 
 class HoverEvent(StringModel):
@@ -70,11 +76,29 @@ class HoverEvent(StringModel):
     contents: Union[str, list, "BaseString", "HoverItem", "HoverEntity", None]
     
     @overload
-    def __init__(self, *, action: Literal["show_text"], value: Optional[str] = None, contents: Optional[T_MCString] = None) -> None: ...
+    def __new__(
+        cls: Type[Self],
+        action: Literal["show_text"],
+        *,
+        value: Optional[str] = None,
+        contents: Optional[T_MCString] = None
+    ) -> Self: ...
     @overload
-    def __init__(self, *, action: Literal["show_item"], value: Optional[str] = None, contents: Union[Dict[str, Any], HoverItem, None] = None) -> None: ...
+    def __new__(
+        cls: Type[Self],
+        action: Literal["show_item"],
+        *,
+        value: Optional[str] = None,
+        contents: Union[Dict[str, Any], HoverItem, None] = None
+    ) -> Self: ...
     @overload
-    def __init__(self, *, action: Literal["show_entity"], value: Optional[str] = None, contents: Union[Dict[str, Any], HoverEntity, None] = None) -> None: ...
+    def __new__(
+        cls: Type[Self],
+        action: Literal["show_entity"],
+        *,
+        value: Optional[str] = None,
+        contents: Union[Dict[str, Any], HoverEntity, None] = None
+    ) -> Self: ...
 
 
 class HoverItem(StringModel):
@@ -82,7 +106,7 @@ class HoverItem(StringModel):
     count: Optional[int]
     tag: Optional[str]
 
-    def __init__(self, id: str, *, count: Optional[int] = None, tag: Optional[str] = None) -> None: ...
+    def __new__(cls: Type[Self], id: str, *, count: Optional[int] = None, tag: Optional[str] = None) -> Self: ...
 
 
 class HoverEntity(StringModel):
@@ -90,6 +114,7 @@ class HoverEntity(StringModel):
     type: str
     id: Optional[str]
 
+    def __new__(cls: Type[Self], type: str, *, name: Optional[T_MCString] = ..., id: Optional[str] = ...) -> Self: ...
 
 class MCSS(StringModel):
     color: str
@@ -112,7 +137,14 @@ class MCSS(StringModel):
         obfuscated: bool = False,
         font: Optional[str] = None,
     ) -> Self: ...
-    def __call__(self, text: str, **kw) -> PlainString: ...
+    def __call__(
+        self,
+        text: str, 
+        extra: Optional[List[BaseString]] = ..., 
+        insertion: Optional[str] = ..., 
+        clickEvent: Union[ClickEvent, Dict[str, Any], None] = ..., 
+        hoverEvent: Union[HoverEvent, Dict[str, Any], None] = ...,
+    ) -> PlainString: ...
 
 
 class BaseString(StringModel):
@@ -128,18 +160,19 @@ class BaseString(StringModel):
         style: Optional[MCSS] = None,
         extra: Optional[List[BaseString]] = None,
         insertion: Optional[str] = None,
-        clickEvent: Optional[ClickEvent] = None,
-        hoverEvent: Optional[HoverEvent] = None,
+        clickEvent: Union[ClickEvent, Dict[str, Any], None] = None,
+        hoverEvent: Union[HoverEvent, Dict[str, Any], None] = None,
         **kwds
     ) -> Self: ...
-    def append(self, mcstr: T_MCString) -> None: ...
+    def extend(self, mcstr: T_MCString) -> None: ...
+    def join(self, strings: Iterable[T_MCString]) -> BaseString: ...
     @overload
     def set_interactivity(self, type: Literal["insertion"], value: str) -> None: ...
     @overload
     def set_interactivity(self, type: Literal["click"], value: Union[dict, ClickEvent]) -> None: ...
     @overload
     def set_interactivity(self, type: Literal["hover"], value: Union[dict, HoverEvent]) -> None: ...
-    def __add__(self, other: BaseString) -> Self: ...
+    def __add__(self, other: BaseString) -> BaseString: ...
     def __mcstr__(self) -> Self: ...
 
 
@@ -153,8 +186,8 @@ class PlainString(BaseString):
         style: Optional[MCSS] = ..., 
         extra: Optional[List[BaseString]] = ..., 
         insertion: Optional[str] = ..., 
-        clickEvent: Optional[ClickEvent] = ..., 
-        hoverEvent: Optional[HoverEvent] = ...,
+        clickEvent: Union[ClickEvent, Dict[str, Any], None] = ..., 
+        hoverEvent: Union[HoverEvent, Dict[str, Any], None] = ...,
         # from MCSS
         render: Union[RenderStyle, int, None] = ...,
         color: Optional[T_MCStrColor] = ...,
@@ -170,17 +203,18 @@ class PlainString(BaseString):
 
 class TranslatedString(BaseString):
     translate: Final[str]
-    with_: Tuple[BaseString, ...]
+    with_: Final[Tuple[BaseString, ...]]
 
     def __new__(
         cls: Type[Self],
         translate: str, 
         *with_arg: T_MCString,
+        with_: List[T_MCString] = ...,
         style: Optional[MCSS] = ..., 
         extra: Optional[List[BaseString]] = ..., 
         insertion: Optional[str] = ..., 
-        clickEvent: Optional[ClickEvent] = ..., 
-        hoverEvent: Optional[HoverEvent] = ...,
+        clickEvent: Union[ClickEvent, Dict[str, Any], None] = ..., 
+        hoverEvent: Union[HoverEvent, Dict[str, Any], None] = ...,
         # from MCSS
         render: Union[RenderStyle, int, None] = ...,
         color: Optional[T_MCStrColor] = ...,
@@ -203,8 +237,8 @@ class ScoreString(BaseString):
         style: Optional[MCSS] = ...,
         extra: Optional[List[BaseString]] = ...,
         insertion: Optional[str] = ...,
-        clickEvent: Optional[ClickEvent] = ...,
-        hoverEvent: Optional[HoverEvent] = ...,
+        clickEvent: Union[ClickEvent, Dict[str, Any], None] = ...,
+        hoverEvent: Union[HoverEvent, Dict[str, Any], None] = ...,
         # from MCSS
         render: Union[RenderStyle, int, None] = ...,
         color: Optional[T_MCStrColor] = ...,
@@ -218,8 +252,8 @@ class ScoreString(BaseString):
 
 
 class EntityNameString(BaseString):
-    selector: str
-    separator: PlainString
+    selector: Final[str]
+    separator: Final[Optional[BaseString]]
 
     def __new__(
         cls: Type[Self],
@@ -229,8 +263,8 @@ class EntityNameString(BaseString):
         style: Optional[MCSS] = ...,
         extra: Optional[List[BaseString]] = ...,
         insertion: Optional[str] = ...,
-        clickEvent: Optional[ClickEvent] = ...,
-        hoverEvent: Optional[HoverEvent] = ...,
+        clickEvent: Union[ClickEvent, Dict[str, Any], None] = ...,
+        hoverEvent: Union[HoverEvent, Dict[str, Any], None] = ...,
         # from MCSS
         render: Union[RenderStyle, int, None] = ...,
         color: Optional[T_MCStrColor] = ...,
@@ -253,8 +287,8 @@ class KeybindString(BaseString):
         style: Optional[MCSS] = ...,
         extra: Optional[List[BaseString]] = ...,
         insertion: Optional[str] = ...,
-        clickEvent: Optional[ClickEvent] = ...,
-        hoverEvent: Optional[HoverEvent] = ...,
+        clickEvent: Union[ClickEvent, Dict[str, Any], None] = ...,
+        hoverEvent: Union[HoverEvent, Dict[str, Any], None] = ...,
         # from MCSS
         render: Union[RenderStyle, int, None] = ...,
         color: Optional[T_MCStrColor] = ...,
@@ -270,11 +304,11 @@ class KeybindString(BaseString):
 class NBTValueString(BaseString):
     nbt: Final[str]
     interpret: Final[bool]
-    separator: Final[PlainString]
+    separator: Final[Optional[BaseString]]
     block: Final[str]
     entity: Final[str]
     storage: Final[str]
-
+    
     def __new__(
         cls: Type[Self],
         nbt: str,
@@ -287,8 +321,8 @@ class NBTValueString(BaseString):
         style: Optional[MCSS] = ...,
         extra: Optional[List[BaseString]] = ...,
         insertion: Optional[str] = ...,
-        clickEvent: Optional[ClickEvent] = ...,
-        hoverEvent: Optional[HoverEvent] = ...,
+        clickEvent: Union[ClickEvent, Dict[str, Any], None] = ...,
+        hoverEvent: Union[HoverEvent, Dict[str, Any], None] = ...,
         # from MCSS
         render: Union[RenderStyle, int, None] = ...,
         color: Optional[T_MCStrColor] = ...,
@@ -302,17 +336,19 @@ class NBTValueString(BaseString):
 
 
 @overload
-def mcstring(_obj: Union[Dict[str, Any], MCStringLike]) -> BaseString: ...
+def mcstring(text: Dict[str, Any]) -> BaseString: ...
+@overload
+def mcstring(text: MCStringLike[_T_StringObj]) -> _T_StringObj: ...
 @overload
 def mcstring(
-    _obj: str,
+    text: str,
     *,
     # from BaseString
     style: Optional[MCSS] = ...,
     extra: Optional[List[BaseString]] = ...,
     insertion: Optional[str] = ...,
-    clickEvent: Optional[ClickEvent] = ...,
-    hoverEvent: Optional[HoverEvent] = ...,
+    clickEvent: Union[ClickEvent, Dict[str, Any], None] = ...,
+    hoverEvent: Union[HoverEvent, Dict[str, Any], None] = ...,
     # from MCSS
     render: Union[RenderStyle, int, None] = ...,
     color: Optional[T_MCStrColor] = ...,
@@ -323,3 +359,155 @@ def mcstring(
     obfuscated: bool = ...,
     font: Optional[str] = ...,
 ) -> PlainString: ...
+@overload
+def mcstring(
+    *,
+    translate: str,
+    with_: List[T_MCString] = ...,
+    # from BaseString
+    style: Optional[MCSS] = ...,
+    extra: Optional[List[BaseString]] = ...,
+    insertion: Optional[str] = ...,
+    clickEvent: Union[ClickEvent, Dict[str, Any], None] = ...,
+    hoverEvent: Union[HoverEvent, Dict[str, Any], None] = ...,
+    # from MCSS
+    render: Union[RenderStyle, int, None] = ...,
+    color: Optional[T_MCStrColor] = ...,
+    bold: bool = ...,
+    italic: bool = ...,
+    underlined: bool = ...,
+    strikethrough: bool = ...,
+    obfuscated: bool = ...,
+    font: Optional[str] = ...,
+) -> TranslatedString: ...
+@overload
+def mcstring(
+    *,
+    score: Union[Score, Dict[str, Any]],
+    # from BaseString
+    style: Optional[MCSS] = ...,
+    extra: Optional[List[BaseString]] = ...,
+    insertion: Optional[str] = ...,
+    clickEvent: Union[ClickEvent, Dict[str, Any], None] = ...,
+    hoverEvent: Union[HoverEvent, Dict[str, Any], None] = ...,
+    # from MCSS
+    render: Union[RenderStyle, int, None] = ...,
+    color: Optional[T_MCStrColor] = ...,
+    bold: bool = ...,
+    italic: bool = ...,
+    underlined: bool = ...,
+    strikethrough: bool = ...,
+    obfuscated: bool = ...,
+    font: Optional[str] = ...,
+) -> ScoreString: ...
+@overload
+def mcstring(
+    *,
+    selector: str,
+    separator: Union[PlainString, str, None] = ...,
+    # from BaseString
+    style: Optional[MCSS] = ...,
+    extra: Optional[List[BaseString]] = ...,
+    insertion: Optional[str] = ...,
+    clickEvent: Union[ClickEvent, Dict[str, Any], None] = ...,
+    hoverEvent: Union[HoverEvent, Dict[str, Any], None] = ...,
+    # from MCSS
+    render: Union[RenderStyle, int, None] = ...,
+    color: Optional[T_MCStrColor] = ...,
+    bold: bool = ...,
+    italic: bool = ...,
+    underlined: bool = ...,
+    strikethrough: bool = ...,
+    obfuscated: bool = ...,
+    font: Optional[str] = ...,
+) -> EntityNameString: ...
+@overload
+def mcstring(
+    *,
+    keybind: str,
+    # from BaseString
+    style: Optional[MCSS] = ...,
+    extra: Optional[List[BaseString]] = ...,
+    insertion: Optional[str] = ...,
+    clickEvent: Union[ClickEvent, Dict[str, Any], None] = ...,
+    hoverEvent: Union[HoverEvent, Dict[str, Any], None] = ...,
+    # from MCSS
+    render: Union[RenderStyle, int, None] = ...,
+    color: Optional[T_MCStrColor] = ...,
+    bold: bool = ...,
+    italic: bool = ...,
+    underlined: bool = ...,
+    strikethrough: bool = ...,
+    obfuscated: bool = ...,
+    font: Optional[str] = ...,
+) -> KeybindString: ...
+@overload
+def mcstring(
+    *,
+    nbt: str,
+    block: str,
+    interpret: bool = ...,
+    separator: Union[PlainString, str, None] = ...,
+    # from BaseString
+    style: Optional[MCSS] = ...,
+    extra: Optional[List[BaseString]] = ...,
+    insertion: Optional[str] = ...,
+    clickEvent: Union[ClickEvent, Dict[str, Any], None] = ...,
+    hoverEvent: Union[HoverEvent, Dict[str, Any], None] = ...,
+    # from MCSS
+    render: Union[RenderStyle, int, None] = ...,
+    color: Optional[T_MCStrColor] = ...,
+    bold: bool = ...,
+    italic: bool = ...,
+    underlined: bool = ...,
+    strikethrough: bool = ...,
+    obfuscated: bool = ...,
+    font: Optional[str] = ...,
+) -> NBTValueString: ...
+@overload
+def mcstring(
+    *,
+    nbt: str,
+    entity: str,
+    interpret: bool = ...,
+    separator: Union[PlainString, str, None] = ...,
+    # from BaseString
+    style: Optional[MCSS] = ...,
+    extra: Optional[List[BaseString]] = ...,
+    insertion: Optional[str] = ...,
+    clickEvent: Union[ClickEvent, Dict[str, Any], None] = ...,
+    hoverEvent: Union[HoverEvent, Dict[str, Any], None] = ...,
+    # from MCSS
+    render: Union[RenderStyle, int, None] = ...,
+    color: Optional[T_MCStrColor] = ...,
+    bold: bool = ...,
+    italic: bool = ...,
+    underlined: bool = ...,
+    strikethrough: bool = ...,
+    obfuscated: bool = ...,
+    font: Optional[str] = ...,
+) -> NBTValueString: ...
+@overload
+def mcstring(
+    *,
+    nbt: str,
+    storage: str,
+    interpret: bool = ...,
+    separator: Union[PlainString, str, None] = ...,
+    # from BaseString
+    style: Optional[MCSS] = ...,
+    extra: Optional[List[BaseString]] = ...,
+    insertion: Optional[str] = ...,
+    clickEvent: Union[ClickEvent, Dict[str, Any], None] = ...,
+    hoverEvent: Union[HoverEvent, Dict[str, Any], None] = ...,
+    # from MCSS
+    render: Union[RenderStyle, int, None] = ...,
+    color: Optional[T_MCStrColor] = ...,
+    bold: bool = ...,
+    italic: bool = ...,
+    underlined: bool = ...,
+    strikethrough: bool = ...,
+    obfuscated: bool = ...,
+    font: Optional[str] = ...,
+) -> NBTValueString: ...
+def mcstring(text: Optional[T_MCString] = ..., **kwds) -> BaseString: ...

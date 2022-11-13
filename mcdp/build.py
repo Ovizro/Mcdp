@@ -2,6 +2,7 @@ import os
 from shutil import copy, copytree, rmtree, make_archive
 from abc import abstractmethod
 from typing import Any, ClassVar, Dict, List, Optional, Type, Union
+from typing_extensions import Self
 from pydantic import BaseModel, PrivateAttr, validator
 
 from .version import T_version, Version
@@ -44,7 +45,9 @@ class AbstractBuilder(BaseModel):
         if icon_path is not None:
             icon_path = os.fspath(icon_path)
         info = PackageInformation(
-            name=name, support_version=support_version, description=description, icon_path=icon_path)
+            name=name, support_version=support_version,     # type: ignore
+            description=description, icon_path=icon_path    # type: ignore
+        )
         super().__init__(pack_info=info, **data)
 
     @abstractmethod
@@ -55,7 +58,7 @@ class AbstractBuilder(BaseModel):
     def finalize(self) -> str:
         raise NotImplementedError
     
-    def __enter__(self) -> "AbstractBuilder":
+    def __enter__(self) -> Self:
         os.makedirs(self.build_dir, exist_ok=True)
 
         self._origin_dir = os.getcwd()
