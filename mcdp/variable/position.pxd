@@ -4,7 +4,10 @@ from ..cpython_interface cimport PyUnicode_FromFormat
 
 
 cdef api enum MCPos_TypeFlag:
-    NANTYPE = 0, LOCAL, ABSOLUTE, RELATIVE
+    NANTYPE = 0
+    LOCAL
+    ABSOLUTE
+    RELATIVE
 
 ctypedef float (*fl_opt)(float, float)
 ctypedef object (*ob_opt)(object, object)

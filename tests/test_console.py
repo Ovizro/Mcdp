@@ -1,5 +1,6 @@
 from shutil import rmtree
 from unittest import TestCase
+
 from mcdp import Namespace
 from mcdp.variable.console import console
 

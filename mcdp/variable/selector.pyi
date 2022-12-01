@@ -2,7 +2,7 @@ from types import MappingProxyType
 from typing import Any, Callable, Dict, Final, Generator, Iterable, Union, Literal, Protocol
 
 from ..objects import McdpObject
-from .mcstring import String
+from .mcstring import EntityNameString
 
 
 class SelectorLike(Protocol):
@@ -23,7 +23,7 @@ class Selector(McdpObject):
     @classmethod
     def validate(cls, val: T_Selector) -> Selector: ...
     def __selector__(self) -> Selector: ...
-    def __mcstr__(self) -> String: ...
+    def __mcstr__(self) -> EntityNameString: ...
 
 
 def selector(t_slt: T_Selector, _iter: Union[Dict[str, Any], Iterable] = ..., /, **kwds: Any) -> Selector: ...

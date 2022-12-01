@@ -1,4 +1,4 @@
-from typing import Any, Dict, Final, List, Optional, Union
+from typing import Any, Dict, Final, List, Optional
 
 from .objects import BaseNamespace, McdpObject
 from .stream import Stream

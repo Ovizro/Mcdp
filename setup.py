@@ -48,7 +48,8 @@ ext = [
     Extension("mcdp.variable.mcstring", ["mcdp/variable/mcstring" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
     Extension("mcdp.variable.selector", ["mcdp/variable/selector" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
     Extension("mcdp.variable.position", ["mcdp/variable/position" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
-    Extension("mcdp.variable.console", ["mcdp/variable/console" + FILE_SUFFIX], include_dirs=[HOME_PATH])
+    Extension("mcdp.variable.console", ["mcdp/variable/console" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
+    Extension("mcdp.variable.nbtpath", ["mcdp/variable/nbtpath" + FILE_SUFFIX], include_dirs=[HOME_PATH])
 ]
 
 if USE_CYTHON:
@@ -66,10 +67,10 @@ setup(
     long_description=description,
     long_description_content_type='text/markdown',
 
-    author="Ovizro",
-    author_email="Ovizro@hypercol.com",
-    maintainer="Tatersic, ExDragine",
-    maintainer_email="Tatersic@qq.com, ExDragine@hypercol.com",
+    author="HyperCol",
+    author_email="HyperCol@hypercol.com",
+    maintainer="Ovizro",
+    maintainer_email="Ovizro@hypercol.com",
     license="Apache 2.0",
 
     url="https://github.com/Ovizro/Mcdp",

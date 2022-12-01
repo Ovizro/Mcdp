@@ -19,6 +19,8 @@ cdef extern from "Python.h":
     PyObject* _PyType_Lookup(type t, str name)
     const char* PyEval_GetFuncName(object func)
 
+    char *PyOS_double_to_string(double val, char format_code, int precision, int flags, int *ptype) except NULL
+
     ctypedef uint64_t Py_UCS4
 
     str PyUnicode_FromFormatV(const char* format, va_list vargs)

@@ -1,4 +1,8 @@
+from ..cpython_interface cimport PyUnicode_ReadChar
+
+
 cdef BaseString _default_sep = PlainString(" ")
+
 
 cdef class _Console(McdpObject):
     @staticmethod
@@ -8,7 +12,7 @@ cdef class _Console(McdpObject):
         DpConsole_Tell(target, text)
     
     @staticmethod
-    cdef void _title(tuple texts, sep, MCTitle_Position pos, target) except *:
+    cdef void _title(tuple texts, sep, MCTitle_TypeFlag pos, target) except *:
         cdef BaseString s = DpStaticStr_FromObject(sep)
         cdef BaseString text = s.join(texts)
         DpConsole_Title(target, pos, text)
@@ -37,13 +41,15 @@ cdef class _Console(McdpObject):
 console = _Console()
 
 cdef int DpConsole_Tell(object selector, object message) except -1:
-    selector = DpSelector_FromObject(selector)
+    if not isinstance(selector, str) or PyUnicode_ReadChar(<str>selector, 0) != ord('@'):
+        selector = DpSelector_FromObject(selector)
     message = DpStaticStr_FromObject(message)
     DpContext_Insert("tellraw %S %S", <void*>selector, <void*>message)
     return 0
 
 cdef int DpConsole_TellString(object selector, const char* message) except -1:
-    selector = DpSelector_FromObject(selector)
+    if not isinstance(selector, str) or PyUnicode_ReadChar(<str>selector, 0) != ord('@'):
+        selector = DpSelector_FromObject(selector)
     DpContext_Insert("tell %S %s", <void*>selector, message)
     return 0
 
@@ -53,7 +59,7 @@ cdef int DpConsole_Print(object message) except -1:
 cdef int DpConsole_PrintString(const char* message) except -1:
     return DpConsole_Print(DpStaticStr_FromString(message))
 
-cdef int DpConsole_Title(object selector, MCTitle_Position pos, object message) except -1:
+cdef int DpConsole_Title(object selector, MCTitle_TypeFlag pos, object message) except -1:
     cdef const char* pos_str
     if pos == ACTIONBAR:
         pos_str = "actionbar"
@@ -61,28 +67,32 @@ cdef int DpConsole_Title(object selector, MCTitle_Position pos, object message) 
         pos_str = "subtitle"
     else:
         pos_str = "title"
-    selector = DpSelector_FromObject(selector)
+    if not isinstance(selector, str) or PyUnicode_ReadChar(<str>selector, 0) != ord('@'):
+        selector = DpSelector_FromObject(selector)
     message = DpStaticStr_FromObject(message)
     DpContext_Insert("title %S %s %S", <void*>selector, pos_str, <void*>message)
     return 0
 
-cdef int DpConsole_Show(MCTitle_Position pos, object message) except -1:
+cdef int DpConsole_Show(MCTitle_TypeFlag pos, object message) except -1:
     return DpConsole_Title(SL_A, pos, message)
 
-cdef int DpConsole_ShowString(MCTitle_Position pos, const char* message) except -1:
+cdef int DpConsole_ShowString(MCTitle_TypeFlag pos, const char* message) except -1:
     return DpConsole_Show(pos, DpStaticStr_FromString(message))
 
 cdef int DpConsole_TitleReset(object selector) except -1:
-    selector = DpSelector_FromObject(selector)
+    if not isinstance(selector, str) or PyUnicode_ReadChar(<str>selector, 0) != ord('@'):
+        selector = DpSelector_FromObject(selector)
     DpContext_Insert("title %S reset", <void*>selector)
     return 0
 
 cdef int DpConsole_TitleClear(object selector) except -1:
-    selector = DpSelector_FromObject(selector)
+    if not isinstance(selector, str) or PyUnicode_ReadChar(<str>selector, 0) != ord('@'):
+        selector = DpSelector_FromObject(selector)
     DpContext_Insert("title %S clear", <void*>selector)
     return 0
 
 cdef int DpConsole_TitleSetTime(object selector, int fadeIn, int stay, int fadeOut) except -1:
-    selector = DpSelector_FromObject(selector)
+    if not isinstance(selector, str) or PyUnicode_ReadChar(<str>selector, 0) != ord('@'):
+        selector = DpSelector_FromObject(selector)
     DpContext_Insert("title %S times %d %d %d", <void*>selector, fadeIn, stay, fadeOut)
     return 0

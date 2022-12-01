@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Dict, Final, Generic, Iterable, List, Literal, Optional, Protocol, Tuple, Type, TypeVar, Union, overload
+from typing import Any, Dict, Final, Generic, Iterable, List, Literal, Optional, Protocol, Tuple, Type, TypeVar, Union, final, overload
 from typing_extensions import Self
 
 from ..objects import McdpObject
@@ -176,6 +176,7 @@ class BaseString(StringModel):
     def __mcstr__(self) -> Self: ...
 
 
+@final
 class PlainString(BaseString):
     text: str
 
@@ -201,6 +202,7 @@ class PlainString(BaseString):
     def __mod__(self, with_: Union[T_MCString, Tuple[T_MCString, ...]]) -> TranslatedString: ...
 
 
+@final
 class TranslatedString(BaseString):
     translate: Final[str]
     with_: Final[Tuple[BaseString, ...]]
@@ -227,6 +229,7 @@ class TranslatedString(BaseString):
     ) -> Self: ...
 
 
+@final
 class ScoreString(BaseString):
     score: Final[Score]
 
@@ -251,6 +254,7 @@ class ScoreString(BaseString):
     ) -> Self: ...
 
 
+@final
 class EntityNameString(BaseString):
     selector: Final[str]
     separator: Final[Optional[BaseString]]
@@ -277,6 +281,7 @@ class EntityNameString(BaseString):
     ) -> Self: ...
 
 
+@final
 class KeybindString(BaseString):
     keybind: Final[str]
 
@@ -301,6 +306,7 @@ class KeybindString(BaseString):
     ) -> Self: ...
 
 
+@final
 class NBTValueString(BaseString):
     nbt: Final[str]
     interpret: Final[bool]

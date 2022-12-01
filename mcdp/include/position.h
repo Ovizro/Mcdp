@@ -11,8 +11,8 @@ struct DpPositionObject;
  * 
  * 
  * cdef api enum MCPos_TypeFlag:             # <<<<<<<<<<<<<<
- *     NANTYPE = 0, LOCAL, ABSOLUTE, RELATIVE
- * 
+ *     NANTYPE = 0
+ *     LOCAL
  */
 enum MCPos_TypeFlag {
   NANTYPE = 0,
@@ -21,7 +21,7 @@ enum MCPos_TypeFlag {
   RELATIVE
 };
 
-/* "mcdp/variable/position.pxd":13
+/* "mcdp/variable/position.pxd":16
  * 
  * 
  * cdef api class Component(McdpObject) [object DpComponentObject, type DpComponent_Type]:             # <<<<<<<<<<<<<<
@@ -36,7 +36,7 @@ struct DpComponentObject {
   float offset;
 };
 
-/* "mcdp/variable/position.pxd":23
+/* "mcdp/variable/position.pxd":26
  * 
  * 
  * cdef api class Position(McdpObject) [object DpPositionObject, type DpPosition_Type]:             # <<<<<<<<<<<<<<

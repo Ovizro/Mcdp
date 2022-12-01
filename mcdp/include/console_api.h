@@ -6,6 +6,7 @@
 #define MS_WIN64
 #endif
 #include "Python.h"
+#include "console.h"
 
 static int (*__pyx_api_f_4mcdp_8variable_7console_DpConsole_Tell)(PyObject *, PyObject *) = 0;
 #define DpConsole_Tell __pyx_api_f_4mcdp_8variable_7console_DpConsole_Tell
@@ -15,11 +16,11 @@ static int (*__pyx_api_f_4mcdp_8variable_7console_DpConsole_Print)(PyObject *) =
 #define DpConsole_Print __pyx_api_f_4mcdp_8variable_7console_DpConsole_Print
 static int (*__pyx_api_f_4mcdp_8variable_7console_DpConsole_PrintString)(char const *) = 0;
 #define DpConsole_PrintString __pyx_api_f_4mcdp_8variable_7console_DpConsole_PrintString
-static int (*__pyx_api_f_4mcdp_8variable_7console_DpConsole_Title)(PyObject *, enum __pyx_t_4mcdp_8variable_7console_MCTitle_Position, PyObject *) = 0;
+static int (*__pyx_api_f_4mcdp_8variable_7console_DpConsole_Title)(PyObject *, enum MCTitle_TypeFlag, PyObject *) = 0;
 #define DpConsole_Title __pyx_api_f_4mcdp_8variable_7console_DpConsole_Title
-static int (*__pyx_api_f_4mcdp_8variable_7console_DpConsole_Show)(enum __pyx_t_4mcdp_8variable_7console_MCTitle_Position, PyObject *) = 0;
+static int (*__pyx_api_f_4mcdp_8variable_7console_DpConsole_Show)(enum MCTitle_TypeFlag, PyObject *) = 0;
 #define DpConsole_Show __pyx_api_f_4mcdp_8variable_7console_DpConsole_Show
-static int (*__pyx_api_f_4mcdp_8variable_7console_DpConsole_ShowString)(enum __pyx_t_4mcdp_8variable_7console_MCTitle_Position, char const *) = 0;
+static int (*__pyx_api_f_4mcdp_8variable_7console_DpConsole_ShowString)(enum MCTitle_TypeFlag, char const *) = 0;
 #define DpConsole_ShowString __pyx_api_f_4mcdp_8variable_7console_DpConsole_ShowString
 static int (*__pyx_api_f_4mcdp_8variable_7console_DpConsole_TitleReset)(PyObject *) = 0;
 #define DpConsole_TitleReset __pyx_api_f_4mcdp_8variable_7console_DpConsole_TitleReset
@@ -81,9 +82,9 @@ static int import_mcdp__variable__console(void) {
   if (__Pyx_ImportFunction(module, "DpConsole_TellString", (void (**)(void))&__pyx_api_f_4mcdp_8variable_7console_DpConsole_TellString, "int (PyObject *, char const *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpConsole_Print", (void (**)(void))&__pyx_api_f_4mcdp_8variable_7console_DpConsole_Print, "int (PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpConsole_PrintString", (void (**)(void))&__pyx_api_f_4mcdp_8variable_7console_DpConsole_PrintString, "int (char const *)") < 0) goto bad;
-  if (__Pyx_ImportFunction(module, "DpConsole_Title", (void (**)(void))&__pyx_api_f_4mcdp_8variable_7console_DpConsole_Title, "int (PyObject *, enum __pyx_t_4mcdp_8variable_7console_MCTitle_Position, PyObject *)") < 0) goto bad;
-  if (__Pyx_ImportFunction(module, "DpConsole_Show", (void (**)(void))&__pyx_api_f_4mcdp_8variable_7console_DpConsole_Show, "int (enum __pyx_t_4mcdp_8variable_7console_MCTitle_Position, PyObject *)") < 0) goto bad;
-  if (__Pyx_ImportFunction(module, "DpConsole_ShowString", (void (**)(void))&__pyx_api_f_4mcdp_8variable_7console_DpConsole_ShowString, "int (enum __pyx_t_4mcdp_8variable_7console_MCTitle_Position, char const *)") < 0) goto bad;
+  if (__Pyx_ImportFunction(module, "DpConsole_Title", (void (**)(void))&__pyx_api_f_4mcdp_8variable_7console_DpConsole_Title, "int (PyObject *, enum MCTitle_TypeFlag, PyObject *)") < 0) goto bad;
+  if (__Pyx_ImportFunction(module, "DpConsole_Show", (void (**)(void))&__pyx_api_f_4mcdp_8variable_7console_DpConsole_Show, "int (enum MCTitle_TypeFlag, PyObject *)") < 0) goto bad;
+  if (__Pyx_ImportFunction(module, "DpConsole_ShowString", (void (**)(void))&__pyx_api_f_4mcdp_8variable_7console_DpConsole_ShowString, "int (enum MCTitle_TypeFlag, char const *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpConsole_TitleReset", (void (**)(void))&__pyx_api_f_4mcdp_8variable_7console_DpConsole_TitleReset, "int (PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpConsole_TitleClear", (void (**)(void))&__pyx_api_f_4mcdp_8variable_7console_DpConsole_TitleClear, "int (PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpConsole_TitleSetTime", (void (**)(void))&__pyx_api_f_4mcdp_8variable_7console_DpConsole_TitleSetTime, "int (PyObject *, int, int, int)") < 0) goto bad;

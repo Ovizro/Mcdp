@@ -3,7 +3,7 @@ from cpython cimport PyObject
 from ..cpython_interface cimport PyUnicode_FromFormat, Py_TYPE_NAME, _PyType_Lookup
 
 from ..objects cimport McdpObject
-from ..exception cimport McdpValueError
+from ..exception cimport McdpValueError, McdpTypeError
 from ..version cimport Version, McdpVersionError
 
 
@@ -87,9 +87,8 @@ cdef api class MCSS(StringModel) [object DpStrStyleObject, type DpStrStyle_Type]
 
 
 cdef api class BaseString(StringModel) [object DpStaticStrObject, type DpStaticStr_Type]:
-    cdef readonly:
-        MCSS style
-        list extra
+    cdef list _extra
+    cdef readonly MCSS style
     cdef public:
         str insertion
         ClickEvent clickEvent

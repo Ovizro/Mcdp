@@ -6,7 +6,7 @@
 #include "Python.h"
 struct DpSelectorObject;
 
-/* "mcdp/variable/selector.pxd":9
+/* "mcdp/variable/selector.pxd":6
  * 
  * 
  * cdef api class Selector(McdpObject) [object DpSelectorObject, type DpSelector_Type]:             # <<<<<<<<<<<<<<

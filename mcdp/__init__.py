@@ -3,10 +3,10 @@ from typing import Dict, Optional, Type
 from typing_extensions import Self
 
 
-__author__ = "Ovizro"
-__author_email__ = "Ovizro@hypercol.com"
-__maintainer__ = ["Tatersic", "ExDragine"]
-__maintainer_email__ = ["Tatersic@qq.com", "ExDragine@hypercol.com"]
+__author__ = "HyperCol"
+__author_email__ = "HyperCol@hypercol.com"
+__maintainer__ = "Ovizro"
+__maintainer_email__ = "Ovizro@hypercol.com"
 
 
 _pack: Optional["Mcdatapack"] = None
@@ -73,7 +73,6 @@ from .variable import *
 from .build import PackageInformation, AbstractBuilder, get_defaultbuilder
 from .include import get_include
 
-config_module = config
 config = get_config()
 
 
@@ -84,7 +83,7 @@ class Namespace(BaseNamespace):
     __slots__ = []
 
     def __init__(self, name: str) -> None:
-        if P_name.match(name) is None:
+        if P_name.fullmatch(name) is None:
             raise McdpValueError("invalid namespace")
         super().__init__(name)
     

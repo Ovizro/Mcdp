@@ -38,13 +38,13 @@ struct DpStrStyleObject {
  * 
  * 
  * cdef api class BaseString(StringModel) [object DpStaticStrObject, type DpStaticStr_Type]:             # <<<<<<<<<<<<<<
- *     cdef readonly:
- *         MCSS style
+ *     cdef list _extra
+ *     cdef readonly MCSS style
  */
 struct DpStaticStrObject {
   struct DpStrModelObject __pyx_base;
+  PyObject *_extra;
   struct DpStrStyleObject *style;
-  PyObject *extra;
   PyObject *insertion;
   struct __pyx_obj_4mcdp_8variable_8mcstring_ClickEvent *clickEvent;
   struct __pyx_obj_4mcdp_8variable_8mcstring_HoverEvent *hoverEvent;

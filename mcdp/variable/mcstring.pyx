@@ -333,7 +333,7 @@ cdef class BaseString(StringModel):
     def __cinit__(self, *args, MCSS style = None, list extra = None,
             str insertion = None, clickEvent = None, hoverEvent = None, **kwds):
         self.style = style or MCSS(**kwds)
-        self.extra = extra or []
+        self._extra = extra or []
         self.insertion = insertion
         if not clickEvent is None and not isinstance(clickEvent, ClickEvent):
             self.clickEvent = ClickEvent(**clickEvent)
@@ -342,17 +342,21 @@ cdef class BaseString(StringModel):
         if not hoverEvent is None  and not isinstance(hoverEvent, HoverEvent):
             self.hoverEvent = HoverEvent(**hoverEvent)
     
+    @property
+    def extra(self):
+        return list(self._extra)
+    
     cpdef void extend(self, mcstr) except *:
         s = DpStaticStr_FromObject(mcstr)
-        self.extra.append(s)
+        self._extra.append(s)
     
     cpdef BaseString join(self, strings):
         cdef BaseString newstr = BaseString()
         for i in strings:
             i = DpStaticStr_FromObject(i)
-            newstr.extra.append(i)
-            newstr.extra.append(self)
-        newstr.extra.pop()
+            newstr._extra.append(i)
+            newstr._extra.append(self)
+        newstr._extra.pop()
         return newstr
     
     cpdef void set_interactivity(self, str type, value) except *:
@@ -382,22 +386,23 @@ cdef class BaseString(StringModel):
             data["clickEvent"] = self.clickEvent
         if not self.hoverEvent is None:
             data["clickEvent"] = self.hoverEvent
-        if self.extra:
-            data["extra"] = self.extra
+        if self._extra:
+            data["extra"] = self._extra
         return data
     
     def __add__(self, other):
         if not isinstance(other, BaseString):
             return NotImplemented
         cdef BaseString newstr = BaseString()
-        newstr.extra.append(self)
-        newstr.extra.append(other)
+        newstr._extra.append(self)
+        newstr._extra.append(other)
         return newstr
     
     def __mcstr__(self) -> BaseString:
         return self
 
 
+@cython.final
 cdef class PlainString(BaseString):
     def __cinit__(self, str text not None, **kwds):
         self.text = text
@@ -419,6 +424,7 @@ cdef class PlainString(BaseString):
         return newstr
 
 
+@cython.final
 cdef class TranslatedString(BaseString):
     def __cinit__(self, str translate not None, *with_arg, list with_ = None, **kwds):
         self.translate = translate
@@ -444,6 +450,7 @@ cdef class TranslatedString(BaseString):
         return data
 
 
+@cython.final
 cdef class ScoreString(BaseString):
     def __cinit__(self, score not None, **kwds):
         if isinstance(score, Score):
@@ -457,6 +464,7 @@ cdef class ScoreString(BaseString):
         return data
 
 
+@cython.final
 cdef class EntityNameString(BaseString):
     def __cinit__(self, str selector not None, *, separator = None, **kwds):
         self.selector = selector
@@ -476,6 +484,7 @@ cdef class EntityNameString(BaseString):
         return data
 
 
+@cython.final
 cdef class KeybindString(BaseString):
     def __cinit__(self, str keybind not None, **kwds):
         self.keybind = keybind
@@ -486,6 +495,7 @@ cdef class KeybindString(BaseString):
         return data
 
 
+@cython.final
 cdef class NBTValueString(BaseString):
     def __cinit__(self, str nbt not None, *, bint interpret = False, separator = None,
             str block = None, str entity = None, str storage = None, **kwds):
@@ -552,7 +562,7 @@ cdef object DpStaticStr_FromObject(object obj):
         fn_mcstr = _PyType_Lookup(type(obj), "__mcstr__")
         if fn_mcstr != NULL:
             return (<object>fn_mcstr)(obj)
-        PyErr_Format(McdpValueError, "unsupport type '%s'", Py_TYPE_NAME(obj))
+        PyErr_Format(McdpTypeError, "unsupport type '%s'", Py_TYPE_NAME(obj))
 
 cdef object DpStaticStr_FromDict(dict data):
     cdef type string_type
