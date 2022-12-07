@@ -1,5 +1,5 @@
 cimport cython
-from cpython cimport PyErr_Format, PyObject_Str, PyDict_Next
+from cpython cimport PyErr_Format, PyObject_Str, PyDict_Next, PyDictProxy_New, PyObject
 from ..cpython_interface cimport *
 
 from typing import Union
@@ -48,7 +48,7 @@ cdef void write_args(_PyUnicodeWriter* writer, str key, object val) except *:
     _PyUnicodeWriter_WriteChar(writer, ord('='))
     if isinstance(val, str):
         v = val
-    if isinstance(val, dict):
+    if isinstance(val, dict) and key != "nbt":
         v = args2str(<dict>val)
     else:
         v = <str>PyObject_Str(val)
@@ -59,40 +59,25 @@ cdef void write_args(_PyUnicodeWriter* writer, str key, object val) except *:
 cdef class Selector(McdpObject):
     def __cinit__(self, str name not None, _iter = None, **kwds):
         cdef:
-            str tmp = name[:2]
-            list l_args
-            list kv
             str k
             object v
-        if not tmp in ["@p", "@a", "@r", "@e", "@s"]:
-            raise ValueError("Invalid selector.")
-        self.name = tmp
+        if len(name) != 2 or PyUnicode_ReadChar(name, 0) != ord('@')\
+                or PyUnicode_ReadChar(name, 1) not in [ord('p'), ord('a'), ord('r'), ord('e'), ord('s')]:
+            PyErr_Format(ValueError, "invalid selector %U", <void*>name)
+        self.name = name
         self._args = kwds
-        if _iter:
-            if isinstance(_iter, dict):
-                for k, v in (<dict>_iter).items():
-                    self.add_args(k, v)
-            elif hasattr(type(_iter), "items"):
-                for k, v in _iter.items():
-                    self.add_args(k, v)
-            else:
-                for i in _iter:
-                    if len(i) == 2:
-                        self.add_args(i[0], i[1])
-                    else:
-                        raise TypeError("invalid iteration")
 
-        if len(name) <= 2:
+        if _iter is None:
             return
-
-        if (PyUnicode_ReadChar(name, 2) != ord('[') or
-                PyUnicode_ReadChar(name, len(name) - 1) != ord(']')):
-            raise ValueError("selector string should be like @a[arg=xxx], not %s" % name)
-        l_args = name[3:-1].split(',')
-        for tmp in l_args:
-            kv = tmp.split('=', 2)
-            k, v = kv
-            self.add_args(k, v)
+        elif isinstance(_iter, dict):
+            for k, v in (<dict>_iter).items():
+                self.add_args(k, v)
+        elif hasattr(type(_iter), "items"):
+            for k, v in _iter.items():
+                self.add_args(k, v)
+        else:
+            for k, v in _iter:
+                self.add_args(k, v)
         
     cpdef void add_args(self, str key, value) except *:
         cdef:
@@ -119,10 +104,7 @@ cdef class Selector(McdpObject):
 
     @classmethod
     def validate(cls, val: Any):
-        if isinstance(val, cls):
-            return val
-        else:
-            return DpSelector_FromObject(val)
+        return DpSelector_FromObject(val)
     
     @property
     def args(self):
@@ -158,7 +140,7 @@ cdef class Selector(McdpObject):
 
 
 def selector(t_slt not None, _iter = None, **kwds):
-    if isinstance(t_slt, str):
+    if not _iter is None or kwds:
         return Selector(t_slt, _iter, **kwds)
     return DpSelector_FromObject(t_slt)
 
@@ -182,15 +164,55 @@ cdef object _nspp_top(object nsp):
 DpNamespace_Property("top", _nspp_top)
 
 
+cdef Selector _DpSelector_DecodeSimple(str string):
+    cdef:
+        Py_UCS4 ch
+        char state = 0
+        int level = 0
+        Py_ssize_t length = len(string)
+        Py_ssize_t prev = 3
+        str key
+        Selector slt = Selector(string[:2])
+    if length < 3:
+        return slt
+    if (PyUnicode_ReadChar(string, 2) != ord('[')
+            or PyUnicode_ReadChar(string, length - 1) != ord(']')):
+        PyErr_Format(ValueError, "selector string should be like @a[arg=xxx], not %U", <void*>string)
+    for i in range(3, length - 1):
+        ch = PyUnicode_ReadChar(string, i)
+        if ch == ord('=') and state == 0b00:
+            state = 1
+            key = string[prev: i]
+            prev = i + 1
+        elif ch == ord('"'):
+            if i == 0 or PyUnicode_ReadChar(string, i - 1) != ord('\\'):
+                state ^= ~0b10
+        elif state == 0b01:
+            if ch == ord('{'):
+                level += 1
+            elif ch == ord('}'):
+                level -= 1
+            elif ch == ord(',') and not level:
+                state = 0
+                slt.add_args(key, string[prev: i])
+                prev = i + 1
+    if state != 1 or level:
+        raise ValueError("invalid selector argument")
+    slt.add_args(key, string[prev: i + 1])
+    return slt
+
+
 cdef object DpSelector_FromObject(object obj):
+    cdef PyObject* fn_slt
     if isinstance(obj, str):
-        return Selector(obj)
+        return _DpSelector_DecodeSimple(<str>obj)
     elif isinstance(obj, Selector):
         return <Selector>obj
-    elif hasattr(type(obj), "__selector__"):
-        return obj.__selector__()
     else:
-        PyErr_Format(McdpTypeError, "'%s' object is not a selector", Py_TYPE_NAME(obj))
+        fn_slt = _PyType_Lookup(type(obj), "__selector__")
+        if fn_slt != NULL:
+            return (<object>fn_slt)(obj)
+        PyErr_Format(McdpTypeError, "unsupport type '%s'", Py_TYPE_NAME(obj))
 
 cdef object DpSelector_FromString(const char* string):
     return Selector(string.decode())

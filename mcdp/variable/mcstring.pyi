@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Dict, Final, Generic, Iterable, List, Literal, Optional, Protocol, Tuple, Type, TypeVar, Union, final, overload
+from typing import Any, Dict, Final, Generic, Iterable, List, Literal, NoReturn, Optional, Protocol, Tuple, Type, TypeVar, Union, final, overload
 from typing_extensions import Self
 
 from ..objects import McdpObject
@@ -35,12 +35,13 @@ class RenderStyle(Enum):
 
 
 _T_StringObj = TypeVar("_T_StringObj",
-    BaseString, PlainString, TranslatedString, ScoreString,
+    UnionString, PlainString, TranslatedString, ScoreString,
     EntityNameString, KeybindString, NBTValueString
 )
 
 class MCStringLike(Protocol, Generic[_T_StringObj]):
-    def __mcstr__(self) -> _T_StringObj: ...
+    def __mcstr__(self) -> _T_StringObj:
+        pass
 
 
 ColorName = Literal["black", "dark_blue", "dark_green", "dark_aqua", "dark_red", "dark_purple", "gold",
@@ -163,17 +164,31 @@ class BaseString(StringModel):
         clickEvent: Union[ClickEvent, Dict[str, Any], None] = None,
         hoverEvent: Union[HoverEvent, Dict[str, Any], None] = None,
         **kwds
-    ) -> Self: ...
+    ) -> NoReturn: ...
     def extend(self, mcstr: T_MCString) -> None: ...
-    def join(self, strings: Iterable[T_MCString]) -> BaseString: ...
+    def join(self, strings: Iterable[T_MCString]) -> UnionString: ...
     @overload
     def set_interactivity(self, type: Literal["insertion"], value: str) -> None: ...
     @overload
     def set_interactivity(self, type: Literal["click"], value: Union[dict, ClickEvent]) -> None: ...
     @overload
     def set_interactivity(self, type: Literal["hover"], value: Union[dict, HoverEvent]) -> None: ...
-    def __add__(self, other: BaseString) -> BaseString: ...
+    def __add__(self, other: BaseString) -> UnionString: ...
     def __mcstr__(self) -> Self: ...
+
+
+@final
+class UnionString(BaseString):
+    def __new__(
+        cls: Type[Self], 
+        *args: BaseString, 
+        style: Optional[MCSS] = None,
+        extra: Optional[List[BaseString]] = None,
+        insertion: Optional[str] = None,
+        clickEvent: Union[ClickEvent, Dict[str, Any], None] = None,
+        hoverEvent: Union[HoverEvent, Dict[str, Any], None] = None,
+        **kwds
+    ) -> Self: ...
 
 
 @final

@@ -25,18 +25,30 @@ static PyObject *(*__pyx_api_f_4mcdp_7context_DpHandler_FromMeta)(struct DpHandl
 #define DpHandler_FromMeta __pyx_api_f_4mcdp_7context_DpHandler_FromMeta
 static PyObject *(*__pyx_api_f_4mcdp_7context_DpHandler_NewSimple)(char const *, T_handler) = 0;
 #define DpHandler_NewSimple __pyx_api_f_4mcdp_7context_DpHandler_NewSimple
+static PyObject *(*__pyx_api_f_4mcdp_7context_DpHandler_GetNext)(PyObject *) = 0;
+#define DpHandler_GetNext __pyx_api_f_4mcdp_7context_DpHandler_GetNext
 static PyObject *(*__pyx_api_f_4mcdp_7context_DpHandler_DoHandler)(PyObject *, PyObject *, PyObject *) = 0;
 #define DpHandler_DoHandler __pyx_api_f_4mcdp_7context_DpHandler_DoHandler
 static PyObject *(*__pyx_api_f_4mcdp_7context_DpContext_Initalize)(PyObject *) = 0;
 #define DpContext_Initalize __pyx_api_f_4mcdp_7context_DpContext_Initalize
 static PyObject *(*__pyx_api_f_4mcdp_7context_DpContext_Get)(void) = 0;
 #define DpContext_Get __pyx_api_f_4mcdp_7context_DpContext_Get
-static PyObject *(*__pyx_api_f_4mcdp_7context_DpContext_Getback)(PyObject *) = 0;
-#define DpContext_Getback __pyx_api_f_4mcdp_7context_DpContext_Getback
 static PyObject *(*__pyx_api_f_4mcdp_7context_DpContext_New)(char const *) = 0;
 #define DpContext_New __pyx_api_f_4mcdp_7context_DpContext_New
+static PyObject *(*__pyx_api_f_4mcdp_7context_DpContext_GetBack)(PyObject *) = 0;
+#define DpContext_GetBack __pyx_api_f_4mcdp_7context_DpContext_GetBack
+static int (*__pyx_api_f_4mcdp_7context_DpContext_SetBack)(PyObject *, PyObject *) = 0;
+#define DpContext_SetBack __pyx_api_f_4mcdp_7context_DpContext_SetBack
 static int (*__pyx_api_f_4mcdp_7context_DpContext_Join)(PyObject *) = 0;
 #define DpContext_Join __pyx_api_f_4mcdp_7context_DpContext_Join
+static int (*__pyx_api_f_4mcdp_7context_DpContext_Writable)(PyObject *) = 0;
+#define DpContext_Writable __pyx_api_f_4mcdp_7context_DpContext_Writable
+static int (*__pyx_api_f_4mcdp_7context_DpContext_Activate)(PyObject *) = 0;
+#define DpContext_Activate __pyx_api_f_4mcdp_7context_DpContext_Activate
+static int (*__pyx_api_f_4mcdp_7context_DpContext_Reactivate)(PyObject *) = 0;
+#define DpContext_Reactivate __pyx_api_f_4mcdp_7context_DpContext_Reactivate
+static int (*__pyx_api_f_4mcdp_7context_DpContext_Deactivate)(PyObject *) = 0;
+#define DpContext_Deactivate __pyx_api_f_4mcdp_7context_DpContext_Deactivate
 static int (*__pyx_api_f_4mcdp_7context_DpContext_Finalize)(void) = 0;
 #define DpContext_Finalize __pyx_api_f_4mcdp_7context_DpContext_Finalize
 static int (*__pyx_api_f_4mcdp_7context_DpContext_AddHnadler)(PyObject *, PyObject *) = 0;
@@ -181,12 +193,18 @@ static int import_mcdp__context(void) {
   if (__Pyx_ImportFunction(module, "DpHandlerMeta_SetPopHandler", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpHandlerMeta_SetPopHandler, "void (struct DpHandlerMetaObject *, T_connect)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpHandler_FromMeta", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpHandler_FromMeta, "PyObject *(struct DpHandlerMetaObject *, PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpHandler_NewSimple", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpHandler_NewSimple, "PyObject *(char const *, T_handler)") < 0) goto bad;
+  if (__Pyx_ImportFunction(module, "DpHandler_GetNext", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpHandler_GetNext, "PyObject *(PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpHandler_DoHandler", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpHandler_DoHandler, "PyObject *(PyObject *, PyObject *, PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpContext_Initalize", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_Initalize, "PyObject *(PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpContext_Get", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_Get, "PyObject *(void)") < 0) goto bad;
-  if (__Pyx_ImportFunction(module, "DpContext_Getback", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_Getback, "PyObject *(PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpContext_New", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_New, "PyObject *(char const *)") < 0) goto bad;
+  if (__Pyx_ImportFunction(module, "DpContext_GetBack", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_GetBack, "PyObject *(PyObject *)") < 0) goto bad;
+  if (__Pyx_ImportFunction(module, "DpContext_SetBack", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_SetBack, "int (PyObject *, PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpContext_Join", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_Join, "int (PyObject *)") < 0) goto bad;
+  if (__Pyx_ImportFunction(module, "DpContext_Writable", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_Writable, "int (PyObject *)") < 0) goto bad;
+  if (__Pyx_ImportFunction(module, "DpContext_Activate", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_Activate, "int (PyObject *)") < 0) goto bad;
+  if (__Pyx_ImportFunction(module, "DpContext_Reactivate", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_Reactivate, "int (PyObject *)") < 0) goto bad;
+  if (__Pyx_ImportFunction(module, "DpContext_Deactivate", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_Deactivate, "int (PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpContext_Finalize", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_Finalize, "int (void)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpContext_AddHnadler", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_AddHnadler, "int (PyObject *, PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpContext_AddHandlerSimple", (void (**)(void))&__pyx_api_f_4mcdp_7context_DpContext_AddHandlerSimple, "int (PyObject *, T_handler)") < 0) goto bad;

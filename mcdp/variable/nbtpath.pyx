@@ -139,3 +139,6 @@ cdef object DpNBTPath_FromObject(object obj):
         return empty_nbtpath
     return NBTPath(obj)
 
+cdef object DpNBTPath_FromString(const char* string):
+    cdef PathNode n = _DpPathNode_Split(string.decode())
+    return NBTPath(n)

@@ -16,3 +16,4 @@ cdef api class NBTPath(McdpObject) [object DpNBTPathObject, type DpNBTPath_Type]
     
 
 cdef api object DpNBTPath_FromObject(object obj)
+cdef api object DpNBTPath_FromString(const char* string)

@@ -91,13 +91,19 @@ cdef api void DpHandlerMeta_SetLinkHandler(_CHandlerMeta cls, T_connect func)
 cdef api void DpHandlerMeta_SetPopHandler(_CHandlerMeta cls, T_connect func)
 cdef api object DpHandler_FromMeta(_CHandlerMeta cls, object next_hdl)
 cdef api object DpHandler_NewSimple(const char* name, T_handler handler_func)
+cdef api PyObject* DpHandler_GetNext(object hdl) except NULL
 cdef api object DpHandler_DoHandler(object hdl, object ctx, object code)
 
 cdef api PyObject* DpContext_Initalize(object nsp) except NULL
 cdef api PyObject* DpContext_Get() except NULL
-cdef api PyObject* DpContext_Getback(object ctx) except NULL
 cdef api object DpContext_New(const char* name)
+cdef api PyObject* DpContext_GetBack(object ctx) except NULL
+cdef api int DpContext_SetBack(object ctx, object back) except -1
 cdef api int DpContext_Join(object ctx) except -1
+cdef api bint DpContext_Writable(object ctx) except -1
+cdef api int DpContext_Activate(object ctx) except -1
+cdef api int DpContext_Reactivate(object ctx) except -1
+cdef api int DpContext_Deactivate(object ctx) except -1
 cdef api int DpContext_Finalize() except -1
 cdef api int DpContext_AddHnadler(object ctx, object hdl) except -1
 cdef api int DpContext_AddHandlerSimple(object ctx, T_handler handler_func) except -1

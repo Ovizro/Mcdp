@@ -24,5 +24,5 @@ class TestConsole(TestCase):
         text = TestConsole.read_file()
         self.assertEqual(
             text.split(' ', maxsplit=2)[2].replace(' ', ''),
-            '{"extra":[{"text":"hhh"},{"text":""},{"text":"hhh"}]}\n'
+            '[{"text":"hhh"},{"text":""},{"text":"hhh"}]\n'
         )

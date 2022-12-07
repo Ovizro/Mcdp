@@ -332,6 +332,8 @@ cdef class MCSS(StringModel):
 cdef class BaseString(StringModel):
     def __cinit__(self, *args, MCSS style = None, list extra = None,
             str insertion = None, clickEvent = None, hoverEvent = None, **kwds):
+        if type(self) is BaseString:
+            raise NotImplementedError
         self.style = style or MCSS(**kwds)
         self._extra = extra or []
         self.insertion = insertion
@@ -350,8 +352,8 @@ cdef class BaseString(StringModel):
         s = DpStaticStr_FromObject(mcstr)
         self._extra.append(s)
     
-    cpdef BaseString join(self, strings):
-        cdef BaseString newstr = BaseString()
+    cpdef UnionString join(self, strings):
+        cdef UnionString newstr = UnionString()
         for i in strings:
             i = DpStaticStr_FromObject(i)
             newstr._extra.append(i)
@@ -393,13 +395,24 @@ cdef class BaseString(StringModel):
     def __add__(self, other):
         if not isinstance(other, BaseString):
             return NotImplemented
-        cdef BaseString newstr = BaseString()
-        newstr._extra.append(self)
-        newstr._extra.append(other)
-        return newstr
+        return UnionString(self, other)
     
     def __mcstr__(self) -> BaseString:
         return self
+
+
+@cython.final
+cdef class UnionString(BaseString):
+    def __cinit__(self, *args, **kwds):
+        cdef BaseString i
+        for i in args:
+            if isinstance(i, UnionString):
+                self._extra.extend(i._extra)
+            else:
+                self._extra.append(i)
+    
+    cpdef str to_json(self):
+        return json.dumps(self.extra, default=_model_encoder)
 
 
 @cython.final

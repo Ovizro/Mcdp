@@ -95,8 +95,12 @@ cdef api class BaseString(StringModel) [object DpStaticStrObject, type DpStaticS
         HoverEvent hoverEvent
 
     cpdef void extend(self, mcstr) except *
-    cpdef BaseString join(self, strings)
+    cpdef UnionString join(self, strings)
     cpdef void set_interactivity(self, str type, value) except *
+    cpdef dict to_dict(self)
+
+
+cdef class UnionString(BaseString):
     cpdef dict to_dict(self)
 
 

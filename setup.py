@@ -49,7 +49,8 @@ ext = [
     Extension("mcdp.variable.selector", ["mcdp/variable/selector" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
     Extension("mcdp.variable.position", ["mcdp/variable/position" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
     Extension("mcdp.variable.console", ["mcdp/variable/console" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
-    Extension("mcdp.variable.nbtpath", ["mcdp/variable/nbtpath" + FILE_SUFFIX], include_dirs=[HOME_PATH])
+    Extension("mcdp.variable.nbtpath", ["mcdp/variable/nbtpath" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
+    Extension("mcdp.variable.scoreboard", ["mcdp/variable/scoreboard" + FILE_SUFFIX], include_dirs=[HOME_PATH])
 ]
 
 if USE_CYTHON:

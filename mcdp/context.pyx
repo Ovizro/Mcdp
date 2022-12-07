@@ -78,14 +78,19 @@ cdef class Handler:
 
 
 cdef class _CHandlerMeta(type):
+    """
+    Meta class for handlers with C functions
+
+    DO NOT DIRECTLY USE THIS CLASS IN PYTHON!
+    """
     cdef void set_handler(self, T_handler hdl_func):
-        self.handler_func = PyCapsule_New(hdl_func, "dp_handler", NULL)
+        DpHandlerMeta_SetHandler(self, hdl_func)
     
     cdef void set_link(self, T_connect lk_func):
-        self.link_func = PyCapsule_New(lk_func, "dp_link_handler", NULL)
+        DpHandlerMeta_SetLinkHandler(self, lk_func)
     
     cdef void set_pop(self, T_connect pop_func):
-        self.pop_func = PyCapsule_New(pop_func, "dp_pop_handler", NULL)
+        DpHandlerMeta_SetPopHandler(self, pop_func)
         
     @property
     def valid(self):
@@ -93,8 +98,11 @@ cdef class _CHandlerMeta(type):
 
 
 cdef class _CHandler(Handler):
-    def __init__(self, Handler next_handler = None):
-        raise NotImplementedError
+    """
+    Base class for handlers with C functions
+
+    DO NOT DIRECTLY USE THIS CLASS IN PYTHON!
+    """
 
     cpdef object do_handler(self, Context ctx, object code):
         cdef _CHandlerMeta cls = type(self)
@@ -157,7 +165,7 @@ cdef class AnnotateHandler(Handler):
 
 
 cdef class HandlerIter:
-    def __init__(self, Handler hdl):
+    def __cinit__(self, Handler hdl):
         self.cur = hdl
     
     def __iter__(self):
@@ -172,7 +180,7 @@ cdef class HandlerIter:
             
 
 cdef class Context(McdpObject):
-    def __init__(
+    def __cinit__(
             self,
             str name not None,
             Context back = None,
@@ -185,7 +193,7 @@ cdef class Context(McdpObject):
         self.length = 1
         self.handler_chain = hdl_chain
         if not back is None:
-            self.set_back(back)
+            DpContext_SetBack(self, back)
         elif not namespace is None:
             self.init_stream()
     
@@ -312,7 +320,7 @@ cdef class _AnnotateImpl:
 
     """
     
-    def __init__(self):
+    def __cinit__(self):
         self.__name__ = "annotate"
         self.__qualname__ = "mcdp.context.annotate"
     
@@ -357,6 +365,9 @@ cdef class _AnnotateImpl:
             insert(*annotates)
         finally:
             ctx.pop_handler(cmt_hdl)
+    
+    def __repr__(self):
+        return PyUnicode_FromFormat("annotate environment at %p", <void*>self)
 
 
 def init_context(BaseNamespace nsp):
@@ -411,24 +422,26 @@ Context C API
 
 # Handler API
 cdef _CHandlerMeta DpHandlerMeta_New(const char* name, T_handler handler_func):
-    cdef _CHandlerMeta hdl_cls = _CHandlerMeta(
-        name.decode(), (_CHandler,), {"__init__": Handler.__init__})
-    hdl_cls.set_handler(handler_func)
+    cdef _CHandlerMeta hdl_cls = _CHandlerMeta(name.decode(), (_CHandler,), {})
+    DpHandlerMeta_SetHandler(hdl_cls, handler_func)
 
 cdef void DpHandlerMeta_SetHandler(_CHandlerMeta cls, T_handler func):
-    cls.set_handler(func)
+    cls.handler_func = PyCapsule_New(func, "dp_handler", NULL)
 
 cdef void DpHandlerMeta_SetLinkHandler(_CHandlerMeta cls, T_connect func):
-    cls.set_link(func)
+    cls.link_func = PyCapsule_New(func, "dp_link_handler", NULL)
 
 cdef void DpHandlerMeta_SetPopHandler(_CHandlerMeta cls, T_connect func):
-    cls.set_pop(func)
+    cls.pop_func = PyCapsule_New(func, "dp_pop_handler", NULL)
 
 cdef object DpHandler_FromMeta(_CHandlerMeta cls, object next_hdl):
     return cls(next_hdl)
 
 cdef object DpHandler_NewSimple(const char* name, T_handler handler_func):
     return DpHandler_FromMeta(DpHandlerMeta_New(name, handler_func), None)
+
+cdef PyObject* DpHandler_GetNext(object hdl) except NULL:
+    return <PyObject*>(<Handler?>hdl).next
 
 cdef object DpHandler_DoHandler(object hdl, object ctx, object code):
     if hdl is None:
@@ -449,14 +462,33 @@ cdef PyObject* DpContext_Get() except NULL:
         raise McdpInitalizeError("the context has not been initalized")
     return <PyObject*>_current
 
-cdef PyObject* DpContext_Getback(object ctx) except NULL:
-    return <PyObject*>(<Context?>ctx).back
-
 cdef object DpContext_New(const char* name):
     return Context(name.decode())
 
+cdef PyObject* DpContext_GetBack(object ctx) except NULL:
+    return <PyObject*>(<Context?>ctx).back
+
+cdef int DpContext_SetBack(object ctx, object back) except -1:
+    Context.set_back(ctx, back)
+    return 0
+
 cdef int DpContext_Join(object ctx) except -1:
-    (<Context?>ctx).join()
+    Context.join(ctx)
+    return 0
+
+cdef bint DpContext_Writable(object ctx) except -1:
+    return (<Context?>ctx).writable()
+
+cdef int DpContext_Activate(object ctx) except -1:
+    Context.activate(ctx)
+    return 0
+    
+cdef int DpContext_Reactivate(object ctx) except -1:
+    Context.reactivate(ctx)
+    return 0
+    
+cdef int DpContext_Deactivate(object ctx) except -1:
+    Context.deactivate(ctx)
     return 0
 
 cdef int DpContext_Finalize() except -1:
@@ -470,7 +502,7 @@ cdef int DpContext_Finalize() except -1:
     return 0
 
 cdef int DpContext_AddHnadler(object ctx, object hdl) except -1:
-    (<Context?>ctx).add_handler(hdl)
+    Context.add_handler(ctx, hdl)
     return 0
 
 cdef int DpContext_AddHandlerSimple(object ctx, T_handler handler_func) except -1:
@@ -527,19 +559,21 @@ cdef int DpContext_FastAnnotate(const char* cmt) except -1:
     while cmt[0]:
         if cmt[0] == ord('\n'):
             if i > 123:
+                buffer[i] = 0
                 top.stream.put(buffer)
                 i = 0
             strcpy(buffer + i, "\n# ")
             i += 3
         else:
             if i > 126:
+                buffer[i] = 0
                 top.stream.put(buffer)
                 i = 0
             buffer[i] = cmt[0]
             i += 1
         cmt += 1
     buffer[i] = ord('\n')
-    buffer[i+1] = ord('\0')
+    buffer[i+1] = 0
     top.stream.put(buffer)
     return 0
 

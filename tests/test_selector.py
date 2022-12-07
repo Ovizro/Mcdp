@@ -18,18 +18,18 @@ class TestSelector(TestCase):
         self.assertSetEqual(slt.args["tag"], {"a", "b"})
         self.assertRegex(str(slt), r"@p\[scores={myscore=1},tag=[ab],tag=[ba]\]")
 
-        slt = Selector("@p[tag=a,tag=b]")
+        slt = selector("@p[tag=a,tag=b]")
         self.assertEqual(slt.args["tag"], {"a", "b"})
         with self.assertRaises(ValueError):
-            Selector("@a[tag=a,]")
+            selector("@a[tag=a,]")
         with self.assertRaises(ValueError):
-            Selector("@a[tag=a,tag=b")
+            selector("@a[tag=a,tag=b")
         
         with self.assertRaises(TypeError):
             slt.args['tag'] = {"a"} # type: ignore
     
     def test_func(self) -> None:
-        slt = selector("@a")
+        slt = Selector("@a")
         self.assertIs(slt, selector(slt))
         
         s = SelectorLikeCls()

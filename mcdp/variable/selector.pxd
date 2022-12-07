@@ -1,6 +1,3 @@
-from cpython cimport PyDictProxy_New
-
-from ..cpython_interface cimport _PyType_Lookup
 from ..objects cimport McdpObject, BaseNamespace, DpNamespace_Property
 from ..exception cimport McdpTypeError
 from .mcstring cimport EntityNameString
