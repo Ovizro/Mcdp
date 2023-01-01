@@ -12,13 +12,13 @@ struct DpPositionObject;
  * 
  * cdef api enum MCPos_TypeFlag:             # <<<<<<<<<<<<<<
  *     NANTYPE = 0
- *     LOCAL
+ *     LOCAL_POSITION
  */
 enum MCPos_TypeFlag {
   NANTYPE = 0,
-  LOCAL,
-  ABSOLUTE,
-  RELATIVE
+  LOCAL_POSITION,
+  ABSOLUTE_POSITION,
+  RELATIVE_POSITION
 };
 
 /* "mcdp/variable/position.pxd":16

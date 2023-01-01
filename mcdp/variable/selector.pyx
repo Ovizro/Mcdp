@@ -215,7 +215,7 @@ cdef object DpSelector_FromObject(object obj):
         PyErr_Format(McdpTypeError, "unsupport type '%s'", Py_TYPE_NAME(obj))
 
 cdef object DpSelector_FromString(const char* string):
-    return Selector(string.decode())
+    return _DpSelector_DecodeSimple(string.decode())
 
 cdef object DpSelector_GetName(object slt):
     return (<Selector?>slt).name

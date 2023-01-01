@@ -16,10 +16,10 @@
 #define DP_MINOR_VERSION    4
 #define DP_MICRO_VERSION    0
 #define DP_RELEASE_LEVEL    DP_RELEASE_LEVEL_ALPHA
-#define DP_RELEASE_SERIAL   0
+#define DP_RELEASE_SERIAL   1
 
 /* Version as a string */
-#define DP_VERSION "0.4.0-Alpha"
+#define DP_VERSION "0.4.0-Alpha.1"
 /*--end constants--*/
 
 /* Version as a single 4-byte hex number, e.g. 0x010502B2 == 1.5.2b2.

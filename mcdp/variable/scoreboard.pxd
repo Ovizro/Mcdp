@@ -1,6 +1,6 @@
 from ..objects cimport McdpObject
-from .mcstring cimport BaseString, DpStaticStr_FromObject
 from ..context cimport DpContext_Insert
+from .mcstring cimport BaseString, DpStaticStr_FromObject
 
 
 cdef api class Scoreboard(McdpObject) [object DpScoreboardObject, type DpScoreboard_Type]:

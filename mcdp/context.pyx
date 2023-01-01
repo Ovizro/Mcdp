@@ -206,10 +206,10 @@ cdef class Context(McdpObject):
             raise McdpRuntimeError("stack overflow")
         if self.namespace is None:
             self.namespace = back.namespace
-        if self.handler_chain is None:
-            self.handler_chain = back.handler_chain
-        elif not back.handler_chain is None:
-            self.handler_chain = back.handler_chain.link_handler(self.handler_chain)
+        # if self.handler_chain is None:
+        #     self.handler_chain = back.handler_chain
+        # elif not back.handler_chain is None:
+        #     self.handler_chain = back.handler_chain.link_handler(self.handler_chain)
         self.init_stream()
     
     cdef void init_stream(self) except *:
@@ -403,16 +403,16 @@ def _set_ctx_config(**kwds):
     _config.use_annotates = kwds.pop("use_annotates", _config.use_annotates)
     _config.max_open = kwds.pop("max_open", _config.max_open)
     _config.max_stack = kwds.pop("max_stack", _config.max_stack)
-    if kwds:
-        tmp = kwds.popitem()[0]
+    for k in kwds:
         PyErr_Format(
             TypeError,
-            "_set_ctx_config() got an unexpected keyword argument '%S'",
-            <PyObject*>tmp
+            "_set_ctx_config() got an unexpected keyword argument '%U'",
+            <PyObject*>k
         )
 
 
-annotate = _AnnotateImpl()
+cdef _AnnotateImpl _annotate = _AnnotateImpl()
+annotate = _annotate
 
 
 """
@@ -509,6 +509,10 @@ cdef int DpContext_AddHandlerSimple(object ctx, T_handler handler_func) except -
     cdef Handler hdl = <Handler>DpHandler_NewSimple("mcdp.context.CHandler", handler_func)
     return DpContext_AddHnadler(ctx, hdl)
 
+cdef int DpContext_PopHnadler(object ctx, object hdl) except -1:
+    Context.pop_handler(ctx, hdl)
+    return 0
+
 cdef int DpContext_InsertV(const char* format, va_list ap) except -1:
     cdef Context ctx = <Context>DpContext_Get()
     code = PyUnicode_FromFormatV(format, ap)
@@ -524,18 +528,25 @@ cdef int DpContext_Insert(const char* format, ...) except -1:
         va_end(ap)
     return 0
 
+cdef int DpContext_StartAnnotate() except -1:
+    _annotate.enter_annotate()
+    return 0
+
+cdef int DpContext_EndAnnotate() except -1:
+    _annotate.exit_annotate()
+    return 0
+
 cdef int DpContext_AnnotateV(const char* format, va_list ap) except -1:
     if not _config.use_annotates:
         return 0
     cdef Context ctx = <Context>DpContext_Get()
-    cdef _AnnotateImpl cmt = <_AnnotateImpl>annotate
 
     code = PyUnicode_FromFormatV(format, ap)
-    cmt.enter_annotate()
+    _annotate.enter_annotate()
     try:
         ctx.put(code)
     finally:
-        cmt.exit_annotate()
+        _annotate.exit_annotate()
     return 0
 
 cdef int DpContext_Annotate(const char* format, ...) except -1:

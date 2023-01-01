@@ -7,9 +7,9 @@ from enum import Enum
 
 
 class ComponentType(Enum):
-    local = LOCAL
-    relative = RELATIVE
-    absolute = ABSOLUTE
+    local = LOCAL_POSITION
+    relative = RELATIVE_POSITION
+    absolute = ABSOLUTE_POSITION
 
 
 cdef float fl_add(float a, float b):
@@ -67,11 +67,11 @@ cdef class Component(McdpObject):
             self.offset = <float>value
             if self.offset > 30000000:
                 raise McdpValueError("position offset should not be more than 3e7")
-            self.type_flag = _type or ABSOLUTE
+            self.type_flag = _type or ABSOLUTE_POSITION
             memset(buffer, 0, 18 * sizeof(char))
-            if _type == RELATIVE:
+            if _type == RELATIVE_POSITION:
                 sprintf(buffer, "~%f", self.offset)
-            elif _type == LOCAL:
+            elif _type == LOCAL_POSITION:
                 sprintf(buffer, "^%f", self.offset)
             else:
                 sprintf(buffer, "%f", self.offset)
@@ -90,12 +90,12 @@ cdef class Component(McdpObject):
         self.raw_value = _value
         if _value[0] == '^':
             _value = _value[1:]
-            self.type_flag = LOCAL
+            self.type_flag = LOCAL_POSITION
         elif value[0] == '~':
             _value = _value[1:]
-            self.type_flag = RELATIVE
+            self.type_flag = RELATIVE_POSITION
         else:
-            self.type_flag = ABSOLUTE
+            self.type_flag = ABSOLUTE_POSITION
         
         if _value:
             self.offset = float(_value)
@@ -193,12 +193,12 @@ cdef class Position(McdpObject):
             Component i
             MCPos_TypeFlag t = NANTYPE
         for i in self.components:
-            if i.type_flag == LOCAL:
-                if t > LOCAL:
+            if i.type_flag == LOCAL_POSITION:
+                if t > LOCAL_POSITION:
                     raise McdpValueError("incurrect position component type")
-                t = LOCAL
+                t = LOCAL_POSITION
             else:
-                if t == LOCAL:
+                if t == LOCAL_POSITION:
                     raise McdpValueError("incurrect position component type")
                 t = max(t, i.type_flag)
         self.type_flag = t
@@ -358,8 +358,11 @@ def position(x, y = None, z = None, *, type = None):
 cdef object DpPosition_New(float x, float y, float z, MCPos_TypeFlag flag):
     return Position(x=x, y=y, z=z, type=flag)
 
-cdef object DpPosition_FromObject(object obj, MCPos_TypeFlag flag):
-    return Position(obj, type=flag)
+cdef object DpPosition_FromObject(object obj):
+    if isinstance(obj, Position):
+        return obj
+    else:
+        return Position(obj)
 
 cdef object DpPosition_FromString(const char* string):
     return Position(string.decode())

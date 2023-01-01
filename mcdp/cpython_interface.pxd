@@ -13,9 +13,11 @@ cdef extern from "<stdarg.h>":
 cdef extern from "Python.h":
     """
     #define Py_TYPE_NAME(obj) (Py_TYPE(obj)->tp_name)
+    #define Py_TYPE_MRO(obj) (Py_TYPE(obj)->tp_mro)
     """
 
     const char* Py_TYPE_NAME(object cls) nogil
+    PyObject* Py_TYPE_MRO(object cls) nogil
     PyObject* _PyType_Lookup(type t, str name)
     const char* PyEval_GetFuncName(object func)
 

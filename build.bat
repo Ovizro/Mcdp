@@ -2,12 +2,11 @@
 set USE_CYTHON=1
 python setup.py develop || goto failed
 cd mcdp
-move *.h include
-cd variable
-move *.h ../include
+rem Move all .h files to the include directory
+for /r %%f in (*.h) do move "%%f" include
 goto end
 
 :failed
-echo failed
+echo Mcdp package building failed
 
 :end

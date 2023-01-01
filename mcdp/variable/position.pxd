@@ -5,9 +5,9 @@ from ..cpython_interface cimport PyUnicode_FromFormat
 
 cdef api enum MCPos_TypeFlag:
     NANTYPE = 0
-    LOCAL
-    ABSOLUTE
-    RELATIVE
+    LOCAL_POSITION
+    ABSOLUTE_POSITION
+    RELATIVE_POSITION
 
 ctypedef float (*fl_opt)(float, float)
 ctypedef object (*ob_opt)(object, object)
@@ -34,7 +34,7 @@ cdef api class Position(McdpObject) [object DpPositionObject, type DpPosition_Ty
 
 
 cdef api object DpPosition_New(float x, float y, float z, MCPos_TypeFlag flag)
-cdef api object DpPosition_FromObject(object obj, MCPos_TypeFlag flag)
+cdef api object DpPosition_FromObject(object obj)
 cdef api object DpPosition_FromString(const char* string)
 cdef api object DpPosition_GetComponent(object pos, Py_ssize_t i)
 cdef api object DpPosition_GetX(object pos)

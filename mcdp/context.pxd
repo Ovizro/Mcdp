@@ -107,9 +107,12 @@ cdef api int DpContext_Deactivate(object ctx) except -1
 cdef api int DpContext_Finalize() except -1
 cdef api int DpContext_AddHnadler(object ctx, object hdl) except -1
 cdef api int DpContext_AddHandlerSimple(object ctx, T_handler handler_func) except -1
+cdef api int DpContext_PopHnadler(object ctx, object hdl) except -1
 cdef api int DpContext_InsertV(const char* format, va_list ap) except -1
 cdef api int DpContext_Insert(const char* format, ...) except -1
 cdef api int DpContext_AnnotateV(const char* format, va_list ap) except -1
+cdef api int DpContext_StartAnnotate() except -1
+cdef api int DpContext_EndAnnotate() except -1
 cdef api int DpContext_Annotate(const char* format, ...) except -1
 cdef api int DpContext_FastAnnotate(const char* cmt) except -1
 cdef api int DpContext_Newline(unsigned int n_line) except -1

@@ -6,8 +6,8 @@
 #include "Python.h"
 struct DpScoreboardObject;
 
-/* "mcdp/variable/scoreboard.pxd":5
- * from ..context cimport DpContext_Insert
+/* "mcdp/variable/scoreboard.pxd":6
+ * 
  * 
  * cdef api class Scoreboard(McdpObject) [object DpScoreboardObject, type DpScoreboard_Type]:             # <<<<<<<<<<<<<<
  *     cdef readonly:

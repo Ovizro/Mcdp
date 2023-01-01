@@ -15,7 +15,7 @@ static PyTypeObject *__pyx_ptype_4mcdp_8variable_8position_Position = 0;
 
 static PyObject *(*__pyx_api_f_4mcdp_8variable_8position_DpPosition_New)(float, float, float, enum MCPos_TypeFlag) = 0;
 #define DpPosition_New __pyx_api_f_4mcdp_8variable_8position_DpPosition_New
-static PyObject *(*__pyx_api_f_4mcdp_8variable_8position_DpPosition_FromObject)(PyObject *, enum MCPos_TypeFlag) = 0;
+static PyObject *(*__pyx_api_f_4mcdp_8variable_8position_DpPosition_FromObject)(PyObject *) = 0;
 #define DpPosition_FromObject __pyx_api_f_4mcdp_8variable_8position_DpPosition_FromObject
 static PyObject *(*__pyx_api_f_4mcdp_8variable_8position_DpPosition_FromString)(char const *) = 0;
 #define DpPosition_FromString __pyx_api_f_4mcdp_8variable_8position_DpPosition_FromString
@@ -152,7 +152,7 @@ static int import_mcdp__variable__position(void) {
   module = PyImport_ImportModule("mcdp.variable.position");
   if (!module) goto bad;
   if (__Pyx_ImportFunction(module, "DpPosition_New", (void (**)(void))&__pyx_api_f_4mcdp_8variable_8position_DpPosition_New, "PyObject *(float, float, float, enum MCPos_TypeFlag)") < 0) goto bad;
-  if (__Pyx_ImportFunction(module, "DpPosition_FromObject", (void (**)(void))&__pyx_api_f_4mcdp_8variable_8position_DpPosition_FromObject, "PyObject *(PyObject *, enum MCPos_TypeFlag)") < 0) goto bad;
+  if (__Pyx_ImportFunction(module, "DpPosition_FromObject", (void (**)(void))&__pyx_api_f_4mcdp_8variable_8position_DpPosition_FromObject, "PyObject *(PyObject *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpPosition_FromString", (void (**)(void))&__pyx_api_f_4mcdp_8variable_8position_DpPosition_FromString, "PyObject *(char const *)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpPosition_GetComponent", (void (**)(void))&__pyx_api_f_4mcdp_8variable_8position_DpPosition_GetComponent, "PyObject *(PyObject *, Py_ssize_t)") < 0) goto bad;
   if (__Pyx_ImportFunction(module, "DpPosition_GetX", (void (**)(void))&__pyx_api_f_4mcdp_8variable_8position_DpPosition_GetX, "PyObject *(PyObject *)") < 0) goto bad;
