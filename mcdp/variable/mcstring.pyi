@@ -1,6 +1,6 @@
 from enum import Enum
-from typing import Any, Dict, Final, Generic, Iterable, List, Literal, NoReturn, Optional, Protocol, Tuple, Type, TypeVar, Union, final, overload
-from typing_extensions import Self
+from typing import Any, Dict, Final, Generic, Iterable, List, Literal, NoReturn, Optional, Protocol, Tuple, Type, TypeVar, Union, overload
+from typing_extensions import Self, final
 
 from ..objects import McdpObject
 
@@ -181,13 +181,8 @@ class BaseString(StringModel):
 class UnionString(BaseString):
     def __new__(
         cls: Type[Self], 
-        *args: BaseString, 
-        style: Optional[MCSS] = None,
-        extra: Optional[List[BaseString]] = None,
-        insertion: Optional[str] = None,
-        clickEvent: Union[ClickEvent, Dict[str, Any], None] = None,
-        hoverEvent: Union[HoverEvent, Dict[str, Any], None] = None,
-        **kwds
+        *args: BaseString,
+        extra: Optional[List[BaseString]] = None
     ) -> Self: ...
 
 

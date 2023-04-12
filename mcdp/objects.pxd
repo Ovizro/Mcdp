@@ -12,7 +12,7 @@ cdef class BaseNamespace(McdpObject):
     cdef dict __dict__
     cdef readonly:
         str n_name "name"
-        bytes n_path "path"
+        object n_path "path"
 
 
 cdef api int DpNamespace_Property(const char* name, T_property factory) except -1

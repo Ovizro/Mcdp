@@ -1,5 +1,4 @@
 cimport cython
-from libc.string cimport strrchr
 from cpython cimport PyErr_Format, PyTuple_New, PyTuple_SET_ITEM, Py_INCREF
 
 from enum import Enum
@@ -92,12 +91,7 @@ cdef class StringModel(McdpObject):
         return self.to_dict() == other.to_dict()
     
     def __repr__(self):
-        cdef const char* qualname = Py_TYPE_NAME(self)
-        cdef const char* name = strrchr(qualname, ord('.'))
-        if name == NULL:
-            name = qualname
-        else:
-            name += 1
+        cdef const char* name = Py_TYPE_GetName(self)
         return PyUnicode_FromFormat("%s(%S)", name, <void*>self)
     
     def __str__(self):
@@ -403,7 +397,7 @@ cdef class BaseString(StringModel):
 
 @cython.final
 cdef class UnionString(BaseString):
-    def __cinit__(self, *args, **kwds):
+    def __cinit__(self, *args, list extra = None):
         cdef BaseString i
         for i in args:
             if isinstance(i, UnionString):

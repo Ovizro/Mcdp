@@ -1,6 +1,6 @@
 from unittest import TestCase
 from mcdp.variable.mcstring import mcstring
-from mcdp.variable.selector import Selector, selector, s_nearest
+from mcdp.variable.selector import Selector, SelectorLike, selector, s_nearest
 
 
 class SelectorLikeCls:
@@ -33,6 +33,7 @@ class TestSelector(TestCase):
         self.assertIs(slt, selector(slt))
         
         s = SelectorLikeCls()
+        self.assertIsInstance(s, SelectorLike)
         self.assertEqual(selector(s), slt)
     
     def test_mcstr(self) -> None:

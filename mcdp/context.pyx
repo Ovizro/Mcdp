@@ -2,6 +2,9 @@ cimport cython
 from cpython cimport PyCapsule_New, PyCapsule_CheckExact, PyCapsule_GetPointer, PyErr_Format
 from libc.string cimport strcpy
 
+from os.path import join
+from typing import Optional
+
 
 cdef extern from *:
     """
@@ -13,14 +16,14 @@ cdef extern from *:
 
 
 cdef:
-    bytes file_suffix = b".mcfunction"
+    str file_suffix = ".mcfunction"
     Context _current = None
     Handler _default_handler = None
     ContextConfig _config = ContextConfig(8, 128, True)
 
 
-cdef bytes _nspp_funcpath(BaseNamespace nsp):
-    return nsp.n_path + b"/functions"
+cdef object _nspp_funcpath(BaseNamespace nsp):
+    return join(nsp.n_path, "functions")
 
 DpNamespace_Property("funcpath", <T_property>_nspp_funcpath)
 
@@ -101,7 +104,7 @@ cdef class _CHandler(Handler):
     """
     Base class for handlers with C functions
 
-    DO NOT DIRECTLY USE THIS CLASS IN PYTHON!
+    NOTE: DO NOT DIRECTLY USE THIS CLASS IN PYTHON!
     """
 
     cpdef object do_handler(self, Context ctx, object code):
@@ -216,7 +219,7 @@ cdef class Context(McdpObject):
         if not self.stream is None:
             self.stream.close()
         self.stream = Stream(
-            self.name.encode() + file_suffix, root=self.namespace.n_funcpath)
+            self.name + file_suffix, root=self.namespace.n_funcpath)
 
     cpdef void join(self) except *:
         self.set_back(<Context>DpContext_Get())
@@ -399,17 +402,14 @@ def _get_ctx_config():
     return <dict>_config
 
 
-def _set_ctx_config(**kwds):
-    _config.use_annotates = kwds.pop("use_annotates", _config.use_annotates)
-    _config.max_open = kwds.pop("max_open", _config.max_open)
-    _config.max_stack = kwds.pop("max_stack", _config.max_stack)
-    for k in kwds:
-        PyErr_Format(
-            TypeError,
-            "_set_ctx_config() got an unexpected keyword argument '%U'",
-            <PyObject*>k
-        )
-
+def _set_ctx_config(use_annotates: Optional[bool] = None, max_open: Optional[int] = None, max_stack: Optional[int] = None):
+    if not use_annotates is None:
+        _config.use_annotates = use_annotates
+    if not max_open is None:
+        _config.max_open = max_open
+    if not max_stack is None:
+        _config.max_stack = max_stack
+    
 
 cdef _AnnotateImpl _annotate = _AnnotateImpl()
 annotate = _annotate

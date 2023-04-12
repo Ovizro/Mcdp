@@ -14,12 +14,25 @@ cdef extern from "Python.h":
     """
     #define Py_TYPE_NAME(obj) (Py_TYPE(obj)->tp_name)
     #define Py_TYPE_MRO(obj) (Py_TYPE(obj)->tp_mro)
+    __inline const char* Py_TYPE_GetName(PyObject* obj) {
+        const char* qualname = Py_TYPE_NAME(obj);
+        const char* name = strrchr(qualname, '.');
+        if (name == NULL) {
+            name = qualname;
+        } else {
+            name += 1;
+        }
+        return name;
+    }
     """
 
-    const char* Py_TYPE_NAME(object cls) nogil
+    const char* Py_TYPE_NAME(object obj) nogil
+    const char* Py_TYPE_GetName(object obj) nogil
     PyObject* Py_TYPE_MRO(object cls) nogil
     PyObject* _PyType_Lookup(type t, str name)
     const char* PyEval_GetFuncName(object func)
+    object Py_BuildValue(const char* format)
+    object Py_VaBuildValue(const char* format, va_list ap)
 
     char *PyOS_double_to_string(double val, char format_code, int precision, int flags, int *ptype) except NULL
 

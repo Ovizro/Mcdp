@@ -56,6 +56,12 @@ class Mcdatapack(object):
     
     def get_namespace(self, name: str) -> "Namespace":
         return self.namespaces[name]
+    
+    def build(self) -> None:
+        self.active()
+        with self.builder:
+            for i in self.namespaces.values():
+                i.build()
 
 
 def get_pack() -> Mcdatapack:
@@ -86,6 +92,10 @@ class Namespace(BaseNamespace):
         if P_name.fullmatch(name) is None:
             raise McdpValueError("invalid namespace")
         super().__init__(name)
+    
+    def build(self) -> None:
+        with self:
+            ...
     
     def __enter__(self) -> Self:
         init_context(self).activate()

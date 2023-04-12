@@ -1,7 +1,8 @@
 cimport cython
 from cpython cimport (PyObject, PyCapsule_New, PyCapsule_CheckExact, PyCapsule_GetPointer,
-    Py_INCREF, Py_DECREF, PyDict_SetItemString, PyErr_Format)
+    Py_INCREF, Py_DECREF, PyDict_SetItemString, PyErr_Format, PyObject_GenericSetAttr)
 
+from os.path import join
 
 cdef class McdpObject(object):
     pass
@@ -13,11 +14,10 @@ cdef dict _namespace_property = {}
 cdef class BaseNamespace(McdpObject):
     def __init__(self, name not None, bytes path = None):
         self.n_name = name
-        cdef bytes _name = name.encode()
         if not path is None:
-            self.n_path = path + _name
+            self.n_path = join(path, name)
         else:
-            self.n_path = _name
+            self.n_path = name
         
     def __getattr__(self, str name not None):
         cdef:
@@ -32,7 +32,7 @@ cdef class BaseNamespace(McdpObject):
                     ret = cfactory(self)
                 else:
                     ret = f_attr(self)
-                self.__dict__[name] = ret
+                PyObject_GenericSetAttr(self, name, ret)
                 return ret
         PyErr_Format(AttributeError, "'%s' object has no attribute '%U'", Py_TYPE_NAME(self), <PyObject*>name)
     

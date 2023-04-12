@@ -1,9 +1,8 @@
-from libc.string cimport strrchr
 from cpython cimport PyObject, PyErr_Format, PyTuple_New, PyTuple_SET_ITEM, Py_INCREF, PyMem_Free
 
 from ..version cimport Version
 from ..context cimport Context, DpContext_Get, DpContext_Insert
-from ..cpython_interface cimport Py_TYPE_NAME, PyUnicode_FromFormat, PyOS_double_to_string
+from ..cpython_interface cimport Py_TYPE_GetName, PyUnicode_FromFormat, PyOS_double_to_string
 
 from .. import get_pack
 
@@ -25,12 +24,7 @@ cdef class BaseInstruction(McdpObject):
         raise NotImplementedError
     
     def __repr__(self):
-        cdef const char* qualname = Py_TYPE_NAME(self)
-        cdef const char* name = strrchr(qualname, ord('.'))
-        if name == NULL:
-            name = qualname
-        else:
-            name += 1
+        cdef const char* name = Py_TYPE_GetName(self)
         return PyUnicode_FromFormat("%s(%S)", name, <PyObject*>self)
 
 
@@ -157,12 +151,7 @@ cdef class Case(McdpObject):
         raise NotImplementedError
 
     def __repr__(self):
-        cdef const char* qualname = Py_TYPE_NAME(self)
-        cdef const char* name = strrchr(qualname, ord('.'))
-        if name == NULL:
-            name = qualname
-        else:
-            name += 1
+        cdef const char* name = Py_TYPE_GetName(self)
         return PyUnicode_FromFormat("%s(%S)", name, <PyObject*>self)
 
 
@@ -311,12 +300,7 @@ cdef class StoreMode(McdpObject):
         raise NotImplementedError
 
     def __repr__(self):
-        cdef const char* qualname = Py_TYPE_NAME(self)
-        cdef const char* name = strrchr(qualname, ord('.'))
-        if name == NULL:
-            name = qualname
-        else:
-            name += 1
+        cdef const char* name = Py_TYPE_GetName(self)
         return PyUnicode_FromFormat("%s(%S)", name, <PyObject*>self)
 
 

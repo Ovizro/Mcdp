@@ -1,7 +1,5 @@
-import os
 from pydantic import BaseModel
 
-from .exception import *
 from .version import __version__, VersionChecker, McdpVersionError
 
 

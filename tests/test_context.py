@@ -6,18 +6,17 @@ from unittest import TestCase
 
 nsp = Namespace("Temp")
 
-def clear_file():
-    rmtree("Temp")
-
 
 class TestContext(TestCase):
+    def tearDown(self) -> None:
+        rmtree("Temp", ignore_errors=True)
+
     def test_init(self) -> None:
         with nsp:
             c = get_context()
             self.assertRegex(str(c), r"<context __init__ in namespace Temp at 0x[0-9A-Z]+>")
     
     def test_insert(self) -> None:
-        self.addCleanup(clear_file)
         with nsp:
             ctx = get_context()
 
@@ -31,7 +30,6 @@ class TestContext(TestCase):
             )
     
     def test_annotate(self) -> None:
-        self.addCleanup(clear_file)
         with nsp:
             ctx = get_context()
 
@@ -47,7 +45,6 @@ class TestContext(TestCase):
             )
     
     def test_handler(self) -> None:
-        self.addCleanup(clear_file)
         with nsp:
             ctx = get_context()
 

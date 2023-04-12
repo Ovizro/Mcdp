@@ -3,9 +3,10 @@ from cpython cimport PyErr_Format, PyObject_Str, PyDict_Next, PyDictProxy_New, P
 from ..cpython_interface cimport *
 
 from typing import Union
-from typing_extensions import Protocol
+from typing_extensions import Protocol, runtime_checkable
 
 
+@runtime_checkable
 class SelectorLike(Protocol):
     def __selector__(self) -> Selector:
         pass

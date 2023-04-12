@@ -34,14 +34,14 @@ class AbstractBuilder(BaseModel):
     _origin_dir: str = PrivateAttr('.')
 
     def __init__(
-            self, 
-            name: str, 
-            support_version: T_version,
-            description: str,
-            *,
-            icon_path: Optional[Union[str, os.PathLike]] = None,
-            **data: Any
-        ) -> None:
+        self,
+        name: str, 
+        support_version: T_version,
+        description: str,
+        *,
+        icon_path: Optional[Union[str, os.PathLike]] = None,
+        **data: Any
+    ) -> None:
         if icon_path is not None:
             icon_path = os.fspath(icon_path)
         info = PackageInformation(
@@ -148,6 +148,8 @@ class DatapackBuilder(PackBuilder):
             return 9
         elif mc_version.minor == 19:
             return 10
+        elif mc_version > (1, 19, 4):
+            return 12
         else:
             raise ValueError(f"unknow Minecraft datapack version {mc_version}.")
 

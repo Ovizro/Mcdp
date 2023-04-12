@@ -8,9 +8,8 @@ from mcdp.variable.console import console
 nsp = Namespace("test")
 
 class TestConsole(TestCase):
-    @staticmethod
-    def clear_file():
-        rmtree(nsp.n_name)
+    def tearDown(self) -> None:
+        rmtree(nsp.n_name, ignore_errors=True)
     
     @staticmethod
     def read_file():
@@ -18,7 +17,6 @@ class TestConsole(TestCase):
             return f.read()
 
     def test_print(self) -> None:
-        self.addClassCleanup(TestConsole.clear_file)
         with nsp:
             console.print("hhh", "hhh")
         text = TestConsole.read_file()

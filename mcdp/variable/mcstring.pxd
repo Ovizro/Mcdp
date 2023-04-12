@@ -1,6 +1,6 @@
 from libc.stdint cimport uint8_t 
 from cpython cimport PyObject
-from ..cpython_interface cimport PyUnicode_FromFormat, Py_TYPE_NAME, _PyType_Lookup
+from ..cpython_interface cimport PyUnicode_FromFormat, Py_TYPE_NAME, Py_TYPE_GetName, _PyType_Lookup
 
 from ..objects cimport McdpObject
 from ..exception cimport McdpValueError, McdpTypeError

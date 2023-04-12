@@ -16,6 +16,7 @@ limitations under the License.
 
 import os
 import re
+from typing import List, Optional
 import warnings
 from setuptools import setup, find_packages, Extension
 
@@ -39,23 +40,31 @@ FILE_SUFFIX = ".pyx" if USE_CYTHON else ".c"
 HOME_PATH = os.path.join(os.path.dirname(__file__), "mcdp")
 
 ext = [
-    Extension("mcdp.version", ["mcdp/version" + FILE_SUFFIX]),
-    Extension("mcdp.objects", ["mcdp/objects" + FILE_SUFFIX]),
-    Extension("mcdp.exception", ["mcdp/exception" + FILE_SUFFIX]),
-    Extension("mcdp.stream", ["mcdp/stream" + FILE_SUFFIX, "mcdp/path.c"],
+    Extension("mcdp.stream", ["mcdp/stream" + FILE_SUFFIX],
         include_dirs=[HOME_PATH, os.path.join(HOME_PATH, "include")]),
-    Extension("mcdp.context", ["mcdp/context" + FILE_SUFFIX]),
     # Extension("mcdp.variable", ["mcdp/variable/{}{}".format(i, FILE_SUFFIX) for i in ("mcstring", "selector", "position", "console", "nbtpath")], include_dirs=[HOME_PATH]),
-    Extension("mcdp.variable.mcstring", ["mcdp/variable/mcstring" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
-    Extension("mcdp.variable.selector", ["mcdp/variable/selector" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
-    Extension("mcdp.variable.position", ["mcdp/variable/position" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
-    Extension("mcdp.variable.console", ["mcdp/variable/console" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
-    Extension("mcdp.variable.nbtpath", ["mcdp/variable/nbtpath" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
-    Extension("mcdp.variable.baseframe", ["mcdp/variable/baseframe" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
-    Extension("mcdp.variable.scoreboard", ["mcdp/variable/scoreboard" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
     Extension("mcdp.control_flow.execute", ["mcdp/control_flow/execute" + FILE_SUFFIX], include_dirs=[HOME_PATH]),
     Extension("mcdp.control_flow.branch", ["mcdp/control_flow/branch" + FILE_SUFFIX], include_dirs=[HOME_PATH])
 ]
+
+
+def add_ext(name: str, include: Optional[List[str]] = None) -> None:
+    include_dirs = [HOME_PATH]
+    if include:
+        include_dirs.extend(include)
+    ext.append(
+        Extension(
+            name, [name.replace('.', '/') + FILE_SUFFIX],
+            include_dirs=include_dirs
+        )
+    )
+
+
+for i in ["version", "objects", "exception", "context"]:
+    add_ext(f"mcdp.{i}")
+for i in ["mcstring", "selector", "position", "console", "nbtpath", "baseframe", "scoreboard"]:
+    add_ext(f"mcdp.variable.{i}")
+
 
 if USE_CYTHON:
     from Cython.Build import cythonize
@@ -83,7 +92,7 @@ setup(
     python_requires=">=3.6",
     # package_data={'':["*.pyi", "*.pxd"]},
     ext_modules=ext,
-    install_requires=["pydantic>=1.7.0", "typing_extensions>=4.2.0"],
+    install_requires=["pydantic>=1.7.0", "typing_extensions>=4.0.0", "KoiLang>=1.0.0"],
 
     classifiers=[
         "Development Status :: 3 - Alpha",
